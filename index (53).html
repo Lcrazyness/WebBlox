@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>WebWorld</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+</head>
+
+<body>
+
+<!-- =========================================
+     TOP BAR
+========================================= -->
+
+<header class="topbar">
+
+    <div class="brand">
+        <div class="brand-icon">W</div>
+        <span>WebWorld</span>
+    </div>
+
+    <nav class="nav">
+        <button class="nav-btn active">
+            Discover
+        </button>
+
+        <button class="nav-btn">
+            Favorites
+        </button>
+    </nav>
+
+    <div class="search-box">
+
+        <span class="search-icon">⌕</span>
+
+        <input
+            id="searchInput"
+            type="text"
+            placeholder="Search games"
+            autocomplete="off"
+        >
+
+        <button
+            id="searchButton"
+            type="button"
+        >
+            Search
+        </button>
+
+    </div>
+
+</header>
+
+
+<!-- =========================================
+     MAIN
+========================================= -->
+
+<main>
+
+    <!-- HERO -->
+
+    <section class="hero">
+
+        <div class="hero-content">
+
+            <div class="hero-label">
+                WEBWORLD
+            </div>
+
+            <h1>
+                Discover your<br>
+                next favorite game.
+            </h1>
+
+            <p>
+                Explore popular experiences,
+                find new games, and jump in.
+            </p>
+
+            <button
+                class="hero-button"
+                onclick="scrollToGames()"
+            >
+                Explore Games
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================
+         SEARCH RESULTS
+    ====================================== -->
+
+    <section
+        id="searchSection"
+        class="game-section hidden"
+    >
+
+        <div class="section-header">
+
+            <div>
+                <h2>Search Results</h2>
+                <p id="searchStatus"></p>
+            </div>
+
+            <button
+                class="clear-button"
+                onclick="clearSearch()"
+            >
+                Clear
+            </button>
+
+        </div>
+
+        <div
+            id="searchGames"
+            class="game-grid"
+        ></div>
+
+    </section>
+
+
+    <!-- =====================================
+         RECOMMENDED
+    ====================================== -->
+
+    <section class="game-section">
+
+        <div class="section-header">
+
+            <div>
+                <h2>Recommended For You</h2>
+                <p>Games you might enjoy</p>
+            </div>
+
+            <button
+                class="see-all"
+                onclick="scrollToPopular()"
+            >
+                See All →
+            </button>
+
+        </div>
+
+        <div
+            id="recommendedGames"
+            class="game-grid"
+        >
+
+            <div class="loading-card">
+                <div class="spinner"></div>
+                <span>Loading games...</span>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================
+         POPULAR
+    ====================================== -->
+
+    <section
+        id="popularSection"
+        class="game-section"
+    >
+
+        <div class="section-header">
+
+            <div>
+                <h2>Popular Right Now</h2>
+                <p>What players are playing</p>
+            </div>
+
+        </div>
+
+        <div
+            id="popularGames"
+            class="game-grid"
+        >
+
+            <div class="loading-card">
+                <div class="spinner"></div>
+                <span>Loading games...</span>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================
+         ERROR
+    ====================================== -->
+
+    <section
+        id="errorSection"
+        class="error-box hidden"
+    >
+
+        <div class="error-icon">
+            !
+        </div>
+
+        <h2>
+            Games couldn't load
+        </h2>
+
+        <p id="errorMessage">
+            WebWorld couldn't reach the game service.
+        </p>
+
+        <button
+            onclick="loadHome()"
+            class="retry-button"
+        >
+            Try Again
+        </button>
+
+    </section>
+
+</main>
+
+
+<!-- =========================================
+     GAME MODAL
+========================================= -->
+
+<div
+    id="gameModal"
+    class="modal hidden"
+>
+
+    <div
+        class="modal-backdrop"
+        onclick="closeGame()"
+    ></div>
+
+    <div class="modal-card">
+
+        <button
+            class="modal-close"
+            onclick="closeGame()"
+        >
+            ×
+        </button>
+
+        <img
+            id="modalImage"
+            class="modal-image"
+            src=""
+            alt=""
+        >
+
+        <div class="modal-content">
+
+            <h2 id="modalTitle">
+                Game
+            </h2>
+
+            <p
+                id="modalCreator"
+                class="modal-creator"
+            ></p>
+
+            <p
+                id="modalDescription"
+                class="modal-description"
+            ></p>
+
+            <div class="stats">
+
+                <div class="stat">
+                    <strong id="modalPlayers">
+                        0
+                    </strong>
+
+                    <span>
+                        Playing
+                    </span>
+                </div>
+
+                <div class="stat">
+                    <strong id="modalVisits">
+                        0
+                    </strong>
+
+                    <span>
+                        Visits
+                    </span>
+                </div>
+
+            </div>
+
+            <button
+                id="playButton"
+                class="play-button"
+            >
+                Play
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================
+     JAVASCRIPT
+========================================= -->
+
+<script>
+
+"use strict";
+
+
+// =========================================
+// IMPORTANT
+// =========================================
+//
+// DO NOT put your CodePad backend URL here.
+//
+// The empty string means:
+//
+// current-site/api/home
+//
+// So if your site is:
+//
+// https://something.live.codepad.app/
+//
+// the request becomes:
+//
+// https://something.live.codepad.app/api/home
+//
+// =========================================
+
+const API_BASE = "";
+
+const API = {
+
+    home:
+        API_BASE + "/api/home",
+
+    popular:
+        API_BASE + "/api/popular",
+
+    search:
+        API_BASE + "/api/search",
+
+    game:
+        API_BASE + "/api/game/"
+
+};
+
+
+// =========================================
+// ELEMENTS
+// =========================================
+
+const recommendedContainer =
+    document.getElementById(
+        "recommendedGames"
+    );
+
+const popularContainer =
+    document.getElementById(
+        "popularGames"
+    );
+
+const searchContainer =
+    document.getElementById(
+        "searchGames"
+    );
+
+const searchSection =
+    document.getElementById(
+        "searchSection"
+    );
+
+const searchInput =
+    document.getElementById(
+        "searchInput"
+    );
+
+const searchButton =
+    document.getElementById(
+        "searchButton"
+    );
+
+const searchStatus =
+    document.getElementById(
+        "searchStatus"
+    );
+
+const errorSection =
+    document.getElementById(
+        "errorSection"
+    );
+
+const errorMessage =
+    document.getElementById(
+        "errorMessage"
+    );
+
+
+// =========================================
+// API FETCH
+// =========================================
+
+async function apiFetch(url) {
+
+    console.log(
+        "[WebWorld] Request:",
+        url
+    );
+
+    const response =
+        await fetch(url, {
+
+            method: "GET",
+
+            headers: {
+                "Accept":
+                    "application/json"
+            },
+
+            cache: "no-store"
+
+        });
+
+
+    const text =
+        await response.text();
+
+
+    console.log(
+        "[WebWorld] Status:",
+        response.status
+    );
+
+
+    // -------------------------------------
+    // Detect HTML response
+    // -------------------------------------
+
+    if (
+        text.trim().startsWith("<")
+    ) {
+
+        throw new Error(
+            "The backend returned a webpage instead of JSON. " +
+            "Make sure server.js is running."
+        );
+
+    }
+
+
+    let data;
+
+    try {
+
+        data =
+            JSON.parse(text);
+
+    } catch (error) {
+
+        throw new Error(
+            "The backend returned invalid JSON."
+        );
+
+    }
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            data.error ||
+            `Backend returned HTTP ${response.status}`
+        );
+
+    }
+
+
+    if (
+        data.success === false
+    ) {
+
+        throw new Error(
+            data.error ||
+            "The game service returned an error."
+        );
+
+    }
+
+
+    return data;
+
+}
+
+
+// =========================================
+// LOAD HOME
+// =========================================
+
+async function loadHome() {
+
+    hideError();
+
+    showLoading(
+        recommendedContainer
+    );
+
+    showLoading(
+        popularContainer
+    );
+
+
+    try {
+
+        const data =
+            await apiFetch(
+                API.home
+            );
+
+
+        console.log(
+            "[WebWorld] Home data:",
+            data
+        );
+
+
+        const recommended =
+            Array.isArray(
+                data.recommended
+            )
+                ? data.recommended
+                : (
+                    data.games || []
+                );
+
+
+        const popular =
+            Array.isArray(
+                data.popular
+            )
+                ? data.popular
+                : (
+                    data.games || []
+                );
+
+
+        renderGames(
+            recommendedContainer,
+            recommended
+        );
+
+
+        renderGames(
+            popularContainer,
+            popular
+        );
+
+
+        if (
+            recommended.length === 0 &&
+            popular.length === 0
+        ) {
+
+            throw new Error(
+                "The backend is running, but no games were returned."
+            );
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "[WebWorld] Home error:",
+            error
+        );
+
+
+        recommendedContainer.innerHTML =
+            "";
+
+        popularContainer.innerHTML =
+            "";
+
+
+        showError(
+            error.message
+        );
+
+    }
+
+}
+
+
+// =========================================
+// RENDER GAMES
+// =========================================
+
+function renderGames(
+    container,
+    games
+) {
+
+    container.innerHTML = "";
+
+
+    if (
+        !games ||
+        games.length === 0
+    ) {
+
+        container.innerHTML = `
+            <div class="empty-card">
+                No games found.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    games.forEach(
+        game => {
+
+            container.appendChild(
+                createGameCard(game)
+            );
+
+        }
+    );
+
+}
+
+
+// =========================================
+// CREATE CARD
+// =========================================
+
+function createGameCard(game) {
+
+    const card =
+        document.createElement(
+            "article"
+        );
+
+    card.className =
+        "game-card";
+
+
+    const image =
+        document.createElement(
+            "img"
+        );
+
+    image.className =
+        "game-thumbnail";
+
+
+    /*
+     * Prefer thumbnail.
+
+     * If the backend only has an icon,
+     * use that.
+     */
+
+    image.src =
+        game.thumbnail ||
+        game.icon ||
+        createPlaceholder(
+            game.name
+        );
+
+
+    image.alt =
+        game.name ||
+        "Game";
+
+
+    image.onerror =
+        function() {
+
+            if (
+                this.dataset.failed
+            ) {
+                return;
+            }
+
+            this.dataset.failed =
+                "true";
+
+            this.src =
+                createPlaceholder(
+                    game.name
+                );
+
+        };
+
+
+    const body =
+        document.createElement(
+            "div"
+        );
+
+    body.className =
+        "game-card-body";
+
+
+    const title =
+        document.createElement(
+            "h3"
+        );
+
+    title.textContent =
+        game.name ||
+        "Unknown Game";
+
+
+    const creator =
+        document.createElement(
+            "p"
+        );
+
+    creator.className =
+        "game-creator";
+
+    creator.textContent =
+        "By " +
+        (
+            game.creator ||
+            "Unknown Creator"
+        );
+
+
+    const stats =
+        document.createElement(
+            "div"
+        );
+
+    stats.className =
+        "game-stats";
+
+
+    const players =
+        document.createElement(
+            "span"
+        );
+
+    players.innerHTML =
+        "● " +
+        formatNumber(
+            game.playing || 0
+        ) +
+        " playing";
+
+
+    const visits =
+        document.createElement(
+            "span"
+        );
+
+    visits.textContent =
+        formatNumber(
+            game.visits || 0
+        ) +
+        " visits";
+
+
+    stats.appendChild(
+        players
+    );
+
+    stats.appendChild(
+        visits
+    );
+
+
+    body.appendChild(
+        title
+    );
+
+    body.appendChild(
+        creator
+    );
+
+    body.appendChild(
+        stats
+    );
+
+
+    card.appendChild(
+        image
+    );
+
+    card.appendChild(
+        body
+    );
+
+
+    card.addEventListener(
+        "click",
+        () => {
+
+            openGame(
+                game
+            );
+
+        }
+    );
+
+
+    return card;
+
+}
+
+
+// =========================================
+// SEARCH
+// =========================================
+
+async function searchGames() {
+
+    const query =
+        searchInput.value.trim();
+
+
+    if (!query) {
+
+        clearSearch();
+
+        return;
+
+    }
+
+
+    searchSection.classList.remove(
+        "hidden"
+    );
+
+
+    searchContainer.innerHTML = `
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <span>Searching...</span>
+        </div>
+    `;
+
+
+    searchStatus.textContent =
+        `Searching for "${query}"...`;
+
+
+    try {
+
+        const data =
+            await apiFetch(
+                API.search +
+                "?q=" +
+                encodeURIComponent(
+                    query
+                )
+            );
+
+
+        const games =
+            data.games || [];
+
+
+        searchStatus.textContent =
+            `${games.length} game${
+                games.length === 1
+                    ? ""
+                    : "s"
+            } found`;
+
+
+        renderGames(
+            searchContainer,
+            games
+        );
+
+
+        searchSection.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "[WebWorld] Search error:",
+            error
+        );
+
+
+        searchStatus.textContent =
+            "Search failed";
+
+
+        searchContainer.innerHTML = `
+            <div class="empty-card">
+                ${escapeHTML(
+                    error.message
+                )}
+            </div>
+        `;
+
+    }
+
+}
+
+
+// =========================================
+// OPEN GAME
+// =========================================
+
+function openGame(game) {
+
+    const modal =
+        document.getElementById(
+            "gameModal"
+        );
+
+
+    document.getElementById(
+        "modalTitle"
+    ).textContent =
+        game.name ||
+        "Unknown Game";
+
+
+    document.getElementById(
+        "modalCreator"
+    ).textContent =
+        "By " +
+        (
+            game.creator ||
+            "Unknown Creator"
+        );
+
+
+    document.getElementById(
+        "modalDescription"
+    ).textContent =
+        game.description ||
+        "No description available.";
+
+
+    document.getElementById(
+        "modalPlayers"
+    ).textContent =
+        formatNumber(
+            game.playing || 0
+        );
+
+
+    document.getElementById(
+        "modalVisits"
+    ).textContent =
+        formatNumber(
+            game.visits || 0
+        );
+
+
+    const image =
+        document.getElementById(
+            "modalImage"
+        );
+
+
+    image.src =
+        game.thumbnail ||
+        game.icon ||
+        createPlaceholder(
+            game.name
+        );
+
+
+    const playButton =
+        document.getElementById(
+            "playButton"
+        );
+
+
+    /*
+     * We don't attempt to launch Roblox
+     * directly.
+
+     * Instead we open the experience page
+     * when a valid place ID exists.
+     */
+
+    playButton.onclick =
+        function() {
+
+            if (
+                game.placeId
+            ) {
+
+                window.open(
+                    "https://www.roblox.com/games/" +
+                    game.placeId,
+                    "_blank",
+                    "noopener,noreferrer"
+                );
+
+            } else {
+
+                alert(
+                    "This game doesn't have a place ID."
+                );
+
+            }
+
+        };
+
+
+    modal.classList.remove(
+        "hidden"
+    );
+
+
+    document.body.classList.add(
+        "modal-open"
+    );
+
+}
+
+
+// =========================================
+// CLOSE GAME
+// =========================================
+
+function closeGame() {
+
+    document.getElementById(
+        "gameModal"
+    ).classList.add(
+        "hidden"
+    );
+
+
+    document.body.classList.remove(
+        "modal-open"
+    );
+
+}
+
+
+// =========================================
+// SEARCH EVENTS
+// =========================================
+
+searchButton.addEventListener(
+    "click",
+    searchGames
+);
+
+
+searchInput.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key === "Enter"
+        ) {
+
+            searchGames();
+
+        }
+
+    }
+);
+
+
+// =========================================
+// CLEAR SEARCH
+// =========================================
+
+function clearSearch() {
+
+    searchInput.value =
+        "";
+
+    searchSection.classList.add(
+        "hidden"
+    );
+
+    searchContainer.innerHTML =
+        "";
+
+}
+
+
+// =========================================
+// ERROR
+// =========================================
+
+function showError(message) {
+
+    errorMessage.textContent =
+        message ||
+        "The game service could not be reached.";
+
+    errorSection.classList.remove(
+        "hidden"
+    );
+
+}
+
+
+function hideError() {
+
+    errorSection.classList.add(
+        "hidden"
+    );
+
+}
+
+
+// =========================================
+// LOADING
+// =========================================
+
+function showLoading(container) {
+
+    container.innerHTML = `
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <span>Loading games...</span>
+        </div>
+    `;
+
+}
+
+
+// =========================================
+// NUMBER FORMAT
+// =========================================
+
+function formatNumber(number) {
+
+    number =
+        Number(number) || 0;
+
+
+    if (
+        number >= 1000000000
+    ) {
+
+        return (
+            number / 1000000000
+        ).toFixed(1) + "B";
+
+    }
+
+
+    if (
+        number >= 1000000
+    ) {
+
+        return (
+            number / 1000000
+        ).toFixed(1) + "M";
+
+    }
+
+
+    if (
+        number >= 1000
+    ) {
+
+        return (
+            number / 1000
+        ).toFixed(1) + "K";
+
+    }
+
+
+    return number.toLocaleString();
+
+}
+
+
+// =========================================
+// PLACEHOLDER
+// =========================================
+
+function createPlaceholder(name) {
+
+    const text =
+        String(
+            name || "Game"
+        )
+        .substring(0, 20);
+
+
+    return (
+        "data:image/svg+xml;charset=UTF-8," +
+        encodeURIComponent(`
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="768"
+                height="432"
+                viewBox="0 0 768 432"
+            >
+
+                <rect
+                    width="768"
+                    height="432"
+                    fill="#17191f"
+                />
+
+                <text
+                    x="384"
+                    y="216"
+                    text-anchor="middle"
+                    dominant-baseline="middle"
+                    fill="#ffffff"
+                    font-size="32"
+                    font-family="Arial"
+                >
+                    ${text}
+                </text>
+
+            </svg>
+        `)
+    );
+
+}
+
+
+// =========================================
+// ESCAPE HTML
+// =========================================
+
+function escapeHTML(value) {
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+}
+
+
+// =========================================
+// SCROLL
+// =========================================
+
+function scrollToGames() {
+
+    document
+        .querySelector(
+            ".game-section"
+        )
+        .scrollIntoView({
+            behavior: "smooth"
+        });
+
+}
+
+
+function scrollToPopular() {
+
+    document
+        .getElementById(
+            "popularSection"
+        )
+        .scrollIntoView({
+            behavior: "smooth"
+        });
+
+}
+
+
+// =========================================
+// ESC KEY
+// =========================================
+
+document.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key === "Escape"
+        ) {
+
+            closeGame();
+
+        }
+
+    }
+);
+
+
+// =========================================
+// START
+// =========================================
+
+console.log(
+    "[WebWorld] Starting..."
+);
+
+console.log(
+    "[WebWorld] API:",
+    API
+);
+
+
+loadHome();
+
+</script>
+
+</body>
+</html>
