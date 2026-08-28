@@ -1,5 +1,5 @@
 /* ============================================================
-   WebBlox — Roblox-style compact UI
+   WebBlox Roblox-Style UI
    ============================================================ */
 
 * {
@@ -10,253 +10,439 @@ html,
 body {
   margin: 0;
   padding: 0;
+
+  width: 100%;
   min-height: 100%;
-  background: #0b0b0d;
-  color: #fff;
-  font-family: Inter, Arial, Helvetica, sans-serif;
+
+  background: #0f1011;
+  color: #ffffff;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
 }
 
 body {
+  min-height: 100vh;
+
   overflow-x: hidden;
 }
 
+button,
+input {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ============================================================
-   HEADER
+   APP
    ============================================================ */
 
-header,
-.navbar,
-.topbar {
+#webblox-app {
+  min-height: 100vh;
+
+  background: #0f1011;
+}
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+
+.wb-topbar {
+  position: sticky;
+
+  top: 0;
+
+  z-index: 1000;
+
   width: 100%;
   height: 64px;
 
-  background: #0b0b0d;
-  border-bottom: 1px solid #252529;
-
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-inner,
-.nav-inner,
-.navbar-inner {
-  width: min(1450px, calc(100% - 32px));
-  height: 64px;
-  margin: auto;
-
   display: flex;
   align-items: center;
-  gap: 18px;
+
+  padding: 0 24px;
+
+  background: #111214;
+
+  border-bottom: 1px solid #27282c;
 }
 
-/* ============================================================
-   LOGO
-   ============================================================ */
-
-.logo {
+.wb-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
 
-  color: #fff;
-  font-size: 22px;
+  gap: 12px;
+
+  min-width: 210px;
+
+  font-size: 24px;
   font-weight: 800;
 
-  white-space: nowrap;
+  color: #ffffff;
 }
 
-.logo-icon {
+.wb-logo {
   width: 42px;
   height: 42px;
 
   display: grid;
   place-items: center;
 
-  border-radius: 10px;
+  border-radius: 11px;
 
   background: #08a8ff;
-  color: #fff;
+
+  color: #ffffff;
 
   font-size: 26px;
   font-weight: 900;
 }
 
-/* ============================================================
-   NAV
-   ============================================================ */
-
-nav {
+.wb-main-nav {
   display: flex;
   align-items: center;
-  gap: 5px;
 
-  margin-left: auto;
+  gap: 4px;
 }
 
-nav button,
-nav a,
-.nav-button {
-  border: 0;
-  outline: none;
+.wb-nav {
+  height: 42px;
 
-  padding: 9px 15px;
+  padding: 0 20px;
+
+  border: 0;
+  border-radius: 9px;
+
+  background: transparent;
+
+  color: #a8a9ae;
+
+  font-size: 16px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.wb-nav:hover {
+  background: #1c1d20;
+  color: #ffffff;
+}
+
+.wb-nav.active {
+  background: #242529;
+  color: #ffffff;
+}
+
+.wb-top-spacer {
+  flex: 1;
+}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+
+.wb-layout {
+  display: flex;
+
+  width: 100%;
+
+  min-height:
+    calc(100vh - 64px);
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+.wb-sidebar {
+  position: sticky;
+
+  top: 64px;
+
+  align-self: flex-start;
+
+  width: 220px;
+
+  height:
+    calc(100vh - 64px);
+
+  flex: 0 0 220px;
+
+  padding: 24px 12px;
+
+  background: #111214;
+
+  border-right: 1px solid #27282c;
+
+  overflow-y: auto;
+}
+
+.wb-sidebar-title {
+  padding: 0 14px 16px;
+
+  color: #777a80;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.08em;
+}
+
+.wb-side-item {
+  width: 100%;
+
+  height: 46px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 13px;
+
+  margin-bottom: 5px;
+
+  padding: 0 14px;
+
+  border: 0;
 
   border-radius: 9px;
 
   background: transparent;
-  color: #a8a8ad;
+
+  color: #b7b8bd;
 
   font-size: 15px;
   font-weight: 700;
 
+  text-align: left;
+
   cursor: pointer;
-  text-decoration: none;
-
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
 }
 
-nav button:hover,
-nav a:hover,
-.nav-button:hover {
-  background: #19191d;
-  color: #fff;
+.wb-side-item span {
+  width: 20px;
+
+  text-align: center;
+
+  font-size: 18px;
 }
 
-nav .active,
-nav button.active,
-.nav-button.active {
-  background: #202024;
-  color: #fff;
+.wb-side-item:hover {
+  background: #1b1c1f;
+
+  color: #ffffff;
+}
+
+.wb-side-item.active {
+  background: #25262b;
+
+  color: #ffffff;
+}
+
+.wb-side-divider {
+  height: 1px;
+
+  margin: 20px 10px;
+
+  background: #292a2e;
+}
+
+.wb-sidebar-label {
+  padding: 0 14px 7px;
+
+  color: #6f7177;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  letter-spacing: 0.1em;
+}
+
+.wb-sidebar-note {
+  padding: 0 14px;
+
+  color: #55575c;
+
+  font-size: 12px;
+}
+
+/* ============================================================
+   CONTENT
+   ============================================================ */
+
+.wb-content {
+  min-width: 0;
+
+  width: 100%;
+
+  padding: 28px 34px 70px;
 }
 
 /* ============================================================
    SEARCH
    ============================================================ */
 
-.search-container {
-  width: min(1450px, calc(100% - 32px));
+.wb-search {
+  width: min(850px, 100%);
 
-  margin: 18px auto 28px;
+  height: 48px;
 
   display: flex;
+  align-items: center;
+
+  margin-bottom: 38px;
+
+  border: 1px solid #33353a;
+
+  border-radius: 9px;
+
+  background: #191a1d;
+
+  overflow: hidden;
 }
 
-.search-container input,
-#searchInput {
-  flex: 1;
-  min-width: 0;
+.wb-search-icon {
+  width: 48px;
 
-  height: 50px;
+  display: grid;
+  place-items: center;
 
-  padding: 0 17px;
+  color: #8f9197;
 
-  border: 1px solid #303035;
-  border-right: 0;
-
-  border-radius: 9px 0 0 9px;
-
-  outline: none;
-
-  background: #151519;
-  color: #fff;
-
-  font-size: 16px;
-}
-
-.search-container input::placeholder,
-#searchInput::placeholder {
-  color: #77777e;
-}
-
-.search-container input:focus,
-#searchInput:focus {
-  border-color: #08a8ff;
-}
-
-.search-container button,
-#searchButton {
-  width: 110px;
-  height: 50px;
-
-  border: 0;
-  border-radius: 0 9px 9px 0;
-
-  background: #08a8ff;
-  color: #fff;
-
-  font-size: 16px;
-  font-weight: 800;
-
-  cursor: pointer;
-
-  transition: background 0.15s ease;
-}
-
-.search-container button:hover,
-#searchButton:hover {
-  background: #0096e6;
-}
-
-/* ============================================================
-   MAIN
-   ============================================================ */
-
-main {
-  width: min(1450px, calc(100% - 32px));
-
-  margin: 0 auto;
-
-  padding-bottom: 70px;
-}
-
-section {
-  margin-bottom: 42px;
-}
-
-section h1,
-section h2 {
-  margin: 0 0 6px;
-
-  color: #fff;
-
-  font-size: 27px;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-}
-
-section h2 {
   font-size: 25px;
 }
 
-section p.section-subtitle,
-section > p {
-  margin: 0 0 19px;
+.wb-search input {
+  flex: 1;
 
-  color: #94949b;
+  min-width: 0;
+
+  height: 100%;
+
+  padding: 0 10px 0 0;
+
+  border: 0;
+  outline: 0;
+
+  background: transparent;
+
+  color: #ffffff;
+
+  font-size: 16px;
+}
+
+.wb-search input::placeholder {
+  color: #777980;
+}
+
+.wb-search input:focus {
+  outline: none;
+}
+
+.wb-search:focus-within {
+  border-color: #55575e;
+}
+
+.wb-search button {
+  height: 100%;
+
+  width: 110px;
+
+  border: 0;
+
+  background: #08a8ff;
+
+  color: #ffffff;
 
   font-size: 15px;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.wb-search button:hover {
+  background: #0099ea;
 }
 
 /* ============================================================
-   GAME GRID
+   SECTIONS
    ============================================================ */
 
-.game-grid,
-#recommendedGrid,
-#popularGrid {
+.wb-section {
+  margin-bottom: 48px;
+}
+
+.section-heading-row {
+  display: flex;
+
+  align-items: flex-end;
+
+  justify-content: space-between;
+
+  gap: 20px;
+
+  margin-bottom: 18px;
+}
+
+.wb-section h1,
+.wb-section h2 {
+  margin: 0 0 6px;
+
+  color: #ffffff;
+
+  font-size: 25px;
+  line-height: 1.15;
+
+  font-weight: 800;
+}
+
+.wb-section p {
+  margin: 0;
+
+  color: #85878d;
+
+  font-size: 14px;
+}
+
+.see-all-button {
+  flex: 0 0 auto;
+
+  border: 0;
+
+  background: transparent;
+
+  color: #bfc1c6;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.see-all-button:hover {
+  color: #ffffff;
+}
+
+/* ============================================================
+   GRID
+   ============================================================ */
+
+.game-grid {
   display: grid;
 
-  /*
-     Smaller cards.
-     At desktop width this gives roughly 5–6 games per row.
-  */
   grid-template-columns:
-    repeat(auto-fill, minmax(205px, 1fr));
+    repeat(
+      5,
+      minmax(0, 1fr)
+    );
 
-  gap: 16px;
+  gap: 22px 18px;
 
   width: 100%;
 }
@@ -268,48 +454,34 @@ section > p {
 .game-card {
   min-width: 0;
 
-  overflow: hidden;
+  position: relative;
 
-  background: #151519;
+  border: 0;
 
-  border: 1px solid #29292f;
-  border-radius: 11px;
+  background: transparent;
 
   cursor: pointer;
 
   transition:
-    transform 0.15s ease,
-    border-color 0.15s ease,
-    background 0.15s ease;
-
-  box-shadow: none;
+    transform 0.15s ease;
 }
 
 .game-card:hover {
-  transform: translateY(-2px);
-
-  border-color: #414149;
-
-  background: #19191e;
+  transform: translateY(-3px);
 }
-
-/* ============================================================
-   THUMBNAIL
-   ============================================================ */
 
 .game-image-wrap {
   position: relative;
 
   width: 100%;
 
-  /*
-     Keeps every Roblox thumbnail consistently shaped.
-  */
   aspect-ratio: 16 / 9;
 
   overflow: hidden;
 
-  background: #202024;
+  border-radius: 8px;
+
+  background: #202125;
 }
 
 .game-image {
@@ -320,34 +492,64 @@ section > p {
 
   object-fit: cover;
 
-  /*
-     Prevent weird stretching/squashing.
-  */
-  object-position: center;
+  background: #202125;
 
-  transition: transform 0.2s ease;
+  transition:
+    transform 0.2s ease;
 }
 
 .game-card:hover .game-image {
   transform: scale(1.025);
 }
 
-.image-failed::after {
-  content: "No image";
-
-  position: absolute;
-  inset: 0;
+.game-image-placeholder {
+  width: 100%;
+  height: 100%;
 
   display: grid;
   place-items: center;
 
-  color: #77777e;
+  background:
+    linear-gradient(
+      135deg,
+      #24262b,
+      #17181b
+    );
 
-  font-size: 13px;
+  color: #777980;
+
+  font-size: 40px;
+  font-weight: 900;
+}
+
+.image-failed {
+  background:
+    linear-gradient(
+      135deg,
+      #24262b,
+      #17181b
+    );
+}
+
+.image-failed::after {
+  content: "W";
+
+  position: absolute;
+
+  inset: 0;
+
+  display: grid;
+
+  place-items: center;
+
+  color: #66686e;
+
+  font-size: 38px;
+  font-weight: 900;
 }
 
 /* ============================================================
-   FAVORITE BUTTON
+   FAVORITE
    ============================================================ */
 
 .favorite-button {
@@ -356,39 +558,63 @@ section > p {
   top: 8px;
   right: 8px;
 
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
 
   display: grid;
   place-items: center;
 
-  padding: 0;
-
   border: 0;
+
   border-radius: 50%;
 
-  background: rgba(0, 0, 0, 0.72);
-  color: #fff;
+  background: rgba(
+    0,
+    0,
+    0,
+    0.72
+  );
 
-  font-size: 17px;
+  color: #ffffff;
+
+  font-size: 20px;
 
   cursor: pointer;
 
-  z-index: 5;
+  opacity: 0;
 
-  transition: background 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.game-card:hover
+.favorite-button,
+.favorite-button.is-favorite {
+  opacity: 1;
 }
 
 .favorite-button:hover {
-  background: rgba(0, 0, 0, 0.92);
+  background: rgba(
+    0,
+    0,
+    0,
+    0.9
+  );
+}
+
+.favorite-button.is-favorite {
+  color: #ffd43b;
 }
 
 /* ============================================================
-   CARD CONTENT
+   CARD BODY
    ============================================================ */
 
 .game-card-body {
-  padding: 11px 12px 12px;
+  min-width: 0;
+
+  padding-top: 10px;
 }
 
 .game-title {
@@ -397,37 +623,43 @@ section > p {
   overflow: hidden;
 
   white-space: nowrap;
+
   text-overflow: ellipsis;
 
-  color: #fff;
+  color: #ffffff;
 
-  font-size: 16px;
+  font-size: 15px;
+  line-height: 1.2;
+
   font-weight: 800;
-  line-height: 1.25;
 }
 
 .game-creator {
-  margin: 0 0 13px;
+  margin: 0 0 8px;
 
   overflow: hidden;
 
   white-space: nowrap;
+
   text-overflow: ellipsis;
 
-  color: #9999a0;
+  color: #85878d;
 
   font-size: 13px;
-  line-height: 1.2;
+}
+
+.game-creator span {
+  color: #9c9ea4;
 }
 
 .game-stats {
   display: flex;
+
   justify-content: space-between;
-  align-items: center;
 
   gap: 8px;
 
-  color: #9999a0;
+  color: #777a80;
 
   font-size: 12px;
 }
@@ -438,58 +670,74 @@ section > p {
   overflow: hidden;
 
   white-space: nowrap;
+
   text-overflow: ellipsis;
 }
 
 /* ============================================================
-   LOADING
+   STATES
    ============================================================ */
 
 .loading-state,
 .empty-state,
 .error-state {
-  width: 100%;
+  grid-column:
+    1 / -1;
 
   min-height: 210px;
 
   display: flex;
+
   flex-direction: column;
 
   align-items: center;
+
   justify-content: center;
 
-  padding: 28px;
+  padding: 30px;
+
+  border: 1px solid #292b30;
+
+  border-radius: 10px;
+
+  background: #151619;
+
+  color: #8c8e94;
 
   text-align: center;
-
-  border: 1px solid #29292f;
-  border-radius: 12px;
-
-  background: #151519;
-
-  color: #929299;
 }
 
-.loading-state {
-  font-size: 16px;
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+
+  margin-bottom: 12px;
+
+  border: 3px solid #303238;
+
+  border-top-color: #08a8ff;
+
+  border-radius: 50%;
+
+  animation:
+    wb-spin 0.8s linear infinite;
 }
 
-.empty-state {
-  font-size: 15px;
+@keyframes wb-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
-
-/* ============================================================
-   ERROR
-   ============================================================ */
 
 .error-state {
-  border-color: #5c2929;
-  color: #fff;
+  border-color: #512b2b;
+
+  color: #ffffff;
 }
 
 .error-icon {
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
 
   display: grid;
   place-items: center;
@@ -498,222 +746,179 @@ section > p {
 
   border-radius: 50%;
 
-  background: #451f1f;
+  background: #3a2020;
 
-  color: #ff7373;
+  color: #ff7777;
 
-  font-size: 24px;
+  font-size: 23px;
   font-weight: 900;
 }
 
 .error-state h2 {
   margin: 0 0 8px;
 
-  color: #fff;
+  color: #ffffff;
 
-  font-size: 24px;
+  font-size: 21px;
 }
 
 .error-state p {
-  max-width: 600px;
-
   margin: 0 0 18px;
 
-  color: #a6a6ad;
-
-  font-size: 15px;
+  color: #96989e;
 }
 
 .retry-button {
-  padding: 10px 19px;
+  padding: 10px 18px;
 
   border: 0;
+
   border-radius: 8px;
 
   background: #08a8ff;
-  color: #fff;
+
+  color: #ffffff;
 
   font-size: 14px;
   font-weight: 800;
 
   cursor: pointer;
-
-  transition: background 0.15s ease;
 }
 
 .retry-button:hover {
-  background: #0096e6;
+  background: #0099ea;
 }
 
 /* ============================================================
-   SEARCH RESULTS
+   SEARCH SECTION
    ============================================================ */
 
-.search-results-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.search-section {
+  padding-bottom: 15px;
 
-  margin-bottom: 18px;
-}
+  border-bottom: 1px solid #24262a;
 
-.search-results-header h2 {
-  margin: 0;
+  margin-bottom: 36px;
 }
 
 /* ============================================================
-   SEE ALL / SMALL BUTTONS
+   UTILITY
    ============================================================ */
 
-.see-all,
-.see-all-button,
-button.see-all {
-  border: 0;
-  outline: none;
-
-  padding: 8px 12px;
-
-  border-radius: 8px;
-
-  background: transparent;
-  color: #b8b8be;
-
-  font-size: 14px;
-  font-weight: 700;
-
-  cursor: pointer;
-}
-
-.see-all:hover,
-.see-all-button:hover,
-button.see-all:hover {
-  background: #19191d;
-  color: #fff;
+.hidden {
+  display: none !important;
 }
 
 /* ============================================================
    RESPONSIVE
    ============================================================ */
 
-@media (min-width: 1500px) {
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
+@media (max-width: 1250px) {
+
+  .game-grid {
     grid-template-columns:
-      repeat(6, minmax(0, 1fr));
+      repeat(
+        4,
+        minmax(0, 1fr)
+      );
+  }
+
+  .wb-sidebar {
+    width: 190px;
+    flex-basis: 190px;
+  }
+
+  .wb-content {
+    padding-left: 25px;
+    padding-right: 25px;
   }
 }
 
-@media (max-width: 1200px) {
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
+@media (max-width: 950px) {
+
+  .game-grid {
     grid-template-columns:
-      repeat(5, minmax(0, 1fr));
+      repeat(
+        3,
+        minmax(0, 1fr)
+      );
+  }
+
+  .wb-sidebar {
+    display: none;
+  }
+
+  .wb-content {
+    padding:
+      24px 20px 60px;
+  }
+
+  .wb-brand {
+    min-width: auto;
   }
 }
 
-@media (max-width: 1000px) {
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
+@media (max-width: 650px) {
+
+  .wb-topbar {
+    height: 58px;
+
+    padding: 0 12px;
+  }
+
+  .wb-logo {
+    width: 36px;
+    height: 36px;
+
+    font-size: 22px;
+  }
+
+  .wb-brand {
+    gap: 8px;
+
+    font-size: 19px;
+  }
+
+  .wb-main-nav {
+    margin-left: auto;
+  }
+
+  .wb-nav {
+    padding: 0 10px;
+
+    font-size: 13px;
+  }
+
+  .game-grid {
     grid-template-columns:
-      repeat(4, minmax(0, 1fr));
-  }
-}
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
 
-@media (max-width: 760px) {
-  .header-inner,
-  .nav-inner,
-  .navbar-inner,
-  .search-container,
-  main {
-    width: calc(100% - 24px);
+    gap: 18px 12px;
   }
 
-  header,
-  .navbar,
-  .topbar {
-    height: auto;
-    min-height: 60px;
+  .wb-content {
+    padding:
+      18px 12px 50px;
   }
 
-  .header-inner,
-  .nav-inner,
-  .navbar-inner {
-    min-height: 60px;
+  .wb-search {
+    margin-bottom: 28px;
   }
 
-  .logo {
-    font-size: 20px;
+  .wb-search button {
+    width: 85px;
   }
 
-  .logo-icon {
-    width: 39px;
-    height: 39px;
+  .wb-section h1,
+  .wb-section h2 {
+    font-size: 21px;
   }
 
-  nav button,
-  nav a,
-  .nav-button {
-    padding: 8px 10px;
-    font-size: 14px;
-  }
-
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
-    grid-template-columns:
-      repeat(3, minmax(0, 1fr));
-
-    gap: 12px;
-  }
-}
-
-@media (max-width: 560px) {
-  .header-inner,
-  .nav-inner,
-  .navbar-inner {
-    flex-wrap: wrap;
-    padding: 10px 0;
-  }
-
-  nav {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  nav button,
-  nav a,
-  .nav-button {
-    flex: 1;
-  }
-
-  .search-container {
-    margin-top: 12px;
-  }
-
-  .search-container button,
-  #searchButton {
-    width: 90px;
-  }
-
-  section h1,
-  section h2 {
-    font-size: 23px;
-  }
-
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
-
-    gap: 10px;
-  }
-
-  .game-card-body {
-    padding: 9px;
+  .wb-section p {
+    font-size: 12px;
   }
 
   .game-title {
@@ -722,10 +927,34 @@ button.see-all:hover {
 
   .game-creator {
     font-size: 12px;
-    margin-bottom: 10px;
   }
 
   .game-stats {
     font-size: 11px;
+  }
+
+  .section-heading-row {
+    align-items: center;
+  }
+}
+
+@media (max-width: 400px) {
+
+  .game-grid {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+
+    gap: 12px 8px;
+  }
+
+  .game-card-body {
+    padding-top: 7px;
+  }
+
+  .game-title {
+    font-size: 13px;
   }
 }
