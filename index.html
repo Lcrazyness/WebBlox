@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
@@ -13,6 +16,7 @@
         rel="stylesheet"
         href="style.css"
     >
+
 </head>
 
 <body>
@@ -22,31 +26,44 @@
     <div class="header-inner">
 
         <div class="brand">
-            <div class="brand-icon">W</div>
-            <span>WebBlox</span>
+
+            <div class="brand-icon">
+                W
+            </div>
+
+            <span>
+                WebBlox
+            </span>
+
         </div>
 
+
         <nav class="nav">
+
             <button
                 class="nav-btn active"
+                id="discoverButton"
                 type="button"
-                onclick="showDiscover()"
             >
                 Discover
             </button>
 
             <button
                 class="nav-btn"
+                id="favoritesButton"
                 type="button"
-                onclick="showFavorites()"
             >
                 Favorites
             </button>
+
         </nav>
+
 
         <div class="search-box">
 
-            <span class="search-icon">⌕</span>
+            <span class="search-icon">
+                ⌕
+            </span>
 
             <input
                 id="searchInput"
@@ -80,7 +97,8 @@
             </div>
 
             <h1>
-                Discover your<br>
+                Discover your
+                <br>
                 next favorite game.
             </h1>
 
@@ -91,8 +109,8 @@
 
             <button
                 class="hero-button"
+                id="exploreButton"
                 type="button"
-                onclick="scrollToGames()"
             >
                 Explore Games
             </button>
@@ -102,6 +120,8 @@
     </section>
 
 
+    <!-- SEARCH -->
+
     <section
         id="searchSection"
         class="game-section hidden"
@@ -110,19 +130,25 @@
         <div class="section-header">
 
             <div>
-                <h2>Search Results</h2>
+
+                <h2>
+                    Search Results
+                </h2>
+
                 <p id="searchStatus"></p>
+
             </div>
 
             <button
-                class="clear-button"
+                class="see-all"
+                id="clearButton"
                 type="button"
-                onclick="clearSearch()"
             >
                 Clear
             </button>
 
         </div>
+
 
         <div
             id="searchGames"
@@ -132,30 +158,26 @@
     </section>
 
 
-    <section
-        id="discoverSection"
-        class="game-section"
-    >
+    <!-- TRENDING -->
+
+    <section class="game-section">
 
         <div class="section-header">
 
             <div>
-                <h2>Popular Right Now</h2>
+
+                <h2>
+                    Trending Now
+                </h2>
 
                 <p>
-                    The top-playing Roblox experiences right now
+                    Games currently trending on Roblox
                 </p>
+
             </div>
 
-            <button
-                class="see-all"
-                type="button"
-                onclick="scrollToPopular()"
-            >
-                See All →
-            </button>
-
         </div>
+
 
         <div
             id="recommendedGames"
@@ -163,16 +185,21 @@
         >
 
             <div class="loading-card">
+
                 <div class="spinner"></div>
+
                 <span>
-                    Loading Roblox charts...
+                    Loading Roblox games...
                 </span>
+
             </div>
 
         </div>
 
     </section>
 
+
+    <!-- POPULAR -->
 
     <section
         id="popularSection"
@@ -182,14 +209,27 @@
         <div class="section-header">
 
             <div>
-                <h2>Top Playing Games</h2>
+
+                <h2>
+                    Popular Right Now
+                </h2>
 
                 <p>
-                    Real Roblox chart data
+                    The most-played Roblox experiences right now
                 </p>
+
             </div>
 
+            <button
+                class="see-all"
+                id="popularButton"
+                type="button"
+            >
+                See All →
+            </button>
+
         </div>
+
 
         <div
             id="popularGames"
@@ -197,16 +237,21 @@
         >
 
             <div class="loading-card">
+
                 <div class="spinner"></div>
+
                 <span>
-                    Loading Roblox charts...
+                    Loading popular Roblox games...
                 </span>
+
             </div>
 
         </div>
 
     </section>
 
+
+    <!-- FAVORITES -->
 
     <section
         id="favoritesSection"
@@ -216,14 +261,19 @@
         <div class="section-header">
 
             <div>
-                <h2>Favorites</h2>
+
+                <h2>
+                    Favorites
+                </h2>
 
                 <p>
-                    Your saved WebBlox experiences
+                    Your saved Roblox experiences
                 </p>
+
             </div>
 
         </div>
+
 
         <div
             id="favoritesGames"
@@ -232,6 +282,8 @@
 
     </section>
 
+
+    <!-- ERROR -->
 
     <section
         id="errorSection"
@@ -247,11 +299,11 @@
         </h2>
 
         <p id="errorMessage">
-            WebBlox couldn't reach Roblox.
+            WebBlox couldn't reach the Roblox game service.
         </p>
 
         <button
-            onclick="loadHome()"
+            id="retryButton"
             class="retry-button"
             type="button"
         >
@@ -263,6 +315,8 @@
 </main>
 
 
+<!-- GAME MODAL -->
+
 <div
     id="gameModal"
     class="modal hidden"
@@ -270,18 +324,20 @@
 
     <div
         class="modal-backdrop"
-        onclick="closeGame()"
+        id="modalBackdrop"
     ></div>
+
 
     <div class="modal-card">
 
         <button
             class="modal-close"
-            onclick="closeGame()"
+            id="modalClose"
             type="button"
         >
             ×
         </button>
+
 
         <img
             id="modalImage"
@@ -290,25 +346,30 @@
             alt=""
         >
 
+
         <div class="modal-content">
 
             <h2 id="modalTitle">
                 Game
             </h2>
 
+
             <p
                 id="modalCreator"
                 class="modal-creator"
             ></p>
+
 
             <p
                 id="modalDescription"
                 class="modal-description"
             ></p>
 
+
             <div class="stats">
 
                 <div class="stat">
+
                     <strong id="modalPlayers">
                         0
                     </strong>
@@ -316,9 +377,12 @@
                     <span>
                         Playing
                     </span>
+
                 </div>
 
+
                 <div class="stat">
+
                     <strong id="modalVisits">
                         0
                     </strong>
@@ -326,39 +390,19 @@
                     <span>
                         Visits
                     </span>
-                </div>
 
-                <div class="stat">
-                    <strong id="modalFavorites">
-                        0
-                    </strong>
-
-                    <span>
-                        Favorites
-                    </span>
                 </div>
 
             </div>
 
-            <div class="modal-actions">
 
-                <button
-                    id="playButton"
-                    class="play-button"
-                    type="button"
-                >
-                    ▶ Play
-                </button>
-
-                <button
-                    id="favoriteModalButton"
-                    class="favorite-modal-button"
-                    type="button"
-                >
-                    ☆ Favorite
-                </button>
-
-            </div>
+            <button
+                id="playButton"
+                class="play-button"
+                type="button"
+            >
+                ▶ Play
+            </button>
 
         </div>
 
@@ -370,4 +414,5 @@
 <script src="script.js"></script>
 
 </body>
+
 </html>
