@@ -1,5 +1,19 @@
+```css
 * {
     box-sizing: border-box;
+}
+
+:root {
+    --bg: #0b0b0c;
+    --surface: #151517;
+    --surface-2: #1d1d20;
+    --surface-3: #27272a;
+    --border: #303034;
+    --text: #ffffff;
+    --muted: #a1a1aa;
+    --muted-2: #71717a;
+    --red: #00a2ff;
+    --red-hover: #159fe8;
 }
 
 html {
@@ -8,266 +22,367 @@ html {
 
 body {
     margin: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    background: #f5f5f5;
-    color: #191919;
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+    min-height: 100vh;
 }
 
 body.modal-open {
     overflow: hidden;
 }
 
-/* =========================
-   TOP NAV
-========================= */
+button,
+input {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+/* =========================================================
+   TOP BAR
+========================================================= */
 
 .topbar {
     position: sticky;
     top: 0;
     z-index: 100;
 
-    height: 58px;
+    height: 72px;
 
     display: flex;
     align-items: center;
 
-    padding: 0 24px;
+    padding: 0 28px;
 
-    background: #ffffff;
+    background: rgba(
+        11,
+        11,
+        12,
+        0.96
+    );
 
-    border-bottom: 1px solid #e4e4e4;
+    border-bottom:
+        1px solid var(--border);
 
-    gap: 24px;
+    backdrop-filter:
+        blur(14px);
 }
 
 .brand {
     display: flex;
     align-items: center;
 
-    gap: 9px;
+    gap: 11px;
 
+    font-size: 20px;
     font-weight: 800;
 
-    font-size: 19px;
+    min-width: 190px;
 }
 
 .brand-icon {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
 
-    background: #111;
+    background: var(--red);
 
     color: white;
 
-    border-radius: 7px;
-
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 900;
+
+    border-radius: 8px;
+
+    transform: rotate(-4deg);
 }
 
 .nav {
     display: flex;
     align-items: center;
 
-    gap: 3px;
+    gap: 4px;
+
+    margin-right: 28px;
 }
 
 .nav-btn {
     border: 0;
-
     background: transparent;
 
-    padding: 9px 13px;
+    color: var(--muted);
+
+    padding: 10px 14px;
 
     border-radius: 7px;
 
     font-size: 14px;
-
-    font-weight: 600;
-
-    cursor: pointer;
+    font-weight: 700;
 }
 
 .nav-btn:hover,
 .nav-btn.active {
-    background: #eeeeee;
+    color: white;
+    background: var(--surface-2);
 }
 
 .search-box {
     margin-left: auto;
 
-    width: min(400px, 40vw);
-
-    height: 38px;
+    width: min(
+        420px,
+        42vw
+    );
 
     display: flex;
     align-items: center;
 
-    background: #f4f4f4;
+    height: 42px;
 
-    border: 1px solid #ddd;
+    background: var(--surface);
 
-    border-radius: 7px;
+    border:
+        1px solid var(--border);
+
+    border-radius: 8px;
 
     overflow: hidden;
 }
 
 .search-icon {
+    color: var(--muted);
+
+    font-size: 21px;
+
     padding-left: 12px;
-
-    color: #777;
-
-    font-size: 20px;
 }
 
 .search-box input {
     flex: 1;
 
+    min-width: 0;
+
     height: 100%;
 
-    border: 0;
+    padding: 0 10px;
 
+    border: 0;
     outline: 0;
 
     background: transparent;
 
-    padding: 0 10px;
+    color: white;
+}
 
-    font-size: 14px;
+.search-box input::placeholder {
+    color: var(--muted-2);
 }
 
 .search-box button {
     height: 100%;
 
+    padding: 0 17px;
+
     border: 0;
 
-    padding: 0 16px;
-
-    background: #111;
+    background: var(--red);
 
     color: white;
 
-    font-weight: 700;
-
-    cursor: pointer;
+    font-weight: 800;
 }
 
-/* =========================
+.search-box button:hover {
+    background: var(--red-hover);
+}
+
+/* =========================================================
    HERO
-========================= */
+========================================================= */
 
 .hero {
-    min-height: 330px;
+    min-height: 430px;
 
     display: flex;
     align-items: center;
 
-    padding: 55px 7%;
+    position: relative;
+
+    overflow: hidden;
+
+    background:
+        radial-gradient(
+            circle at 78% 25%,
+            rgba(
+                0,
+                162,
+                255,
+                0.18
+            ),
+            transparent 30%
+        ),
+        linear-gradient(
+            120deg,
+            #0b0b0c 20%,
+            #11151a 100%
+        );
+
+    border-bottom:
+        1px solid var(--border);
+}
+
+.hero::after {
+    content: "";
+
+    position: absolute;
+
+    right: -100px;
+    top: -180px;
+
+    width: 560px;
+    height: 560px;
+
+    border-radius: 50%;
 
     background:
         linear-gradient(
-            115deg,
-            #ffffff,
-            #ededed
+            135deg,
+            rgba(
+                255,
+                255,
+                255,
+                0.04
+            ),
+            transparent
         );
 
-    border-bottom: 1px solid #ddd;
+    transform:
+        rotate(25deg);
 }
 
 .hero-content {
-    max-width: 700px;
+    width: min(
+        1200px,
+        calc(100% - 56px)
+    );
+
+    margin: 0 auto;
+
+    position: relative;
+    z-index: 2;
 }
 
 .hero-label {
-    font-size: 12px;
+    color: var(--red);
 
-    font-weight: 800;
+    font-size: 13px;
+
+    font-weight: 900;
 
     letter-spacing: 2px;
 
-    color: #777;
-
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 
 .hero h1 {
-    margin: 0 0 18px;
+    margin: 0;
 
-    font-size: clamp(
-        42px,
-        6vw,
-        68px
-    );
+    max-width: 720px;
 
-    line-height: 1;
+    font-size:
+        clamp(
+            42px,
+            6vw,
+            76px
+        );
+
+    line-height: 0.98;
 
     letter-spacing: -3px;
 }
 
 .hero p {
-    margin: 0 0 25px;
+    color: var(--muted);
 
-    color: #666;
+    max-width: 540px;
 
     font-size: 17px;
 
-    line-height: 1.5;
+    line-height: 1.6;
+
+    margin:
+        24px 0;
 }
 
 .hero-button {
     border: 0;
 
-    background: #111;
+    background: var(--red);
 
     color: white;
 
-    padding: 13px 22px;
+    padding:
+        13px 22px;
 
     border-radius: 7px;
 
-    font-weight: 700;
-
-    cursor: pointer;
+    font-weight: 900;
 }
 
-/* =========================
-   SECTIONS
-========================= */
+.hero-button:hover {
+    background: var(--red-hover);
+}
+
+/* =========================================================
+   MAIN
+========================================================= */
+
+main {
+    width: min(
+        1200px,
+        calc(100% - 56px)
+    );
+
+    margin: 0 auto;
+}
 
 .game-section {
-    max-width: 1400px;
-
-    margin: auto;
-
-    padding: 38px 25px;
+    padding:
+        48px 0 12px;
 }
 
 .section-header {
     display: flex;
-
-    align-items: center;
+    align-items: flex-end;
 
     justify-content: space-between;
 
-    margin-bottom: 18px;
+    margin-bottom: 22px;
 }
 
 .section-header h2 {
-    margin: 0 0 4px;
+    margin: 0;
 
-    font-size: 23px;
+    font-size: 24px;
+
+    letter-spacing: -0.5px;
 }
 
 .section-header p {
-    margin: 0;
+    margin:
+        6px 0 0;
 
-    color: #777;
+    color: var(--muted);
 
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .see-all,
@@ -276,89 +391,110 @@ body.modal-open {
 
     background: transparent;
 
-    font-weight: 700;
+    color: var(--muted);
 
-    cursor: pointer;
+    font-weight: 800;
 }
 
-/* =========================
-   GAME GRID
-========================= */
+.see-all:hover,
+.clear-button:hover {
+    color: white;
+}
+
+/* =========================================================
+   GRID
+========================================================= */
 
 .game-grid {
     display: grid;
 
     grid-template-columns:
         repeat(
-            auto-fill,
-            minmax(210px, 1fr)
+            4,
+            minmax(0, 1fr)
         );
 
     gap: 18px;
 }
 
-/* =========================
-   GAME CARD
-========================= */
+/* =========================================================
+   CARD
+========================================================= */
 
 .game-card {
-    background: white;
-
-    border-radius: 8px;
+    min-width: 0;
 
     overflow: hidden;
 
+    background: var(--surface);
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 9px;
+
     cursor: pointer;
 
-    border: 1px solid #e1e1e1;
-
     transition:
-        transform .15s,
-        box-shadow .15s;
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        background 0.16s ease;
 }
 
 .game-card:hover {
-    transform: translateY(-3px);
+    transform:
+        translateY(-3px);
 
-    box-shadow:
-        0 8px 22px
-        rgba(0,0,0,.09);
+    background:
+        var(--surface-2);
+
+    border-color:
+        #414147;
 }
 
 .game-thumbnail {
+    display: block;
+
     width: 100%;
 
     aspect-ratio: 16 / 9;
 
     object-fit: cover;
 
-    display: block;
-
-    background: #ddd;
+    background: #101012;
 }
 
 .game-card-body {
-    padding: 12px;
+    padding: 13px;
 }
 
 .game-card h3 {
-    margin: 0 0 6px;
-
-    font-size: 15px;
-
-    white-space: nowrap;
+    margin: 0;
 
     overflow: hidden;
 
+    white-space: nowrap;
+
     text-overflow: ellipsis;
+
+    font-size: 15px;
+
+    font-weight: 800;
 }
 
 .game-creator {
-    margin: 0 0 11px;
+    margin:
+        6px 0 11px;
 
-    color: #777;
+    color: var(--muted);
 
     font-size: 12px;
+
+    overflow: hidden;
+
+    white-space: nowrap;
+
+    text-overflow: ellipsis;
 }
 
 .game-stats {
@@ -366,19 +502,35 @@ body.modal-open {
 
     justify-content: space-between;
 
-    color: #777;
+    gap: 8px;
+
+    color: var(--muted-2);
 
     font-size: 11px;
 }
 
-/* =========================
+.live-dot {
+    display: inline-block;
+
+    width: 6px;
+    height: 6px;
+
+    margin-right: 4px;
+
+    border-radius: 50%;
+
+    background: #35d07f;
+}
+
+/* =========================================================
    LOADING
-========================= */
+========================================================= */
 
 .loading-card {
-    grid-column: 1 / -1;
+    grid-column:
+        1 / -1;
 
-    min-height: 220px;
+    min-height: 180px;
 
     display: flex;
 
@@ -388,95 +540,127 @@ body.modal-open {
 
     justify-content: center;
 
-    gap: 14px;
+    gap: 12px;
 
-    background: white;
+    color: var(--muted);
 
-    border: 1px solid #ddd;
+    background:
+        var(--surface);
 
-    border-radius: 8px;
+    border:
+        1px solid var(--border);
 
-    color: #777;
+    border-radius: 9px;
 }
 
 .spinner {
     width: 30px;
     height: 30px;
 
-    border: 3px solid #ddd;
+    border:
+        3px solid var(--surface-3);
 
-    border-top-color: #111;
+    border-top-color:
+        var(--red);
 
     border-radius: 50%;
 
     animation:
-        spin .75s linear infinite;
+        spin 0.8s linear infinite;
 }
 
 @keyframes spin {
     to {
-        transform: rotate(360deg);
+        transform:
+            rotate(360deg);
     }
 }
 
 .empty-card {
-    grid-column: 1 / -1;
+    grid-column:
+        1 / -1;
 
-    background: white;
+    min-height: 130px;
 
-    border: 1px solid #ddd;
+    display: flex;
 
-    border-radius: 8px;
+    flex-direction: column;
 
-    padding: 50px;
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 7px;
+
+    color: var(--muted);
+
+    background:
+        var(--surface);
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 9px;
 
     text-align: center;
-
-    color: #777;
 }
 
-/* =========================
+.empty-card strong {
+    color: white;
+}
+
+/* =========================================================
    ERROR
-========================= */
+========================================================= */
 
 .error-box {
-    max-width: 650px;
+    margin:
+        48px 0;
 
-    margin: 30px auto 70px;
-
-    padding: 35px;
-
-    background: white;
-
-    border: 1px solid #ddd;
-
-    border-radius: 10px;
+    padding: 34px;
 
     text-align: center;
+
+    background:
+        var(--surface);
+
+    border:
+        1px solid #492323;
+
+    border-radius: 10px;
 }
 
 .error-icon {
     width: 42px;
     height: 42px;
 
-    display: flex;
+    display: grid;
+    place-items: center;
 
-    align-items: center;
-    justify-content: center;
-
-    margin: 0 auto 15px;
-
-    background: #111;
-
-    color: white;
+    margin:
+        0 auto 15px;
 
     border-radius: 50%;
+
+    background:
+        #351919;
+
+    color:
+        #ff7777;
 
     font-weight: 900;
 }
 
+.error-box h2 {
+    margin: 0 0 8px;
+}
+
 .error-box p {
-    color: #777;
+    color: var(--muted);
+
+    margin: 0 auto 18px;
+
+    max-width: 600px;
 
     line-height: 1.5;
 }
@@ -484,22 +668,25 @@ body.modal-open {
 .retry-button {
     border: 0;
 
-    background: #111;
-
-    color: white;
-
-    padding: 12px 20px;
+    padding:
+        11px 18px;
 
     border-radius: 7px;
 
-    font-weight: 700;
+    background: var(--red);
 
-    cursor: pointer;
+    color: white;
+
+    font-weight: 800;
 }
 
-/* =========================
+.retry-button:hover {
+    background: var(--red-hover);
+}
+
+/* =========================================================
    MODAL
-========================= */
+========================================================= */
 
 .modal {
     position: fixed;
@@ -511,13 +698,10 @@ body.modal-open {
     display: flex;
 
     align-items: center;
+
     justify-content: center;
 
-    padding: 20px;
-}
-
-.hidden {
-    display: none !important;
+    padding: 24px;
 }
 
 .modal-backdrop {
@@ -526,9 +710,15 @@ body.modal-open {
     inset: 0;
 
     background:
-        rgba(0,0,0,.65);
+        rgba(
+            0,
+            0,
+            0,
+            0.78
+        );
 
-    backdrop-filter: blur(3px);
+    backdrop-filter:
+        blur(8px);
 }
 
 .modal-card {
@@ -536,19 +726,32 @@ body.modal-open {
 
     z-index: 2;
 
-    width: min(720px, 100%);
+    width: min(
+        760px,
+        100%
+    );
 
-    max-height: 90vh;
+    max-height:
+        calc(100vh - 48px);
 
     overflow: auto;
 
-    background: white;
+    background:
+        var(--surface);
 
-    border-radius: 10px;
+    border:
+        1px solid var(--border);
+
+    border-radius: 12px;
 
     box-shadow:
-        0 25px 80px
-        rgba(0,0,0,.3);
+        0 30px 80px
+        rgba(
+            0,
+            0,
+            0,
+            0.5
+        );
 }
 
 .modal-close {
@@ -559,30 +762,38 @@ body.modal-open {
 
     z-index: 3;
 
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
 
     border: 0;
 
     border-radius: 50%;
 
-    background: rgba(0,0,0,.75);
+    background:
+        rgba(
+            0,
+            0,
+            0,
+            0.65
+        );
 
     color: white;
 
-    font-size: 23px;
+    font-size: 24px;
 
-    cursor: pointer;
+    line-height: 1;
 }
 
 .modal-image {
+    display: block;
+
     width: 100%;
 
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 16 / 8;
 
     object-fit: cover;
 
-    display: block;
+    background: #101012;
 }
 
 .modal-content {
@@ -590,31 +801,34 @@ body.modal-open {
 }
 
 .modal-content h2 {
-    margin: 0 0 6px;
+    margin:
+        0 0 7px;
 
-    font-size: 26px;
+    font-size: 27px;
 }
 
 .modal-creator {
-    color: #777;
+    margin:
+        0 0 16px;
 
-    margin-bottom: 18px;
+    color: var(--muted);
 }
 
 .modal-description {
-    color: #555;
+    margin: 0;
 
-    line-height: 1.55;
+    color: #d4d4d8;
 
-    margin-bottom: 22px;
+    line-height: 1.6;
 }
 
 .stats {
     display: flex;
 
-    gap: 35px;
+    gap: 45px;
 
-    margin-bottom: 22px;
+    margin:
+        24px 0;
 }
 
 .stat {
@@ -622,17 +836,17 @@ body.modal-open {
 
     flex-direction: column;
 
-    gap: 3px;
+    gap: 4px;
 }
 
 .stat strong {
-    font-size: 19px;
+    font-size: 20px;
 }
 
 .stat span {
-    color: #777;
+    color: var(--muted);
 
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .play-button {
@@ -640,58 +854,106 @@ body.modal-open {
 
     border: 0;
 
-    background: #111;
+    border-radius: 7px;
+
+    padding:
+        13px 20px;
+
+    background: var(--red);
 
     color: white;
 
-    padding: 14px;
+    font-weight: 900;
 
-    border-radius: 7px;
-
-    font-weight: 800;
-
-    cursor: pointer;
+    font-size: 15px;
 }
 
-/* =========================
-   MOBILE
-========================= */
+.play-button:hover {
+    background: var(--red-hover);
+}
 
-@media (max-width: 750px) {
+/* =========================================================
+   UTILITIES
+========================================================= */
 
-    .topbar {
-        height: auto;
+.hidden {
+    display: none !important;
+}
 
-        flex-wrap: wrap;
+/* =========================================================
+   RESPONSIVE
+========================================================= */
 
-        padding: 10px 14px;
+@media (
+    max-width: 1000px
+) {
+    .game-grid {
+        grid-template-columns:
+            repeat(
+                3,
+                minmax(0, 1fr)
+            );
+    }
+
+    .brand {
+        min-width: auto;
     }
 
     .nav {
+        margin-left: 20px;
+        margin-right: 15px;
+    }
+}
+
+@media (
+    max-width: 760px
+) {
+    .topbar {
+        height: auto;
+
+        min-height: 64px;
+
+        flex-wrap: wrap;
+
+        gap: 10px;
+
+        padding:
+            10px 16px;
+    }
+
+    .brand {
+        order: 1;
+    }
+
+    .nav {
+        order: 2;
+
+        margin-left: auto;
+        margin-right: 0;
+    }
+
+    .search-box {
         order: 3;
 
         width: 100%;
     }
 
-    .search-box {
-        width: 100%;
-
-        order: 2;
-
-        margin-left: 0;
+    .hero {
+        min-height: 390px;
     }
 
-    .hero {
-        padding: 45px 24px;
+    .hero-content {
+        width:
+            calc(100% - 32px);
     }
 
     .hero h1 {
         letter-spacing: -2px;
     }
 
-    .game-section {
-        padding:
-            30px 14px;
+    main {
+        width:
+            calc(100% - 32px);
     }
 
     .game-grid {
@@ -705,9 +967,29 @@ body.modal-open {
     }
 }
 
-@media (max-width: 450px) {
-
+@media (
+    max-width: 480px
+) {
     .game-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns:
+            1fr;
+    }
+
+    .section-header {
+        align-items: center;
+    }
+
+    .hero p {
+        font-size: 15px;
+    }
+
+    .modal {
+        padding: 10px;
+    }
+
+    .modal-card {
+        max-height:
+            calc(100vh - 20px);
     }
 }
+```
