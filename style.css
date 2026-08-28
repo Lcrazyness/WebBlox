@@ -1,5 +1,6 @@
 /* ============================================================
    WebBlox
+   Roblox-inspired dark interface
    ============================================================ */
 
 * {
@@ -9,10 +10,8 @@
 html {
   margin: 0;
   padding: 0;
-
-  background: #0b0b0d;
-
-  scroll-behavior: smooth;
+  background: #0b0b0e;
+  color-scheme: dark;
 }
 
 body {
@@ -21,7 +20,7 @@ body {
 
   min-height: 100vh;
 
-  background: #0b0b0d;
+  background: #0b0b0e;
   color: #ffffff;
 
   font-family:
@@ -32,307 +31,583 @@ body {
 }
 
 /* ============================================================
-   HEADER
+   APP
    ============================================================ */
 
-header,
-.navbar,
-.topbar {
-  width: 100%;
-
-  background: #0b0b0d;
-
-  border-bottom: 1px solid #252529;
-
-  position: sticky;
-  top: 0;
-
-  z-index: 100;
-}
-
-.header-inner,
-.nav-inner,
-.navbar-inner {
-  width: min(
-    1500px,
-    calc(100% - 40px)
-  );
-
-  margin: auto;
-
-  min-height: 72px;
-
-  display: flex;
-
-  align-items: center;
-
-  gap: 20px;
+.wb-app {
+  min-height: 100vh;
+  background: #0b0b0e;
 }
 
 /* ============================================================
-   LOGO
+   TOP BAR
    ============================================================ */
 
-.logo {
-  display: flex;
+.wb-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 
+  height: 64px;
+
+  display: flex;
   align-items: center;
 
-  gap: 12px;
+  padding: 0 18px;
 
-  font-size: 25px;
+  background: #101014;
 
-  font-weight: 800;
-
-  color: #ffffff;
-
-  white-space: nowrap;
+  border-bottom: 1px solid #25252b;
 }
 
-.logo-icon {
-  width: 48px;
-  height: 48px;
+/* ============================================================
+   BRAND
+   ============================================================ */
 
-  flex: 0 0 48px;
+.wb-brand {
+  display: flex;
+  align-items: center;
 
-  border-radius: 12px;
+  gap: 11px;
+
+  min-width: 185px;
+
+  font-size: 23px;
+  font-weight: 850;
+
+  color: #ffffff;
+}
+
+.wb-logo {
+  width: 42px;
+  height: 42px;
 
   display: grid;
-
   place-items: center;
+
+  border-radius: 10px;
 
   background: #08a8ff;
 
   color: #ffffff;
 
-  font-size: 30px;
-
+  font-size: 26px;
   font-weight: 900;
 }
 
 /* ============================================================
-   NAVIGATION
+   TOP NAV
    ============================================================ */
 
-nav {
+.wb-topnav {
   display: flex;
-
   align-items: center;
 
   gap: 8px;
 
-  margin-left: auto;
+  margin-left: 10px;
 }
 
-nav button,
-nav a,
-.nav-button {
+.wb-topnav-btn {
+  height: 40px;
+
+  padding: 0 18px;
+
   border: 0;
-
-  padding: 12px 20px;
-
-  border-radius: 10px;
+  border-radius: 9px;
 
   background: transparent;
 
-  color: #a8a8ad;
+  color: #b7b7be;
 
-  font-size: 16px;
-
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 750;
 
   cursor: pointer;
-
-  text-decoration: none;
-
-  white-space: nowrap;
 }
 
-nav button:hover,
-nav a:hover,
-.nav-button:hover {
-  background: #19191d;
-
+.wb-topnav-btn:hover {
+  background: #1b1b21;
   color: #ffffff;
 }
 
-nav .active,
-nav button.active,
-.nav-button.active {
-  background: #202024;
-
+.wb-topnav-btn.active {
+  background: #25252c;
   color: #ffffff;
 }
 
 /* ============================================================
-   SEARCH
+   TOP SEARCH
    ============================================================ */
 
-.search-container {
+.wb-top-search {
+  height: 40px;
+
   width: min(
-    1500px,
-    calc(100% - 40px)
+    360px,
+    25vw
   );
 
-  margin: 20px auto 30px;
+  margin-left: auto;
 
   display: flex;
+  align-items: center;
 
-  gap: 0;
+  gap: 9px;
+
+  padding: 0 12px;
+
+  border: 1px solid #34343c;
+
+  border-radius: 9px;
+
+  background: #18181d;
+
+  color: #898991;
 }
 
-.search-container input,
-#searchInput {
-  flex: 1;
-
-  min-width: 0;
-
-  height: 60px;
-
-  padding: 0 20px;
-
-  border: 1px solid #303035;
-
-  border-right: 0;
-
-  border-radius: 12px 0 0 12px;
-
-  background: #151519;
-
-  color: #ffffff;
-
-  outline: none;
-
-  font-size: 18px;
+.wb-top-search span {
+  font-size: 24px;
+  line-height: 1;
 }
 
-.search-container input::placeholder,
-#searchInput::placeholder {
-  color: #77777e;
-}
-
-.search-container input:focus,
-#searchInput:focus {
-  border-color: #08a8ff;
-}
-
-.search-container button,
-#searchButton {
-  width: 140px;
-
-  flex: 0 0 140px;
+.wb-top-search input {
+  width: 100%;
 
   border: 0;
+  outline: 0;
 
-  border-radius: 0 12px 12px 0;
-
-  background: #08a8ff;
+  background: transparent;
 
   color: #ffffff;
 
-  font-size: 18px;
+  font-size: 15px;
+}
 
-  font-weight: 800;
+.wb-top-search input::placeholder {
+  color: #777780;
+}
+
+/* ============================================================
+   TOP ICONS
+   ============================================================ */
+
+.wb-top-icons {
+  display: flex;
+  align-items: center;
+
+  gap: 4px;
+
+  margin-left: 12px;
+}
+
+.wb-top-icons button {
+  width: 40px;
+  height: 40px;
+
+  display: grid;
+  place-items: center;
+
+  border: 0;
+  border-radius: 9px;
+
+  background: transparent;
+
+  color: #e4e4e8;
+
+  font-size: 22px;
 
   cursor: pointer;
 }
 
-.search-container button:hover,
-#searchButton:hover {
-  background: #0096e6;
+.wb-top-icons button:hover {
+  background: #1b1b21;
+}
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
+
+.wb-layout {
+  display: flex;
+
+  min-height: calc(
+    100vh - 64px
+  );
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+.wb-sidebar {
+  position: sticky;
+  top: 64px;
+
+  width: 240px;
+
+  height: calc(
+    100vh - 64px
+  );
+
+  flex-shrink: 0;
+
+  overflow-y: auto;
+
+  padding: 20px 12px;
+
+  background: #101014;
+
+  border-right: 1px solid #25252b;
+}
+
+.wb-sidebar::-webkit-scrollbar {
+  width: 7px;
+}
+
+.wb-sidebar::-webkit-scrollbar-thumb {
+  background: #38383f;
+  border-radius: 10px;
+}
+
+/* ============================================================
+   PROFILE
+   ============================================================ */
+
+.wb-profile {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 8px 10px 22px;
+
+  margin-bottom: 8px;
+
+  border-bottom: 1px solid #25252b;
+}
+
+.wb-avatar {
+  width: 42px;
+  height: 42px;
+
+  display: grid;
+  place-items: center;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #25252d;
+
+  color: #ffffff;
+
+  font-weight: 900;
+}
+
+.wb-profile strong {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #ffffff;
+
+  font-size: 15px;
+}
+
+.wb-profile span {
+  display: block;
+
+  color: #777780;
+
+  font-size: 12px;
+}
+
+/* ============================================================
+   SIDEBAR BUTTONS
+   ============================================================ */
+
+.wb-sidebar-section {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.wb-side-btn {
+  width: 100%;
+
+  height: 45px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+
+  padding: 0 13px;
+
+  border: 0;
+  border-radius: 9px;
+
+  background: transparent;
+
+  color: #c0c0c6;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.wb-side-btn span {
+  width: 22px;
+
+  text-align: center;
+
+  font-size: 20px;
+}
+
+.wb-side-btn b {
+  font-size: 14px;
+}
+
+.wb-side-btn:hover {
+  background: #1a1a20;
+  color: #ffffff;
+}
+
+.wb-side-btn.active {
+  background: #292930;
+  color: #ffffff;
+}
+
+/* ============================================================
+   SIDEBAR LABEL
+   ============================================================ */
+
+.wb-sidebar-label {
+  margin: 27px 12px 9px;
+
+  color: #6f6f78;
+
+  font-size: 11px;
+  font-weight: 850;
+
+  letter-spacing: 1px;
+}
+
+/* ============================================================
+   SIDEBAR BOTTOM
+   ============================================================ */
+
+.wb-sidebar-bottom {
+  margin-top: 35px;
+}
+
+.wb-sidebar-card {
+  padding: 15px;
+
+  border: 1px solid #29292f;
+
+  border-radius: 11px;
+
+  background: #16161b;
+}
+
+.wb-sidebar-card strong {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #ffffff;
+
+  font-size: 14px;
+}
+
+.wb-sidebar-card span {
+  display: block;
+
+  color: #777780;
+
+  font-size: 12px;
+
+  line-height: 1.45;
 }
 
 /* ============================================================
    MAIN
    ============================================================ */
 
-main {
-  width: min(
-    1500px,
-    calc(100% - 40px)
-  );
+.wb-main {
+  flex: 1;
 
-  margin: 0 auto;
+  min-width: 0;
 
-  padding-bottom: 80px;
+  padding: 0 34px 70px;
 }
 
-section {
-  margin-bottom: 48px;
+/* ============================================================
+   SEARCH
+   ============================================================ */
+
+.wb-search-area {
+  padding: 22px 0 34px;
 }
 
-section h1,
-section h2 {
-  margin: 0 0 8px;
+.wb-big-search {
+  width: 100%;
+
+  height: 58px;
+
+  display: flex;
+  align-items: center;
+
+  border: 1px solid #34343b;
+
+  border-radius: 11px;
+
+  overflow: hidden;
+
+  background: #16161b;
+}
+
+.wb-big-search > span {
+  padding-left: 17px;
+
+  color: #8d8d96;
+
+  font-size: 28px;
+}
+
+.wb-big-search input {
+  flex: 1;
+
+  min-width: 0;
+
+  height: 100%;
+
+  padding: 0 15px;
+
+  border: 0;
+  outline: 0;
+
+  background: transparent;
 
   color: #ffffff;
 
-  font-size: 32px;
-
-  font-weight: 800;
+  font-size: 17px;
 }
 
-section h2 {
-  font-size: 30px;
+.wb-big-search input::placeholder {
+  color: #777780;
 }
 
-section p.section-subtitle,
-section > p {
-  margin: 0 0 24px;
+.wb-big-search button {
+  height: 100%;
 
-  color: #9b9ba2;
+  width: 125px;
 
-  font-size: 18px;
+  border: 0;
+
+  background: #08a8ff;
+
+  color: #ffffff;
+
+  font-size: 16px;
+  font-weight: 850;
+
+  cursor: pointer;
 }
 
-.hidden-section {
-  display: none;
+.wb-big-search button:hover {
+  background: #0097e6;
+}
+
+/* ============================================================
+   SECTIONS
+   ============================================================ */
+
+.wb-section {
+  margin-bottom: 48px;
+}
+
+.wb-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  margin-bottom: 18px;
+}
+
+.wb-section-heading h1 {
+  margin: 0 0 5px;
+
+  color: #ffffff;
+
+  font-size: 28px;
+  font-weight: 850;
+}
+
+.wb-section-heading p {
+  margin: 0;
+
+  color: #888890;
+
+  font-size: 15px;
+}
+
+.wb-see-all {
+  flex-shrink: 0;
+
+  border: 0;
+
+  background: transparent;
+
+  color: #d2d2d7;
+
+  font-size: 14px;
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+.wb-see-all:hover {
+  color: #08a8ff;
 }
 
 /* ============================================================
    GAME GRID
    ============================================================ */
 
-.game-grid,
-#recommendedGrid,
-#popularGrid {
+.wb-game-grid {
   display: grid;
-
-  /*
-    IMPORTANT:
-    Cards now have a sensible minimum width.
-    This prevents the cards from becoming tiny/squashed.
-  */
 
   grid-template-columns:
     repeat(
       auto-fill,
-      minmax(250px, 1fr)
+      minmax(220px, 1fr)
     );
 
   gap: 20px;
 
   width: 100%;
-
-  align-items: start;
 }
 
 /* ============================================================
    GAME CARD
    ============================================================ */
 
-.game-card {
+.wb-game-card {
   min-width: 0;
-
-  width: 100%;
 
   overflow: hidden;
 
-  background: #151519;
+  border: 1px solid #27272d;
 
-  border: 1px solid #29292f;
+  border-radius: 10px;
 
-  border-radius: 13px;
+  background: #141419;
 
   cursor: pointer;
 
@@ -340,104 +615,128 @@ section > p {
     transform 0.15s ease,
     border-color 0.15s ease,
     background 0.15s ease;
-
-  /*
-    Prevent cards from stretching strangely.
-  */
-
-  align-self: start;
 }
 
-.game-card:hover {
+.wb-game-card:hover {
   transform: translateY(-3px);
 
-  border-color: #45454d;
+  border-color: #44444c;
 
-  background: #19191e;
+  background: #19191f;
 }
 
 /* ============================================================
-   IMAGE
+   THUMBNAIL
    ============================================================ */
 
-.game-image-wrap {
+.wb-game-thumbnail {
   position: relative;
 
   width: 100%;
-
-  /*
-    Roblox thumbnails are landscape.
-    Keep every image at exactly the same ratio.
-  */
 
   aspect-ratio: 16 / 9;
 
   overflow: hidden;
 
-  background: #202024;
+  background: #202026;
 }
 
-.game-image {
+.wb-game-thumbnail img {
   width: 100%;
-
   height: 100%;
 
   display: block;
 
   object-fit: cover;
 
-  object-position: center;
-
-  background: #202024;
+  transition:
+    transform 0.25s ease;
 }
 
-.image-failed {
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
+.wb-game-card:hover
+.wb-game-thumbnail img {
+  transform: scale(1.025);
 }
 
-.no-image {
+.wb-game-thumbnail.failed {
+  display: grid;
+  place-items: center;
+}
+
+.wb-no-image {
+  width: 100%;
+  height: 100%;
+
+  display: grid;
+  place-items: center;
+
+  background: #202026;
+
+  color: #777780;
+
+  font-size: 13px;
+}
+
+/* ============================================================
+   PLAY OVERLAY
+   ============================================================ */
+
+.wb-play-overlay {
   position: absolute;
 
-  inset: 0;
+  left: 50%;
+  top: 50%;
 
-  display: flex;
+  transform:
+    translate(
+      -50%,
+      -50%
+    );
 
-  align-items: center;
+  width: 48px;
+  height: 48px;
 
-  justify-content: center;
+  display: grid;
+  place-items: center;
 
-  background: #202024;
+  border-radius: 50%;
 
-  color: #77777e;
+  background: rgba(
+    0,
+    0,
+    0,
+    0.72
+  );
 
-  font-size: 14px;
+  color: #ffffff;
+
+  font-size: 18px;
+
+  opacity: 0;
+
+  transition:
+    opacity 0.15s ease;
 }
 
-.image-failed::after {
-  content: none;
+.wb-game-card:hover
+.wb-play-overlay {
+  opacity: 1;
 }
 
 /* ============================================================
    FAVORITE
    ============================================================ */
 
-.favorite-button {
+.wb-favorite {
   position: absolute;
 
-  top: 10px;
+  top: 9px;
+  right: 9px;
 
-  right: 10px;
-
-  width: 38px;
-
-  height: 38px;
+  width: 35px;
+  height: 35px;
 
   display: grid;
-
   place-items: center;
 
   border: 0;
@@ -448,46 +747,36 @@ section > p {
     0,
     0,
     0,
-    0.75
+    0.72
   );
 
   color: #ffffff;
 
-  font-size: 21px;
+  font-size: 20px;
 
   cursor: pointer;
 
   z-index: 5;
-
-  transition:
-    background 0.15s ease,
-    transform 0.15s ease;
 }
 
-.favorite-button:hover {
+.wb-favorite:hover {
   background: rgba(
     0,
     0,
     0,
     0.95
   );
-
-  transform: scale(1.05);
-}
-
-.favorite-button.favorited {
-  color: #ff4d6d;
 }
 
 /* ============================================================
-   CARD CONTENT
+   CARD BODY
    ============================================================ */
 
-.game-card-body {
-  padding: 15px;
+.wb-card-body {
+  padding: 12px 13px 14px;
 }
 
-.game-title {
+.wb-game-title {
   margin: 0 0 7px;
 
   overflow: hidden;
@@ -498,15 +787,12 @@ section > p {
 
   color: #ffffff;
 
-  font-size: 18px;
-
+  font-size: 16px;
   font-weight: 800;
-
-  line-height: 1.25;
 }
 
-.game-creator {
-  margin: 0 0 18px;
+.wb-creator {
+  margin-bottom: 13px;
 
   overflow: hidden;
 
@@ -514,26 +800,27 @@ section > p {
 
   text-overflow: ellipsis;
 
-  color: #9b9ba2;
+  color: #777780;
 
-  font-size: 15px;
-
-  line-height: 1.3;
+  font-size: 13px;
 }
 
-.game-stats {
-  display: flex;
+.wb-creator span {
+  color: #b9b9c0;
+}
 
+.wb-card-stats {
+  display: flex;
   justify-content: space-between;
 
-  gap: 10px;
+  gap: 8px;
 
-  color: #a8a8ae;
+  color: #9999a2;
 
-  font-size: 14px;
+  font-size: 12px;
 }
 
-.game-stats span {
+.wb-card-stats span {
   overflow: hidden;
 
   white-space: nowrap;
@@ -542,17 +829,61 @@ section > p {
 }
 
 /* ============================================================
-   STATES
+   LOADING
    ============================================================ */
 
-.loading-state,
-.empty-state,
-.error-state {
-  width: 100%;
-
-  min-height: 240px;
-
+.wb-loading {
   grid-column: 1 / -1;
+
+  min-height: 180px;
+
+  display: grid;
+  place-items: center;
+
+  border: 1px solid #29292f;
+
+  border-radius: 11px;
+
+  background: #151519;
+
+  color: #85858d;
+
+  font-size: 15px;
+}
+
+/* ============================================================
+   EMPTY
+   ============================================================ */
+
+.wb-empty {
+  grid-column: 1 / -1;
+
+  min-height: 180px;
+
+  display: grid;
+  place-items: center;
+
+  padding: 30px;
+
+  border: 1px solid #29292f;
+
+  border-radius: 11px;
+
+  background: #151519;
+
+  color: #85858d;
+
+  text-align: center;
+}
+
+/* ============================================================
+   ERROR
+   ============================================================ */
+
+.wb-error {
+  grid-column: 1 / -1;
+
+  min-height: 300px;
 
   display: flex;
 
@@ -562,219 +893,235 @@ section > p {
 
   justify-content: center;
 
-  text-align: center;
-
   padding: 30px;
 
-  border: 1px solid #29292f;
+  border: 1px solid #572727;
 
-  border-radius: 14px;
+  border-radius: 12px;
 
   background: #151519;
 
-  color: #929299;
+  text-align: center;
 }
 
-.loading-state {
-  font-size: 18px;
-}
-
-.empty-state {
-  font-size: 17px;
-}
-
-.error-state {
-  border-color: #6e2929;
-
-  color: #ffffff;
-}
-
-.error-icon {
-  width: 60px;
-
-  height: 60px;
+.wb-error-icon {
+  width: 55px;
+  height: 55px;
 
   display: grid;
-
   place-items: center;
 
-  margin-bottom: 18px;
+  margin-bottom: 15px;
 
   border-radius: 50%;
 
-  background: #451f1f;
+  background: #3d1c1c;
 
-  color: #ff7373;
+  color: #ff7474;
 
-  font-size: 28px;
-
+  font-size: 24px;
   font-weight: 900;
 }
 
-.error-state h2 {
-  margin: 0 0 10px;
+.wb-error h2 {
+  margin: 0 0 8px;
 
   color: #ffffff;
 
-  font-size: 28px;
+  font-size: 25px;
 }
 
-.error-state p {
-  max-width: 650px;
+.wb-error p {
+  margin: 0 0 20px;
 
-  margin: 0 0 24px;
+  color: #8e8e96;
 
-  color: #a6a6ad;
-
-  font-size: 17px;
+  font-size: 14px;
 }
 
-.retry-button {
-  padding: 13px 24px;
+.wb-retry {
+  padding: 11px 20px;
 
   border: 0;
 
-  border-radius: 10px;
+  border-radius: 8px;
 
   background: #08a8ff;
 
   color: #ffffff;
-
-  font-size: 16px;
 
   font-weight: 800;
 
   cursor: pointer;
 }
 
-.retry-button:hover {
-  background: #0096e6;
+.wb-retry:hover {
+  background: #0097e6;
+}
+
+/* ============================================================
+   SEARCH HIDDEN
+   ============================================================ */
+
+.wb-hidden {
+  display: none !important;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b0b0e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #34343b;
+
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #45454d;
 }
 
 /* ============================================================
    RESPONSIVE
    ============================================================ */
 
-@media (max-width: 1100px) {
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
+@media (max-width: 1200px) {
+  .wb-sidebar {
+    width: 210px;
+  }
+
+  .wb-brand {
+    min-width: 150px;
+  }
+
+  .wb-topnav-btn {
+    padding: 0 12px;
+  }
+
+  .wb-game-grid {
     grid-template-columns:
       repeat(
         auto-fill,
-        minmax(230px, 1fr)
+        minmax(200px, 1fr)
       );
   }
 }
 
 @media (max-width: 900px) {
-  .header-inner,
-  .nav-inner,
-  .navbar-inner {
-    width: calc(100% - 24px);
+  .wb-sidebar {
+    width: 70px;
+
+    padding-left: 9px;
+    padding-right: 9px;
   }
 
-  .search-container,
-  main {
-    width: calc(100% - 24px);
+  .wb-profile div:not(.wb-avatar),
+  .wb-side-btn b,
+  .wb-sidebar-label,
+  .wb-sidebar-card {
+    display: none;
   }
 
-  .logo {
-    font-size: 21px;
+  .wb-profile {
+    justify-content: center;
+
+    padding-left: 0;
+    padding-right: 0;
   }
 
-  .logo-icon {
-    width: 42px;
+  .wb-side-btn {
+    justify-content: center;
 
-    height: 42px;
-
-    flex-basis: 42px;
+    padding: 0;
   }
 
-  nav button,
-  nav a,
-  .nav-button {
-    padding: 9px 12px;
+  .wb-main {
+    padding-left: 20px;
+    padding-right: 20px;
   }
 
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
+  .wb-topnav {
+    display: none;
+  }
+
+  .wb-top-search {
+    width: 240px;
+  }
+}
+
+@media (max-width: 650px) {
+  .wb-topbar {
+    padding: 0 10px;
+  }
+
+  .wb-brand {
+    min-width: auto;
+  }
+
+  .wb-brand span {
+    display: none;
+  }
+
+  .wb-top-search {
+    width: 150px;
+
+    margin-left: auto;
+  }
+
+  .wb-top-icons {
+    display: none;
+  }
+
+  .wb-sidebar {
+    display: none;
+  }
+
+  .wb-main {
+    padding:
+      0 12px 50px;
+  }
+
+  .wb-game-grid {
     grid-template-columns:
       repeat(
-        auto-fill,
-        minmax(210px, 1fr)
+        2,
+        minmax(0, 1fr)
       );
-  }
-}
 
-@media (max-width: 700px) {
-  .header-inner,
-  .nav-inner,
-  .navbar-inner {
-    flex-wrap: wrap;
-
-    padding: 12px 0;
+    gap: 10px;
   }
 
-  nav {
-    width: 100%;
-
-    margin-left: 0;
+  .wb-section-heading h1 {
+    font-size: 22px;
   }
 
-  nav button,
-  nav a,
-  .nav-button {
-    flex: 1;
-
-    text-align: center;
+  .wb-section-heading p {
+    font-size: 13px;
   }
 
-  .search-container {
-    margin-top: 14px;
+  .wb-card-body {
+    padding: 9px;
   }
 
-  .search-container button,
-  #searchButton {
-    width: 105px;
-
-    flex-basis: 105px;
+  .wb-game-title {
+    font-size: 14px;
   }
 
-  section h1,
-  section h2 {
-    font-size: 25px;
+  .wb-creator,
+  .wb-card-stats {
+    font-size: 11px;
   }
 
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
-
-    gap: 12px;
-  }
-
-  .game-card-body {
-    padding: 10px;
-  }
-
-  .game-title {
-    font-size: 15px;
-  }
-
-  .game-creator,
-  .game-stats {
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 420px) {
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
-    grid-template-columns:
-      1fr;
+  .wb-big-search button {
+    width: 95px;
   }
 }
