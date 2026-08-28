@@ -9,12 +9,16 @@
 html {
   margin: 0;
   padding: 0;
+
   background: #0b0b0d;
+
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   padding: 0;
+
   min-height: 100vh;
 
   background: #0b0b0d;
@@ -42,19 +46,26 @@ header,
 
   position: sticky;
   top: 0;
+
   z-index: 100;
 }
 
 .header-inner,
 .nav-inner,
 .navbar-inner {
-  width: min(1500px, calc(100% - 40px));
+  width: min(
+    1500px,
+    calc(100% - 40px)
+  );
+
   margin: auto;
 
   min-height: 72px;
 
   display: flex;
+
   align-items: center;
+
   gap: 20px;
 }
 
@@ -64,28 +75,38 @@ header,
 
 .logo {
   display: flex;
+
   align-items: center;
+
   gap: 12px;
 
   font-size: 25px;
+
   font-weight: 800;
 
   color: #ffffff;
+
+  white-space: nowrap;
 }
 
 .logo-icon {
   width: 48px;
   height: 48px;
 
+  flex: 0 0 48px;
+
   border-radius: 12px;
 
   display: grid;
+
   place-items: center;
 
   background: #08a8ff;
+
   color: #ffffff;
 
   font-size: 30px;
+
   font-weight: 900;
 }
 
@@ -95,7 +116,9 @@ header,
 
 nav {
   display: flex;
+
   align-items: center;
+
   gap: 8px;
 
   margin-left: auto;
@@ -111,20 +134,25 @@ nav a,
   border-radius: 10px;
 
   background: transparent;
+
   color: #a8a8ad;
 
   font-size: 16px;
+
   font-weight: 700;
 
   cursor: pointer;
 
   text-decoration: none;
+
+  white-space: nowrap;
 }
 
 nav button:hover,
 nav a:hover,
 .nav-button:hover {
   background: #19191d;
+
   color: #ffffff;
 }
 
@@ -132,6 +160,7 @@ nav .active,
 nav button.active,
 .nav-button.active {
   background: #202024;
+
   color: #ffffff;
 }
 
@@ -140,11 +169,15 @@ nav button.active,
    ============================================================ */
 
 .search-container {
-  width: min(1500px, calc(100% - 40px));
+  width: min(
+    1500px,
+    calc(100% - 40px)
+  );
 
   margin: 20px auto 30px;
 
   display: flex;
+
   gap: 0;
 }
 
@@ -159,11 +192,13 @@ nav button.active,
   padding: 0 20px;
 
   border: 1px solid #303035;
+
   border-right: 0;
 
   border-radius: 12px 0 0 12px;
 
   background: #151519;
+
   color: #ffffff;
 
   outline: none;
@@ -185,14 +220,18 @@ nav button.active,
 #searchButton {
   width: 140px;
 
+  flex: 0 0 140px;
+
   border: 0;
 
   border-radius: 0 12px 12px 0;
 
   background: #08a8ff;
+
   color: #ffffff;
 
   font-size: 18px;
+
   font-weight: 800;
 
   cursor: pointer;
@@ -208,9 +247,13 @@ nav button.active,
    ============================================================ */
 
 main {
-  width: min(1500px, calc(100% - 40px));
+  width: min(
+    1500px,
+    calc(100% - 40px)
+  );
 
   margin: 0 auto;
+
   padding-bottom: 80px;
 }
 
@@ -225,6 +268,7 @@ section h2 {
   color: #ffffff;
 
   font-size: 32px;
+
   font-weight: 800;
 }
 
@@ -241,6 +285,10 @@ section > p {
   font-size: 18px;
 }
 
+.hidden-section {
+  display: none;
+}
+
 /* ============================================================
    GAME GRID
    ============================================================ */
@@ -250,15 +298,23 @@ section > p {
 #popularGrid {
   display: grid;
 
+  /*
+    IMPORTANT:
+    Cards now have a sensible minimum width.
+    This prevents the cards from becoming tiny/squashed.
+  */
+
   grid-template-columns:
     repeat(
       auto-fill,
-      minmax(220px, 1fr)
+      minmax(250px, 1fr)
     );
 
-  gap: 18px;
+  gap: 20px;
 
   width: 100%;
+
+  align-items: start;
 }
 
 /* ============================================================
@@ -267,6 +323,8 @@ section > p {
 
 .game-card {
   min-width: 0;
+
+  width: 100%;
 
   overflow: hidden;
 
@@ -282,6 +340,12 @@ section > p {
     transform 0.15s ease,
     border-color 0.15s ease,
     background 0.15s ease;
+
+  /*
+    Prevent cards from stretching strangely.
+  */
+
+  align-self: start;
 }
 
 .game-card:hover {
@@ -292,10 +356,20 @@ section > p {
   background: #19191e;
 }
 
+/* ============================================================
+   IMAGE
+   ============================================================ */
+
 .game-image-wrap {
   position: relative;
 
   width: 100%;
+
+  /*
+    Roblox thumbnails are landscape.
+    Keep every image at exactly the same ratio.
+  */
+
   aspect-ratio: 16 / 9;
 
   overflow: hidden;
@@ -305,26 +379,46 @@ section > p {
 
 .game-image {
   width: 100%;
+
   height: 100%;
 
   display: block;
 
   object-fit: cover;
+
+  object-position: center;
+
+  background: #202024;
 }
 
-.image-failed::after {
-  content: "No image";
+.image-failed {
+  display: flex;
 
+  align-items: center;
+
+  justify-content: center;
+}
+
+.no-image {
   position: absolute;
 
   inset: 0;
 
-  display: grid;
-  place-items: center;
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  background: #202024;
 
   color: #77777e;
 
   font-size: 14px;
+}
+
+.image-failed::after {
+  content: none;
 }
 
 /* ============================================================
@@ -335,18 +429,27 @@ section > p {
   position: absolute;
 
   top: 10px;
+
   right: 10px;
 
   width: 38px;
+
   height: 38px;
 
   display: grid;
+
   place-items: center;
 
   border: 0;
+
   border-radius: 50%;
 
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(
+    0,
+    0,
+    0,
+    0.75
+  );
 
   color: #ffffff;
 
@@ -355,10 +458,25 @@ section > p {
   cursor: pointer;
 
   z-index: 5;
+
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
 }
 
 .favorite-button:hover {
-  background: rgba(0, 0, 0, 0.95);
+  background: rgba(
+    0,
+    0,
+    0,
+    0.95
+  );
+
+  transform: scale(1.05);
+}
+
+.favorite-button.favorited {
+  color: #ff4d6d;
 }
 
 /* ============================================================
@@ -366,7 +484,7 @@ section > p {
    ============================================================ */
 
 .game-card-body {
-  padding: 14px;
+  padding: 15px;
 }
 
 .game-title {
@@ -375,12 +493,16 @@ section > p {
   overflow: hidden;
 
   white-space: nowrap;
+
   text-overflow: ellipsis;
 
   color: #ffffff;
 
   font-size: 18px;
+
   font-weight: 800;
+
+  line-height: 1.25;
 }
 
 .game-creator {
@@ -389,16 +511,21 @@ section > p {
   overflow: hidden;
 
   white-space: nowrap;
+
   text-overflow: ellipsis;
 
   color: #9b9ba2;
 
   font-size: 15px;
+
+  line-height: 1.3;
 }
 
 .game-stats {
   display: flex;
+
   justify-content: space-between;
+
   gap: 10px;
 
   color: #a8a8ae;
@@ -410,6 +537,7 @@ section > p {
   overflow: hidden;
 
   white-space: nowrap;
+
   text-overflow: ellipsis;
 }
 
@@ -424,10 +552,14 @@ section > p {
 
   min-height: 240px;
 
+  grid-column: 1 / -1;
+
   display: flex;
+
   flex-direction: column;
 
   align-items: center;
+
   justify-content: center;
 
   text-align: center;
@@ -459,9 +591,11 @@ section > p {
 
 .error-icon {
   width: 60px;
+
   height: 60px;
 
   display: grid;
+
   place-items: center;
 
   margin-bottom: 18px;
@@ -473,6 +607,7 @@ section > p {
   color: #ff7373;
 
   font-size: 28px;
+
   font-weight: 900;
 }
 
@@ -498,12 +633,15 @@ section > p {
   padding: 13px 24px;
 
   border: 0;
+
   border-radius: 10px;
 
   background: #08a8ff;
+
   color: #ffffff;
 
   font-size: 16px;
+
   font-weight: 800;
 
   cursor: pointer;
@@ -516,6 +654,18 @@ section > p {
 /* ============================================================
    RESPONSIVE
    ============================================================ */
+
+@media (max-width: 1100px) {
+  .game-grid,
+  #recommendedGrid,
+  #popularGrid {
+    grid-template-columns:
+      repeat(
+        auto-fill,
+        minmax(230px, 1fr)
+      );
+  }
+}
 
 @media (max-width: 900px) {
   .header-inner,
@@ -535,7 +685,10 @@ section > p {
 
   .logo-icon {
     width: 42px;
+
     height: 42px;
+
+    flex-basis: 42px;
   }
 
   nav button,
@@ -550,12 +703,12 @@ section > p {
     grid-template-columns:
       repeat(
         auto-fill,
-        minmax(190px, 1fr)
+        minmax(210px, 1fr)
       );
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   .header-inner,
   .nav-inner,
   .navbar-inner {
@@ -574,6 +727,8 @@ section > p {
   nav a,
   .nav-button {
     flex: 1;
+
+    text-align: center;
   }
 
   .search-container {
@@ -582,7 +737,9 @@ section > p {
 
   .search-container button,
   #searchButton {
-    width: 100px;
+    width: 105px;
+
+    flex-basis: 105px;
   }
 
   section h1,
@@ -596,7 +753,7 @@ section > p {
     grid-template-columns:
       repeat(2, minmax(0, 1fr));
 
-    gap: 10px;
+    gap: 12px;
   }
 
   .game-card-body {
@@ -610,5 +767,14 @@ section > p {
   .game-creator,
   .game-stats {
     font-size: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .game-grid,
+  #recommendedGrid,
+  #popularGrid {
+    grid-template-columns:
+      1fr;
   }
 }
