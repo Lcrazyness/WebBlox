@@ -2,7 +2,6 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -16,53 +15,49 @@
         rel="stylesheet"
         href="style.css"
     >
-
 </head>
 
-
 <body>
-
 
 <header class="topbar">
 
     <div class="topbar-inner">
 
         <a
-            class="brand"
+            class="logo"
             href="#"
+            onclick="return goHome()"
         >
-
-            <div class="brand-icon">
+            <span class="logo-mark">
                 W
-            </div>
+            </span>
 
             <span>
                 WebBlox
             </span>
-
         </a>
 
-
-        <nav class="nav">
+        <nav class="main-nav">
 
             <button
                 id="discoverButton"
-                class="nav-btn active"
+                class="nav-button active"
                 type="button"
+                onclick="showDiscover()"
             >
                 Discover
             </button>
 
             <button
                 id="favoritesButton"
-                class="nav-btn"
+                class="nav-button"
                 type="button"
+                onclick="showFavorites()"
             >
                 Favorites
             </button>
 
         </nav>
-
 
         <div class="search-box">
 
@@ -73,7 +68,7 @@
             <input
                 id="searchInput"
                 type="text"
-                placeholder="Search Roblox games"
+                placeholder="Search Roblox"
                 autocomplete="off"
             >
 
@@ -93,12 +88,11 @@
 
 <main>
 
-
     <!-- SEARCH -->
 
     <section
         id="searchSection"
-        class="section hidden"
+        class="content-section hidden"
     >
 
         <div class="section-header">
@@ -115,15 +109,14 @@
             </div>
 
             <button
-                id="clearSearch"
-                class="see-all"
+                id="clearSearchButton"
+                class="text-button"
                 type="button"
             >
                 Clear
             </button>
 
         </div>
-
 
         <div
             id="searchGames"
@@ -133,94 +126,193 @@
     </section>
 
 
-    <!-- POPULAR -->
+    <!-- DISCOVER -->
 
-    <section class="section">
+    <div id="discoverPage">
 
-        <div class="section-header">
+        <section class="hero">
 
-            <div>
+            <div class="hero-content">
+
+                <span class="hero-label">
+                    WEBBLOX
+                </span>
 
                 <h1>
-                    Popular Right Now
+                    Discover your
+                    <br>
+                    next favorite game.
                 </h1>
 
                 <p>
-                    The Roblox experiences with the most players right now
+                    Explore real Roblox experiences,
+                    find popular games, and jump in.
                 </p>
 
+                <button
+                    id="exploreButton"
+                    class="hero-button"
+                    type="button"
+                >
+                    Explore Games
+                </button>
+
             </div>
 
-            <button
-                id="popularSeeAll"
-                class="see-all"
-                type="button"
+        </section>
+
+
+        <!-- POPULAR -->
+
+        <section class="content-section">
+
+            <div class="section-header">
+
+                <div>
+
+                    <h2>
+                        Popular Right Now
+                    </h2>
+
+                    <p>
+                        The most played Roblox experiences
+                    </p>
+
+                </div>
+
+                <button
+                    class="text-button"
+                    type="button"
+                    onclick="scrollToSection('popularSection')"
+                >
+                    See All →
+                </button>
+
+            </div>
+
+            <div
+                id="popularGames"
+                class="game-grid"
             >
-                See All →
-            </button>
 
-        </div>
+                <div class="loading-card">
+                    <div class="spinner"></div>
+                    <span>
+                        Loading popular Roblox games...
+                    </span>
+                </div>
+
+            </div>
+
+        </section>
 
 
-        <div
-            id="popularGames"
-            class="game-grid"
+        <!-- TRENDING -->
+
+        <section
+            id="trendingSection"
+            class="content-section"
         >
 
-            <div class="loading-card">
-                <div class="spinner"></div>
-                <span>
-                    Loading popular Roblox games...
-                </span>
+            <div class="section-header">
+
+                <div>
+
+                    <h2>
+                        Trending Now
+                    </h2>
+
+                    <p>
+                        Games currently getting attention
+                    </p>
+
+                </div>
+
             </div>
 
-        </div>
+            <div
+                id="trendingGames"
+                class="game-grid"
+            >
 
-    </section>
+                <div class="loading-card">
+                    <div class="spinner"></div>
+                    <span>
+                        Loading trending games...
+                    </span>
+                </div>
+
+            </div>
+
+        </section>
 
 
-    <!-- TRENDING -->
+        <!-- RECOMMENDED -->
 
-    <section class="section">
+        <section class="content-section">
+
+            <div class="section-header">
+
+                <div>
+
+                    <h2>
+                        Recommended For You
+                    </h2>
+
+                    <p>
+                        Popular Roblox experiences you might enjoy
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div
+                id="recommendedGames"
+                class="game-grid"
+            >
+
+                <div class="loading-card">
+                    <div class="spinner"></div>
+                    <span>
+                        Loading recommendations...
+                    </span>
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <!-- FAVORITES -->
+
+    <section
+        id="favoritesPage"
+        class="content-section hidden"
+    >
 
         <div class="section-header">
 
             <div>
 
                 <h2>
-                    Trending Now
+                    Favorites
                 </h2>
 
                 <p>
-                    Games currently trending on Roblox
+                    Roblox experiences you saved
                 </p>
 
             </div>
 
-            <button
-                id="trendingSeeAll"
-                class="see-all"
-                type="button"
-            >
-                See All →
-            </button>
-
         </div>
-
 
         <div
-            id="trendingGames"
+            id="favoritesGames"
             class="game-grid"
-        >
-
-            <div class="loading-card">
-                <div class="spinner"></div>
-                <span>
-                    Loading trending Roblox games...
-                </span>
-            </div>
-
-        </div>
+        ></div>
 
     </section>
 
@@ -237,11 +329,11 @@
         </div>
 
         <h2>
-            Roblox games couldn't load
+            Games couldn't load
         </h2>
 
         <p id="errorMessage">
-            WebBlox could not load Roblox Charts.
+            WebBlox couldn't reach the Roblox game service.
         </p>
 
         <button
@@ -254,7 +346,6 @@
 
     </section>
 
-
 </main>
 
 
@@ -266,10 +357,9 @@
 >
 
     <div
-        id="modalBackdrop"
         class="modal-backdrop"
+        onclick="closeGame()"
     ></div>
-
 
     <div class="modal-card">
 
@@ -281,14 +371,12 @@
             ×
         </button>
 
-
         <img
             id="modalImage"
             class="modal-image"
             src=""
             alt=""
         >
-
 
         <div class="modal-content">
 
@@ -308,11 +396,9 @@
             >
             </p>
 
+            <div class="modal-stats">
 
-            <div class="stats">
-
-                <div class="stat">
-
+                <div>
                     <strong id="modalPlayers">
                         0
                     </strong>
@@ -320,12 +406,9 @@
                     <span>
                         Playing
                     </span>
-
                 </div>
 
-
-                <div class="stat">
-
+                <div>
                     <strong id="modalVisits">
                         0
                     </strong>
@@ -333,18 +416,16 @@
                     <span>
                         Visits
                     </span>
-
                 </div>
 
             </div>
-
 
             <button
                 id="playButton"
                 class="play-button"
                 type="button"
             >
-                ▶ Play on Roblox
+                ▶ Play
             </button>
 
         </div>
