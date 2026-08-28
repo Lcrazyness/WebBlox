@@ -13,35 +13,39 @@
 
 <header class="topbar">
 
-    <div class="brand">
-        <div class="brand-icon">W</div>
-        <span>WebBlox</span>
-    </div>
+    <div class="header-inner">
 
-    <nav class="nav">
-        <button class="nav-btn active" type="button">
-            Discover
-        </button>
+        <div class="brand">
+            <div class="brand-icon">W</div>
+            <span>WebBlox</span>
+        </div>
 
-        <button class="nav-btn" type="button">
-            Favorites
-        </button>
-    </nav>
+        <nav class="nav">
+            <button class="nav-btn active" id="discoverButton">
+                Discover
+            </button>
 
-    <div class="search-box">
+            <button class="nav-btn" id="favoritesButton">
+                Favorites
+            </button>
+        </nav>
 
-        <span class="search-icon">⌕</span>
+        <div class="search-box">
 
-        <input
-            id="searchInput"
-            type="text"
-            placeholder="Search Roblox games"
-            autocomplete="off"
-        >
+            <span class="search-icon">⌕</span>
 
-        <button id="searchButton" type="button">
-            Search
-        </button>
+            <input
+                id="searchInput"
+                type="text"
+                placeholder="Search Roblox games"
+                autocomplete="off"
+            >
+
+            <button id="searchButton" type="button">
+                Search
+            </button>
+
+        </div>
 
     </div>
 
@@ -72,8 +76,7 @@
 
             <button
                 class="hero-button"
-                type="button"
-                onclick="scrollToGames()"
+                id="exploreButton"
             >
                 Explore Games
             </button>
@@ -99,8 +102,7 @@
 
             <button
                 class="clear-button"
-                type="button"
-                onclick="clearSearch()"
+                id="clearButton"
             >
                 Clear
             </button>
@@ -128,8 +130,7 @@
 
             <button
                 class="see-all"
-                type="button"
-                onclick="scrollToPopular()"
+                id="recommendedSeeAll"
             >
                 See All →
             </button>
@@ -165,6 +166,13 @@
                 <p>Roblox experiences players are playing</p>
             </div>
 
+            <button
+                class="see-all"
+                id="popularSeeAll"
+            >
+                See All →
+            </button>
+
         </div>
 
         <div
@@ -178,6 +186,30 @@
             </div>
 
         </div>
+
+    </section>
+
+
+    <!-- FAVORITES -->
+
+    <section
+        id="favoritesSection"
+        class="game-section hidden"
+    >
+
+        <div class="section-header">
+
+            <div>
+                <h2>Your Favorites</h2>
+                <p>Roblox experiences you saved</p>
+            </div>
+
+        </div>
+
+        <div
+            id="favoritesGames"
+            class="game-grid"
+        ></div>
 
     </section>
 
@@ -202,9 +234,8 @@
         </p>
 
         <button
-            onclick="loadHome()"
+            id="retryButton"
             class="retry-button"
-            type="button"
         >
             Try Again
         </button>
@@ -222,26 +253,29 @@
 >
 
     <div
+        id="modalBackdrop"
         class="modal-backdrop"
-        onclick="closeGame()"
     ></div>
 
     <div class="modal-card">
 
         <button
+            id="modalClose"
             class="modal-close"
-            onclick="closeGame()"
-            type="button"
         >
             ×
         </button>
 
-        <img
-            id="modalImage"
-            class="modal-image"
-            src=""
-            alt=""
-        >
+        <div class="modal-image-wrap">
+
+            <img
+                id="modalImage"
+                class="modal-image"
+                src=""
+                alt=""
+            >
+
+        </div>
 
         <div class="modal-content">
 
@@ -281,14 +315,23 @@
                     </span>
                 </div>
 
+                <div class="stat">
+                    <strong id="modalFavorites">
+                        0
+                    </strong>
+
+                    <span>
+                        Favorites
+                    </span>
+                </div>
+
             </div>
 
             <button
                 id="playButton"
                 class="play-button"
-                type="button"
             >
-                Play
+                ▶ Play on Roblox
             </button>
 
         </div>
@@ -297,10 +340,6 @@
 
 </div>
 
-
-<!-- =====================================================
-     WEBBLOX JAVASCRIPT
-     ===================================================== -->
 
 <script src="script.js"></script>
 
