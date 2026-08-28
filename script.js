@@ -1,24 +1,27 @@
 "use strict";
 
 /* ============================================================
-   WebBlox Frontend
+   WEBBLOX
    ============================================================ */
 
 const API_BASE =
     "https://webblox-backend.onrender.com";
 
+
 const API = {
+
     home:
-        API_BASE + "/api/home",
+        `${API_BASE}/api/home`,
 
     popular:
-        API_BASE + "/api/popular",
+        `${API_BASE}/api/popular`,
 
     search:
-        API_BASE + "/api/search",
+        `${API_BASE}/api/search`,
 
     game:
-        API_BASE + "/api/game/"
+        `${API_BASE}/api/game/`
+
 };
 
 
@@ -73,63 +76,256 @@ const errorMessage =
 
 
 /* ============================================================
-   API
+   FAVORITES
+   ============================================================ */
+
+const FAVORITES_KEY =
+    "webblox_favorites";
+
+
+function getFavorites() {
+
+    try {
+
+        const saved =
+            localStorage.getItem(
+                FAVORITES_KEY
+            );
+
+        if (!saved) {
+            return [];
+        }
+
+        const parsed =
+            JSON.parse(saved);
+
+        return Array.isArray(parsed)
+            ? parsed
+            : [];
+
+    } catch {
+
+        return [];
+
+    }
+
+}
+
+
+function saveFavorites(favorites) {
+
+    localStorage.setItem(
+        FAVORITES_KEY,
+        JSON.stringify(
+            favorites
+        )
+    );
+
+}
+
+
+function isFavorite(game) {
+
+    const favorites =
+        getFavorites();
+
+    return favorites.some(
+        item =>
+            String(
+                item.universeId ||
+                item.id
+            ) ===
+            String(
+                game.universeId ||
+                game.id
+            )
+    );
+
+}
+
+
+function toggleFavorite(game) {
+
+    const favorites =
+        getFavorites();
+
+    const id =
+        String(
+            game.universeId ||
+            game.id
+        );
+
+    const index =
+        favorites.findIndex(
+            item =>
+                String(
+                    item.universeId ||
+                    item.id
+                ) === id
+        );
+
+
+    if (index >= 0) {
+
+        favorites.splice(
+            index,
+            1
+        );
+
+    } else {
+
+        favorites.push({
+
+            id:
+                game.id,
+
+            universeId:
+                game.universeId,
+
+            placeId:
+                game.placeId,
+
+            name:
+                game.name,
+
+            creator:
+                game.creator,
+
+            creatorId:
+                game.creatorId,
+
+            thumbnail:
+                game.thumbnail,
+
+            icon:
+                game.icon,
+
+            playing:
+                game.playing,
+
+            visits:
+                game.visits,
+
+            favorites:
+                game.favorites
+
+        });
+
+    }
+
+
+    saveFavorites(
+        favorites
+    );
+
+}
+
+
+/* ============================================================
+   API FETCH
    ============================================================ */
 
 async function apiFetch(url) {
 
     console.log(
-        "[WebBlox] Request:",
+        "[WebBlox] GET:",
         url
     );
 
-    const response =
-        await fetch(url, {
-            method: "GET",
-            headers: {
-                Accept:
-                    "application/json"
-            },
-            cache: "no-store"
-        });
+
+    let response;
+
+    try {
+
+        response =
+            await fetch(
+                url,
+                {
+                    method: "GET",
+
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    },
+
+                    cache:
+                        "no-store"
+                }
+            );
+
+    } catch {
+
+        throw new Error(
+            "Could not connect to the WebBlox backend."
+        );
+
+    }
+
 
     const text =
         await response.text();
 
+
     if (!text) {
+
         throw new Error(
             "The WebBlox backend returned an empty response."
         );
+
     }
+
+
+    if (
+        text
+            .trim()
+            .startsWith("<")
+    ) {
+
+        throw new Error(
+            "The backend returned HTML instead of JSON."
+        );
+
+    }
+
 
     let data;
 
     try {
+
         data =
             JSON.parse(text);
+
     } catch {
+
         throw new Error(
             "The backend returned invalid JSON."
         );
+
     }
 
+
     if (!response.ok) {
+
         throw new Error(
             data.error ||
             `Backend HTTP ${response.status}`
         );
+
     }
 
-    if (
-        data.success === false
-    ) {
+
+    if (data.success === false) {
+
         throw new Error(
             data.error ||
-            "WebBlox returned an error."
+            "The Roblox service returned an error."
         );
+
     }
 
+
     return data;
+
 }
 
 
@@ -141,15 +337,18 @@ async function loadHome() {
 
     hideError();
 
+
     showLoading(
         recommendedContainer,
-        "Loading Roblox experiences..."
+        "Loading Roblox games..."
     );
+
 
     showLoading(
         popularContainer,
-        "Loading Roblox experiences..."
+        "Loading Roblox games..."
     );
+
 
     try {
 
@@ -158,12 +357,14 @@ async function loadHome() {
                 API.home
             );
 
+
         const recommended =
             Array.isArray(
                 data.recommended
             )
                 ? data.recommended
                 : [];
+
 
         const popular =
             Array.isArray(
@@ -172,33 +373,39 @@ async function loadHome() {
                 ? data.popular
                 : [];
 
+
         renderGames(
             recommendedContainer,
             recommended,
-            "No recommended experiences found."
+            "No recommended Roblox experiences were found."
         );
+
 
         renderGames(
             popularContainer,
             popular,
-            "No popular experiences found."
+            "No popular Roblox experiences were found."
         );
 
+
         if (
-            recommended.length === 0 &&
-            popular.length === 0
+            !recommended.length &&
+            !popular.length
         ) {
+
             showError(
-                "Roblox returned no experiences."
+                "The backend is online, but Roblox did not return any experiences."
             );
+
         }
 
     } catch (error) {
 
         console.error(
-            "[WebBlox] Home error:",
+            "[WebBlox] Home:",
             error
         );
+
 
         recommendedContainer.innerHTML =
             "";
@@ -206,10 +413,13 @@ async function loadHome() {
         popularContainer.innerHTML =
             "";
 
+
         showError(
             error.message
         );
+
     }
+
 }
 
 
@@ -226,6 +436,7 @@ function renderGames(
     container.innerHTML =
         "";
 
+
     if (
         !Array.isArray(games) ||
         games.length === 0
@@ -240,35 +451,27 @@ function renderGames(
         `;
 
         return;
+
     }
 
-    for (
-        const game of games
-    ) {
 
-        if (
-            !game ||
-            !game.name ||
-            !game.placeId
-        ) {
-            continue;
+    games.forEach(
+        game => {
+
+            if (!game) {
+                return;
+            }
+
+
+            container.appendChild(
+                createGameCard(
+                    game
+                )
+            );
+
         }
+    );
 
-        container.appendChild(
-            createGameCard(game)
-        );
-    }
-
-    if (
-        container.children.length === 0
-    ) {
-
-        container.innerHTML = `
-            <div class="empty-card">
-                No valid Roblox experiences found.
-            </div>
-        `;
-    }
 }
 
 
@@ -283,12 +486,14 @@ function createGameCard(game) {
             "article"
         );
 
+
     card.className =
         "game-card";
 
-    /*
-     * IMAGE AREA
-     */
+
+    /* ========================================================
+       IMAGE
+       ======================================================== */
 
     const imageWrap =
         document.createElement(
@@ -298,158 +503,355 @@ function createGameCard(game) {
     imageWrap.className =
         "game-image-wrap";
 
+
     const image =
         document.createElement(
             "img"
         );
 
     image.className =
-        "game-image";
+        "game-thumbnail";
+
 
     image.alt =
-        game.name;
+        game.name ||
+        "Roblox experience";
+
 
     image.loading =
         "lazy";
 
-    image.decoding =
-        "async";
 
-    const imageUrl =
-        game.thumbnail ||
-        game.icon;
+    const thumbnail =
+        getBestThumbnail(
+            game
+        );
 
-    if (imageUrl) {
+
+    if (thumbnail) {
 
         image.src =
-            imageUrl;
+            thumbnail;
 
     } else {
 
-        imageWrap.classList.add(
-            "image-failed"
+        setImageFallback(
+            image,
+            imageWrap,
+            game.name
         );
+
     }
+
 
     image.addEventListener(
         "error",
         () => {
 
-            image.style.display =
-                "none";
+            if (
+                image.dataset.failed
+            ) {
+                return;
+            }
 
-            imageWrap.classList.add(
-                "image-failed"
+
+            image.dataset.failed =
+                "true";
+
+
+            setImageFallback(
+                image,
+                imageWrap,
+                game.name
             );
 
         }
     );
+
 
     imageWrap.appendChild(
         image
     );
 
 
-    /*
-     * BODY
-     */
+    /* ========================================================
+       FAVORITE
+       ======================================================== */
+
+    const favorite =
+        document.createElement(
+            "button"
+        );
+
+
+    favorite.type =
+        "button";
+
+
+    favorite.className =
+        "favorite-button";
+
+
+    favorite.title =
+        "Favorite";
+
+
+    updateFavoriteButton(
+        favorite,
+        game
+    );
+
+
+    favorite.addEventListener(
+        "click",
+        event => {
+
+            event.stopPropagation();
+
+
+            toggleFavorite(
+                game
+            );
+
+
+            updateFavoriteButton(
+                favorite,
+                game
+            );
+
+        }
+    );
+
+
+    imageWrap.appendChild(
+        favorite
+    );
+
+
+    /* ========================================================
+       PLAY BUTTON
+       ======================================================== */
+
+    const play =
+        document.createElement(
+            "button"
+        );
+
+
+    play.type =
+        "button";
+
+
+    play.className =
+        "card-play-button";
+
+
+    play.innerHTML =
+        "▶ Play";
+
+
+    play.addEventListener(
+        "click",
+        event => {
+
+            event.stopPropagation();
+
+            playGame(
+                game
+            );
+
+        }
+    );
+
+
+    imageWrap.appendChild(
+        play
+    );
+
+
+    /* ========================================================
+       BODY
+       ======================================================== */
 
     const body =
         document.createElement(
             "div"
         );
 
+
     body.className =
         "game-card-body";
 
 
-    /*
-     * TITLE
-     */
+    /* TITLE */
 
     const title =
         document.createElement(
             "h3"
         );
 
+
     title.className =
         "game-title";
 
+
     title.textContent =
-        game.name;
+        game.name ||
+        "Roblox Experience";
 
 
-    /*
-     * CREATOR
-     */
+    /* CREATOR */
+
+    const creatorRow =
+        document.createElement(
+            "div"
+        );
+
+
+    creatorRow.className =
+        "creator-row";
+
+
+    const creatorAvatar =
+        document.createElement(
+            "div"
+        );
+
+
+    creatorAvatar.className =
+        "creator-avatar";
+
+
+    creatorAvatar.textContent =
+        "R";
+
 
     const creator =
         document.createElement(
             "p"
         );
 
+
     creator.className =
         "game-creator";
+
 
     creator.textContent =
         "By " +
         (
             game.creator ||
-            "Roblox Creator"
+            "Unknown Creator"
         );
 
 
-    /*
-     * STATS
-     */
+    creatorRow.appendChild(
+        creatorAvatar
+    );
+
+
+    creatorRow.appendChild(
+        creator
+    );
+
+
+    /* STATS */
 
     const stats =
         document.createElement(
             "div"
         );
 
+
     stats.className =
         "game-stats";
+
 
     const players =
         document.createElement(
             "span"
         );
 
-    players.textContent =
-        "● " +
-        formatNumber(
+
+    players.innerHTML =
+        `
+        <span class="stat-icon">●</span>
+        ${formatNumber(
             game.playing
-        ) +
-        " playing";
+        )}
+        playing
+        `;
+
 
     const visits =
         document.createElement(
             "span"
         );
 
-    visits.textContent =
-        formatNumber(
+
+    visits.innerHTML =
+        `
+        <span class="stat-icon">◉</span>
+        ${formatNumber(
             game.visits
-        ) +
-        " visits";
+        )}
+        `;
+
 
     stats.appendChild(
         players
     );
+
 
     stats.appendChild(
         visits
     );
 
 
+    /* RATING */
+
+    const rating =
+        getRating(
+            game
+        );
+
+
+    if (
+        rating !== null
+    ) {
+
+        const ratingElement =
+            document.createElement(
+                "span"
+            );
+
+
+        ratingElement.className =
+            "game-rating";
+
+
+        ratingElement.innerHTML =
+            `
+            <span>★</span>
+            ${rating}%
+            `;
+
+
+        stats.appendChild(
+            ratingElement
+        );
+
+    }
+
+
     body.appendChild(
         title
     );
 
+
     body.appendChild(
-        creator
+        creatorRow
     );
+
 
     body.appendChild(
         stats
@@ -460,23 +862,419 @@ function createGameCard(game) {
         imageWrap
     );
 
+
     card.appendChild(
         body
     );
 
 
-    /*
-     * OPEN
-     */
-
     card.addEventListener(
         "click",
         () => {
-            openGame(game);
+
+            openGame(
+                game
+            );
+
         }
     );
 
+
     return card;
+
+}
+
+
+/* ============================================================
+   THUMBNAIL
+   ============================================================ */
+
+function getBestThumbnail(game) {
+
+    const candidates = [
+
+        game.thumbnail,
+
+        game.icon
+
+    ];
+
+
+    for (
+        const candidate
+        of candidates
+    ) {
+
+        if (
+            typeof candidate ===
+                "string" &&
+            candidate.startsWith(
+                "http"
+            )
+        ) {
+
+            return candidate;
+
+        }
+
+    }
+
+
+    return null;
+
+}
+
+
+function setImageFallback(
+    image,
+    wrap,
+    name
+) {
+
+    image.style.display =
+        "none";
+
+
+    wrap.classList.add(
+        "image-failed"
+    );
+
+
+    let fallback =
+        wrap.querySelector(
+            ".thumbnail-fallback"
+        );
+
+
+    if (!fallback) {
+
+        fallback =
+            document.createElement(
+                "div"
+            );
+
+        fallback.className =
+            "thumbnail-fallback";
+
+
+        fallback.textContent =
+            name ||
+            "Roblox";
+
+
+        wrap.appendChild(
+            fallback
+        );
+
+    }
+
+}
+
+
+/* ============================================================
+   FAVORITE BUTTON
+   ============================================================ */
+
+function updateFavoriteButton(
+    button,
+    game
+) {
+
+    const active =
+        isFavorite(
+            game
+        );
+
+
+    button.classList.toggle(
+        "active",
+        active
+    );
+
+
+    button.innerHTML =
+        active
+            ? "★"
+            : "☆";
+
+}
+
+
+/* ============================================================
+   RATING
+   ============================================================ */
+
+function getRating(game) {
+
+    const likes =
+        Number(
+            game.likes || 0
+        );
+
+    const dislikes =
+        Number(
+            game.dislikes || 0
+        );
+
+
+    if (
+        likes <= 0 &&
+        dislikes <= 0
+    ) {
+
+        return null;
+
+    }
+
+
+    const total =
+        likes + dislikes;
+
+
+    if (!total) {
+        return null;
+    }
+
+
+    return Math.round(
+        (
+            likes /
+            total
+        ) *
+        100
+    );
+
+}
+
+
+/* ============================================================
+   OPEN GAME
+   ============================================================ */
+
+function openGame(game) {
+
+    const modal =
+        document.getElementById(
+            "gameModal"
+        );
+
+
+    if (!modal) {
+
+        playGame(
+            game
+        );
+
+        return;
+
+    }
+
+
+    const title =
+        document.getElementById(
+            "modalTitle"
+        );
+
+
+    const creator =
+        document.getElementById(
+            "modalCreator"
+        );
+
+
+    const description =
+        document.getElementById(
+            "modalDescription"
+        );
+
+
+    const players =
+        document.getElementById(
+            "modalPlayers"
+        );
+
+
+    const visits =
+        document.getElementById(
+            "modalVisits"
+        );
+
+
+    const image =
+        document.getElementById(
+            "modalImage"
+        );
+
+
+    if (title) {
+
+        title.textContent =
+            game.name ||
+            "Roblox Experience";
+
+    }
+
+
+    if (creator) {
+
+        creator.textContent =
+            "By " +
+            (
+                game.creator ||
+                "Unknown Creator"
+            );
+
+    }
+
+
+    if (description) {
+
+        description.textContent =
+            game.description ||
+            "No description available.";
+
+    }
+
+
+    if (players) {
+
+        players.textContent =
+            formatNumber(
+                game.playing
+            );
+
+    }
+
+
+    if (visits) {
+
+        visits.textContent =
+            formatNumber(
+                game.visits
+            );
+
+    }
+
+
+    if (image) {
+
+        const thumbnail =
+            getBestThumbnail(
+                game
+            );
+
+
+        image.src =
+            thumbnail ||
+            createPlaceholder(
+                game.name
+            );
+
+
+        image.alt =
+            game.name ||
+            "Roblox experience";
+
+    }
+
+
+    const playButton =
+        document.getElementById(
+            "playButton"
+        );
+
+
+    if (playButton) {
+
+        playButton.onclick =
+            () => {
+
+                playGame(
+                    game
+                );
+
+            };
+
+    }
+
+
+    modal.classList.remove(
+        "hidden"
+    );
+
+
+    document.body.classList.add(
+        "modal-open"
+    );
+
+}
+
+
+/* ============================================================
+   PLAY
+   ============================================================ */
+
+function playGame(game) {
+
+    const placeId =
+        Number(
+            game.placeId || 0
+        );
+
+
+    if (!placeId) {
+
+        alert(
+            "This Roblox experience does not have a valid place ID."
+        );
+
+        return;
+
+    }
+
+
+    const url =
+        "https://www.roblox.com/games/" +
+        encodeURIComponent(
+            placeId
+        );
+
+
+    window.open(
+        url,
+        "_blank",
+        "noopener,noreferrer"
+    );
+
+}
+
+
+/* ============================================================
+   CLOSE GAME
+   ============================================================ */
+
+function closeGame() {
+
+    const modal =
+        document.getElementById(
+            "gameModal"
+        );
+
+
+    if (!modal) {
+        return;
+    }
+
+
+    modal.classList.add(
+        "hidden"
+    );
+
+
+    document.body.classList.remove(
+        "modal-open"
+    );
+
 }
 
 
@@ -489,22 +1287,35 @@ async function searchGames() {
     const query =
         searchInput.value.trim();
 
+
     if (!query) {
+
         clearSearch();
+
         return;
+
     }
+
 
     searchSection.classList.remove(
         "hidden"
     );
 
+
+    searchContainer.innerHTML =
+        `
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <span>
+                Searching Roblox...
+            </span>
+        </div>
+        `;
+
+
     searchStatus.textContent =
         `Searching Roblox for "${query}"...`;
 
-    showLoading(
-        searchContainer,
-        "Searching Roblox..."
-    );
 
     try {
 
@@ -515,8 +1326,12 @@ async function searchGames() {
                 query
             );
 
+
         const data =
-            await apiFetch(url);
+            await apiFetch(
+                url
+            );
+
 
         const games =
             Array.isArray(
@@ -525,10 +1340,14 @@ async function searchGames() {
                 ? data.games
                 : [];
 
+
         searchStatus.textContent =
-            games.length === 1
-                ? "1 experience found"
-                : `${games.length} experiences found`;
+            `${games.length} ${
+                games.length === 1
+                    ? "experience"
+                    : "experiences"
+            } found`;
+
 
         renderGames(
             searchContainer,
@@ -536,160 +1355,40 @@ async function searchGames() {
             "No Roblox experiences matched your search."
         );
 
+
         searchSection.scrollIntoView({
-            behavior:
-                "smooth",
-            block:
-                "start"
+            behavior: "smooth",
+            block: "start"
         });
 
     } catch (error) {
 
         console.error(
-            "[WebBlox] Search error:",
+            "[WebBlox] Search:",
             error
         );
+
 
         searchStatus.textContent =
             "Search failed";
 
-        searchContainer.innerHTML = `
+
+        searchContainer.innerHTML =
+            `
             <div class="empty-card">
                 ${escapeHTML(
                     error.message
                 )}
             </div>
-        `;
+            `;
+
     }
+
 }
 
 
 /* ============================================================
-   GAME MODAL
-   ============================================================ */
-
-function openGame(game) {
-
-    const modal =
-        document.getElementById(
-            "gameModal"
-        );
-
-    document.getElementById(
-        "modalTitle"
-    ).textContent =
-        game.name ||
-        "Roblox Experience";
-
-    document.getElementById(
-        "modalCreator"
-    ).textContent =
-        "By " +
-        (
-            game.creator ||
-            "Roblox Creator"
-        );
-
-    document.getElementById(
-        "modalDescription"
-    ).textContent =
-        game.description ||
-        "No description available.";
-
-    document.getElementById(
-        "modalPlayers"
-    ).textContent =
-        formatNumber(
-            game.playing
-        );
-
-    document.getElementById(
-        "modalVisits"
-    ).textContent =
-        formatNumber(
-            game.visits
-        );
-
-    const modalImage =
-        document.getElementById(
-            "modalImage"
-        );
-
-    modalImage.src =
-        game.thumbnail ||
-        game.icon ||
-        "";
-
-    modalImage.alt =
-        game.name ||
-        "Roblox experience";
-
-    modalImage.onerror =
-        () => {
-            modalImage.style.display =
-                "none";
-        };
-
-
-    const playButton =
-        document.getElementById(
-            "playButton"
-        );
-
-    playButton.onclick =
-        () => {
-
-            if (!game.placeId) {
-                return;
-            }
-
-            /*
-             * Open the REAL Roblox experience.
-             */
-
-            window.open(
-                `https://www.roblox.com/games/${encodeURIComponent(
-                    game.placeId
-                )}`,
-                "_blank",
-                "noopener,noreferrer"
-            );
-        };
-
-
-    modal.classList.remove(
-        "hidden"
-    );
-
-    document.body.classList.add(
-        "modal-open"
-    );
-}
-
-
-/* ============================================================
-   CLOSE
-   ============================================================ */
-
-function closeGame() {
-
-    const modal =
-        document.getElementById(
-            "gameModal"
-        );
-
-    modal.classList.add(
-        "hidden"
-    );
-
-    document.body.classList.remove(
-        "modal-open"
-    );
-}
-
-
-/* ============================================================
-   CLEAR
+   CLEAR SEARCH
    ============================================================ */
 
 function clearSearch() {
@@ -697,15 +1396,19 @@ function clearSearch() {
     searchInput.value =
         "";
 
+
     searchSection.classList.add(
         "hidden"
     );
 
+
     searchContainer.innerHTML =
         "";
 
+
     searchStatus.textContent =
         "";
+
 }
 
 
@@ -715,20 +1418,34 @@ function clearSearch() {
 
 function showError(message) {
 
+    if (!errorSection) {
+        return;
+    }
+
+
     errorMessage.textContent =
         message ||
-        "Roblox could not be reached.";
+        "The Roblox game service could not be reached.";
+
 
     errorSection.classList.remove(
         "hidden"
     );
+
 }
 
+
 function hideError() {
+
+    if (!errorSection) {
+        return;
+    }
+
 
     errorSection.classList.add(
         "hidden"
     );
+
 }
 
 
@@ -741,16 +1458,24 @@ function showLoading(
     message
 ) {
 
-    container.innerHTML = `
+    if (!container) {
+        return;
+    }
+
+
+    container.innerHTML =
+        `
         <div class="loading-card">
             <div class="spinner"></div>
             <span>
                 ${escapeHTML(
-                    message
+                    message ||
+                    "Loading..."
                 )}
             </span>
         </div>
-    `;
+        `;
+
 }
 
 
@@ -763,34 +1488,114 @@ function formatNumber(value) {
     const number =
         Number(value) || 0;
 
-    if (
-        number >= 1_000_000_000
-    ) {
-        return (
-            number /
-            1_000_000_000
-        ).toFixed(1) + "B";
-    }
 
     if (
-        number >= 1_000_000
+        number >= 1000000000
     ) {
+
         return (
             number /
-            1_000_000
-        ).toFixed(1) + "M";
+            1000000000
+        )
+            .toFixed(1)
+            .replace(
+                ".0",
+                ""
+            ) +
+            "B";
+
     }
 
+
     if (
-        number >= 1_000
+        number >= 1000000
     ) {
+
         return (
             number /
-            1_000
-        ).toFixed(1) + "K";
+            1000000
+        )
+            .toFixed(1)
+            .replace(
+                ".0",
+                ""
+            ) +
+            "M";
+
     }
+
+
+    if (
+        number >= 1000
+    ) {
+
+        return (
+            number /
+            1000
+        )
+            .toFixed(1)
+            .replace(
+                ".0",
+                ""
+            ) +
+            "K";
+
+    }
+
 
     return number.toLocaleString();
+
+}
+
+
+/* ============================================================
+   PLACEHOLDER
+   ============================================================ */
+
+function createPlaceholder(name) {
+
+    const safeName =
+        String(
+            name ||
+            "Roblox"
+        )
+            .substring(
+                0,
+                24
+            );
+
+
+    return (
+        "data:image/svg+xml;charset=UTF-8," +
+        encodeURIComponent(
+            `
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="768"
+                height="432"
+            >
+                <rect
+                    width="768"
+                    height="432"
+                    fill="#151519"
+                />
+
+                <text
+                    x="384"
+                    y="216"
+                    text-anchor="middle"
+                    dominant-baseline="middle"
+                    fill="#ffffff"
+                    font-size="30"
+                    font-family="Arial"
+                >
+                    ${safeName}
+                </text>
+            </svg>
+            `
+        )
+    );
+
 }
 
 
@@ -801,26 +1606,32 @@ function formatNumber(value) {
 function escapeHTML(value) {
 
     return String(value)
+
         .replaceAll(
             "&",
             "&amp;"
         )
+
         .replaceAll(
             "<",
             "&lt;"
         )
+
         .replaceAll(
             ">",
             "&gt;"
         )
+
         .replaceAll(
             '"',
             "&quot;"
         )
+
         .replaceAll(
             "'",
             "&#039;"
         );
+
 }
 
 
@@ -835,13 +1646,17 @@ function scrollToGames() {
             ".game-section"
         );
 
+
     if (section) {
+
         section.scrollIntoView({
-            behavior:
-                "smooth"
+            behavior: "smooth"
         });
+
     }
+
 }
+
 
 function scrollToPopular() {
 
@@ -850,12 +1665,15 @@ function scrollToPopular() {
             "popularSection"
         );
 
+
     if (section) {
+
         section.scrollIntoView({
-            behavior:
-                "smooth"
+            behavior: "smooth"
         });
+
     }
+
 }
 
 
@@ -869,7 +1687,9 @@ if (searchButton) {
         "click",
         searchGames
     );
+
 }
+
 
 if (searchInput) {
 
@@ -881,12 +1701,16 @@ if (searchInput) {
                 event.key ===
                 "Enter"
             ) {
+
                 searchGames();
+
             }
 
         }
     );
+
 }
+
 
 document.addEventListener(
     "keydown",
@@ -896,7 +1720,9 @@ document.addEventListener(
             event.key ===
             "Escape"
         ) {
+
             closeGame();
+
         }
 
     }
@@ -908,6 +1734,14 @@ document.addEventListener(
    ============================================================ */
 
 console.log(
+    "===================================="
+);
+
+console.log(
+    "[WebBlox] Starting..."
+);
+
+console.log(
     "[WebBlox] Frontend:",
     window.location.href
 );
@@ -916,5 +1750,18 @@ console.log(
     "[WebBlox] Backend:",
     API_BASE
 );
+
+console.log(
+    "[WebBlox] Phase 1 enabled:"
+);
+
+console.log(
+    "Favorites / Cards / Creator / Stats"
+);
+
+console.log(
+    "===================================="
+);
+
 
 loadHome();
