@@ -1,306 +1,217 @@
-/* ============================================================
-   WebBlox
-   ============================================================ */
+:root {
+  --bg: #f2f2f2;
+  --surface: #ffffff;
+  --surface-hover: #f7f7f7;
+  --text: #191919;
+  --muted: #6b6b6b;
+  --border: #dedede;
+  --accent: #00a2ff;
+  --accent-dark: #0088d8;
+  --radius: 10px;
+}
 
 * {
   box-sizing: border-box;
 }
 
 html {
-  margin: 0;
-  padding: 0;
-  background: #0b0b0d;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  padding: 0;
-  min-height: 100vh;
-
-  background: #0b0b0d;
-  color: #ffffff;
-
+  background: var(--bg);
+  color: var(--text);
   font-family:
-    Inter,
     Arial,
     Helvetica,
     sans-serif;
 }
 
-/* ============================================================
-   HEADER
-   ============================================================ */
-
-header,
-.navbar,
-.topbar {
-  width: 100%;
-
-  background: #0b0b0d;
-
-  border-bottom: 1px solid #252529;
-
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-inner,
-.nav-inner,
-.navbar-inner {
-  width: min(1500px, calc(100% - 40px));
-  margin: auto;
-
-  min-height: 72px;
-
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-/* ============================================================
-   LOGO
-   ============================================================ */
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  font-size: 25px;
-  font-weight: 800;
-
-  color: #ffffff;
-}
-
-.logo-icon {
-  width: 48px;
-  height: 48px;
-
-  border-radius: 12px;
-
-  display: grid;
-  place-items: center;
-
-  background: #08a8ff;
-  color: #ffffff;
-
-  font-size: 30px;
-  font-weight: 900;
-}
-
-/* ============================================================
-   NAVIGATION
-   ============================================================ */
-
-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  margin-left: auto;
-}
-
-nav button,
-nav a,
-.nav-button {
-  border: 0;
-
-  padding: 12px 20px;
-
-  border-radius: 10px;
-
-  background: transparent;
-  color: #a8a8ad;
-
-  font-size: 16px;
-  font-weight: 700;
-
-  cursor: pointer;
-
+a {
+  color: inherit;
   text-decoration: none;
 }
 
-nav button:hover,
-nav a:hover,
-.nav-button:hover {
-  background: #19191d;
-  color: #ffffff;
+button,
+input {
+  font: inherit;
 }
 
-nav .active,
-nav button.active,
-.nav-button.active {
-  background: #202024;
-  color: #ffffff;
+/* HEADER */
+
+header,
+.navbar,
+nav {
+  min-height: 58px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
-/* ============================================================
-   SEARCH
-   ============================================================ */
-
-.search-container {
-  width: min(1500px, calc(100% - 40px));
-
-  margin: 20px auto 30px;
+.navbar-inner,
+.nav-inner {
+  width: min(1400px, 94%);
+  margin: auto;
+  min-height: 58px;
 
   display: flex;
-  gap: 0;
+  align-items: center;
+  gap: 18px;
 }
 
-.search-container input,
-#searchInput {
+.logo {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.logo span {
+  color: var(--accent);
+}
+
+.search-bar {
   flex: 1;
+  max-width: 560px;
 
-  min-width: 0;
+  display: flex;
+  align-items: center;
+}
 
-  height: 60px;
+.search-bar input,
+#search,
+#searchInput {
+  width: 100%;
+  height: 40px;
 
-  padding: 0 20px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
 
-  border: 1px solid #303035;
-  border-right: 0;
+  padding: 0 14px;
 
-  border-radius: 12px 0 0 12px;
-
-  background: #151519;
-  color: #ffffff;
+  background: #fafafa;
+  color: var(--text);
 
   outline: none;
-
-  font-size: 18px;
 }
 
-.search-container input::placeholder,
-#searchInput::placeholder {
-  color: #77777e;
-}
-
-.search-container input:focus,
+.search-bar input:focus,
+#search:focus,
 #searchInput:focus {
-  border-color: #08a8ff;
+  border-color: var(--accent);
+  background: white;
 }
 
-.search-container button,
+.search-button,
 #searchButton {
-  width: 140px;
+  height: 40px;
+  margin-left: 7px;
 
   border: 0;
+  border-radius: 7px;
 
-  border-radius: 0 12px 12px 0;
+  padding: 0 18px;
 
-  background: #08a8ff;
-  color: #ffffff;
+  background: var(--accent);
+  color: white;
 
-  font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
 
   cursor: pointer;
 }
 
-.search-container button:hover,
+.search-button:hover,
 #searchButton:hover {
-  background: #0096e6;
+  background: var(--accent-dark);
 }
 
-/* ============================================================
-   MAIN
-   ============================================================ */
+/* PAGE */
 
 main {
-  width: min(1500px, calc(100% - 40px));
-
+  width: min(1400px, 94%);
   margin: 0 auto;
-  padding-bottom: 80px;
+  padding: 28px 0 60px;
 }
 
 section {
-  margin-bottom: 48px;
+  margin-bottom: 38px;
 }
 
-section h1,
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 15px;
+}
+
+.section-header h2,
 section h2 {
-  margin: 0 0 8px;
+  margin: 0;
 
-  color: #ffffff;
-
-  font-size: 32px;
-  font-weight: 800;
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -0.3px;
 }
 
-section h2 {
-  font-size: 30px;
+.see-all,
+.see-all-btn,
+[data-see-all] {
+  border: 0;
+  background: transparent;
+
+  color: var(--accent);
+
+  font-weight: 700;
+  cursor: pointer;
 }
 
-section p.section-subtitle,
-section > p {
-  margin: 0 0 24px;
+/* GAME GRID */
 
-  color: #9b9ba2;
-
-  font-size: 18px;
-}
-
-/* ============================================================
-   GAME GRID
-   ============================================================ */
-
-.game-grid,
-#recommendedGrid,
-#popularGrid {
+.game-grid {
   display: grid;
 
   grid-template-columns:
     repeat(
       auto-fill,
-      minmax(220px, 1fr)
+      minmax(190px, 1fr)
     );
 
-  gap: 18px;
-
-  width: 100%;
+  gap: 20px;
 }
 
-/* ============================================================
-   GAME CARD
-   ============================================================ */
+/* GAME CARD */
 
 .game-card {
   min-width: 0;
 
+  background: transparent;
+
+  border-radius: var(--radius);
+
   overflow: hidden;
-
-  background: #151519;
-
-  border: 1px solid #29292f;
-
-  border-radius: 13px;
-
-  cursor: pointer;
 
   transition:
     transform 0.15s ease,
-    border-color 0.15s ease,
-    background 0.15s ease;
+    box-shadow 0.15s ease;
 }
 
 .game-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
+}
 
-  border-color: #45454d;
-
-  background: #19191e;
+.game-link {
+  display: block;
 }
 
 .game-image-wrap {
-  position: relative;
-
   width: 100%;
   aspect-ratio: 16 / 9;
 
   overflow: hidden;
 
-  background: #202024;
+  background: #dcdcdc;
+
+  border-radius: var(--radius);
 }
 
 .game-image {
@@ -310,305 +221,167 @@ section > p {
   display: block;
 
   object-fit: cover;
+
+  transition:
+    transform 0.2s ease;
 }
 
-.image-failed::after {
-  content: "No image";
-
-  position: absolute;
-
-  inset: 0;
-
-  display: grid;
-  place-items: center;
-
-  color: #77777e;
-
-  font-size: 14px;
+.game-card:hover .game-image {
+  transform: scale(1.035);
 }
 
-/* ============================================================
-   FAVORITE
-   ============================================================ */
+.game-image-placeholder {
+  width: 100%;
+  height: 100%;
 
-.favorite-button {
-  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  top: 10px;
-  right: 10px;
-
-  width: 38px;
-  height: 38px;
-
-  display: grid;
-  place-items: center;
-
-  border: 0;
-  border-radius: 50%;
-
-  background: rgba(0, 0, 0, 0.75);
-
-  color: #ffffff;
-
-  font-size: 21px;
-
-  cursor: pointer;
-
-  z-index: 5;
+  color: #777;
+  font-size: 13px;
 }
 
-.favorite-button:hover {
-  background: rgba(0, 0, 0, 0.95);
-}
+/* GAME INFO */
 
-/* ============================================================
-   CARD CONTENT
-   ============================================================ */
-
-.game-card-body {
-  padding: 14px;
+.game-info {
+  padding: 9px 2px 0;
 }
 
 .game-title {
-  margin: 0 0 7px;
+  margin: 0 0 4px;
 
-  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 700;
 
   white-space: nowrap;
+  overflow: hidden;
   text-overflow: ellipsis;
-
-  color: #ffffff;
-
-  font-size: 18px;
-  font-weight: 800;
 }
 
 .game-creator {
-  margin: 0 0 18px;
+  color: var(--muted);
 
-  overflow: hidden;
+  font-size: 13px;
 
   white-space: nowrap;
+  overflow: hidden;
   text-overflow: ellipsis;
-
-  color: #9b9ba2;
-
-  font-size: 15px;
 }
 
 .game-stats {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 9px;
 
-  color: #a8a8ae;
+  margin-top: 5px;
 
-  font-size: 14px;
+  color: #777;
+
+  font-size: 12px;
 }
 
-.game-stats span {
-  overflow: hidden;
-
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* ============================================================
-   STATES
-   ============================================================ */
+/* LOADING */
 
 .loading-state,
 .empty-state,
 .error-state {
   width: 100%;
 
-  min-height: 240px;
+  padding: 35px 20px;
 
-  display: flex;
-  flex-direction: column;
+  border-radius: var(--radius);
 
-  align-items: center;
-  justify-content: center;
+  background: var(--surface);
+
+  border: 1px solid var(--border);
 
   text-align: center;
 
-  padding: 30px;
-
-  border: 1px solid #29292f;
-
-  border-radius: 14px;
-
-  background: #151519;
-
-  color: #929299;
+  color: var(--muted);
 }
 
-.loading-state {
-  font-size: 18px;
-}
-
-.empty-state {
-  font-size: 17px;
+.loading-state strong {
+  color: var(--text);
 }
 
 .error-state {
-  border-color: #6e2929;
-
-  color: #ffffff;
+  color: #b42318;
 }
 
-.error-icon {
-  width: 60px;
-  height: 60px;
+/* SEARCH RESULTS */
 
-  display: grid;
-  place-items: center;
-
-  margin-bottom: 18px;
-
-  border-radius: 50%;
-
-  background: #451f1f;
-
-  color: #ff7373;
-
-  font-size: 28px;
-  font-weight: 900;
+.search-results {
+  scroll-margin-top: 80px;
 }
 
-.error-state h2 {
-  margin: 0 0 10px;
+/* STATUS */
 
-  color: #ffffff;
+#status,
+#connection-status {
+  min-height: 20px;
 
-  font-size: 28px;
+  margin: 8px 0;
+
+  color: var(--muted);
+
+  font-size: 13px;
 }
 
-.error-state p {
-  max-width: 650px;
-
-  margin: 0 0 24px;
-
-  color: #a6a6ad;
-
-  font-size: 17px;
-}
-
-.retry-button {
-  padding: 13px 24px;
-
-  border: 0;
-  border-radius: 10px;
-
-  background: #08a8ff;
-  color: #ffffff;
-
-  font-size: 16px;
-  font-weight: 800;
-
-  cursor: pointer;
-}
-
-.retry-button:hover {
-  background: #0096e6;
-}
-
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
+/* RESPONSIVE */
 
 @media (max-width: 900px) {
-  .header-inner,
-  .nav-inner,
-  .navbar-inner {
-    width: calc(100% - 24px);
-  }
-
-  .search-container,
-  main {
-    width: calc(100% - 24px);
-  }
-
-  .logo {
-    font-size: 21px;
-  }
-
-  .logo-icon {
-    width: 42px;
-    height: 42px;
-  }
-
-  nav button,
-  nav a,
-  .nav-button {
-    padding: 9px 12px;
-  }
-
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
+  .game-grid {
     grid-template-columns:
       repeat(
         auto-fill,
-        minmax(190px, 1fr)
+        minmax(160px, 1fr)
       );
+
+    gap: 15px;
   }
 }
 
-@media (max-width: 600px) {
-  .header-inner,
-  .nav-inner,
-  .navbar-inner {
+@media (max-width: 650px) {
+  .navbar-inner,
+  .nav-inner {
     flex-wrap: wrap;
-
-    padding: 12px 0;
+    padding: 9px 0;
   }
 
-  nav {
-    width: 100%;
-
-    margin-left: 0;
+  .search-bar {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
   }
 
-  nav button,
-  nav a,
-  .nav-button {
-    flex: 1;
+  main {
+    width: 92%;
+    padding-top: 20px;
   }
 
-  .search-container {
-    margin-top: 14px;
-  }
-
-  .search-container button,
-  #searchButton {
-    width: 100px;
-  }
-
-  section h1,
-  section h2 {
-    font-size: 25px;
-  }
-
-  .game-grid,
-  #recommendedGrid,
-  #popularGrid {
+  .game-grid {
     grid-template-columns:
       repeat(2, minmax(0, 1fr));
 
-    gap: 10px;
-  }
-
-  .game-card-body {
-    padding: 10px;
+    gap: 12px;
   }
 
   .game-title {
-    font-size: 15px;
+    font-size: 14px;
   }
 
-  .game-creator,
   .game-stats {
-    font-size: 12px;
+    display: block;
+  }
+}
+
+@media (max-width: 390px) {
+  .game-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .game-stats {
+    font-size: 11px;
   }
 }
