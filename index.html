@@ -2,11 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>WebBlox</title>
 
-    <link rel="stylesheet" href="style.css">
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
 </head>
 
 <body>
@@ -21,11 +27,19 @@
         </div>
 
         <nav class="nav">
-            <button class="nav-btn active" id="discoverButton">
+            <button
+                class="nav-btn active"
+                type="button"
+                onclick="showDiscover()"
+            >
                 Discover
             </button>
 
-            <button class="nav-btn" id="favoritesButton">
+            <button
+                class="nav-btn"
+                type="button"
+                onclick="showFavorites()"
+            >
                 Favorites
             </button>
         </nav>
@@ -41,7 +55,10 @@
                 autocomplete="off"
             >
 
-            <button id="searchButton" type="button">
+            <button
+                id="searchButton"
+                type="button"
+            >
                 Search
             </button>
 
@@ -53,8 +70,6 @@
 
 
 <main>
-
-    <!-- HERO -->
 
     <section class="hero">
 
@@ -76,7 +91,8 @@
 
             <button
                 class="hero-button"
-                id="exploreButton"
+                type="button"
+                onclick="scrollToGames()"
             >
                 Explore Games
             </button>
@@ -85,8 +101,6 @@
 
     </section>
 
-
-    <!-- SEARCH RESULTS -->
 
     <section
         id="searchSection"
@@ -102,7 +116,8 @@
 
             <button
                 class="clear-button"
-                id="clearButton"
+                type="button"
+                onclick="clearSearch()"
             >
                 Clear
             </button>
@@ -117,20 +132,25 @@
     </section>
 
 
-    <!-- RECOMMENDED -->
-
-    <section class="game-section">
+    <section
+        id="discoverSection"
+        class="game-section"
+    >
 
         <div class="section-header">
 
             <div>
-                <h2>Recommended For You</h2>
-                <p>Roblox experiences you might enjoy</p>
+                <h2>Popular Right Now</h2>
+
+                <p>
+                    The top-playing Roblox experiences right now
+                </p>
             </div>
 
             <button
                 class="see-all"
-                id="recommendedSeeAll"
+                type="button"
+                onclick="scrollToPopular()"
             >
                 See All →
             </button>
@@ -144,15 +164,15 @@
 
             <div class="loading-card">
                 <div class="spinner"></div>
-                <span>Loading Roblox games...</span>
+                <span>
+                    Loading Roblox charts...
+                </span>
             </div>
 
         </div>
 
     </section>
 
-
-    <!-- POPULAR -->
 
     <section
         id="popularSection"
@@ -162,16 +182,12 @@
         <div class="section-header">
 
             <div>
-                <h2>Popular Right Now</h2>
-                <p>Roblox experiences players are playing</p>
-            </div>
+                <h2>Top Playing Games</h2>
 
-            <button
-                class="see-all"
-                id="popularSeeAll"
-            >
-                See All →
-            </button>
+                <p>
+                    Real Roblox chart data
+                </p>
+            </div>
 
         </div>
 
@@ -182,15 +198,15 @@
 
             <div class="loading-card">
                 <div class="spinner"></div>
-                <span>Loading Roblox games...</span>
+                <span>
+                    Loading Roblox charts...
+                </span>
             </div>
 
         </div>
 
     </section>
 
-
-    <!-- FAVORITES -->
 
     <section
         id="favoritesSection"
@@ -200,8 +216,11 @@
         <div class="section-header">
 
             <div>
-                <h2>Your Favorites</h2>
-                <p>Roblox experiences you saved</p>
+                <h2>Favorites</h2>
+
+                <p>
+                    Your saved WebBlox experiences
+                </p>
             </div>
 
         </div>
@@ -213,8 +232,6 @@
 
     </section>
 
-
-    <!-- ERROR -->
 
     <section
         id="errorSection"
@@ -230,12 +247,13 @@
         </h2>
 
         <p id="errorMessage">
-            WebBlox couldn't reach the Roblox game service.
+            WebBlox couldn't reach Roblox.
         </p>
 
         <button
-            id="retryButton"
+            onclick="loadHome()"
             class="retry-button"
+            type="button"
         >
             Try Again
         </button>
@@ -245,37 +263,32 @@
 </main>
 
 
-<!-- GAME MODAL -->
-
 <div
     id="gameModal"
     class="modal hidden"
 >
 
     <div
-        id="modalBackdrop"
         class="modal-backdrop"
+        onclick="closeGame()"
     ></div>
 
     <div class="modal-card">
 
         <button
-            id="modalClose"
             class="modal-close"
+            onclick="closeGame()"
+            type="button"
         >
             ×
         </button>
 
-        <div class="modal-image-wrap">
-
-            <img
-                id="modalImage"
-                class="modal-image"
-                src=""
-                alt=""
-            >
-
-        </div>
+        <img
+            id="modalImage"
+            class="modal-image"
+            src=""
+            alt=""
+        >
 
         <div class="modal-content">
 
@@ -327,12 +340,25 @@
 
             </div>
 
-            <button
-                id="playButton"
-                class="play-button"
-            >
-                ▶ Play on Roblox
-            </button>
+            <div class="modal-actions">
+
+                <button
+                    id="playButton"
+                    class="play-button"
+                    type="button"
+                >
+                    ▶ Play
+                </button>
+
+                <button
+                    id="favoriteModalButton"
+                    class="favorite-modal-button"
+                    type="button"
+                >
+                    ☆ Favorite
+                </button>
+
+            </div>
 
         </div>
 
