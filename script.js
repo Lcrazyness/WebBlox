@@ -1,124 +1,173 @@
 const API_BASE =
   "https://webblox-backend.onrender.com";
 
-const state = {
-  home: [],
-  search: [],
-  searching: false
-};
+let homeGames = [];
+let searchResults = [];
 
-const $ = selector =>
-  document.querySelector(selector);
+/* ---------------- HELPERS ---------------- */
 
-const escapeHTML = value =>
-  String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
-function formatNumber(number) {
-  const value = Number(number || 0);
-
-  if (value >= 1000000000) {
-    return `${(value / 1000000000).toFixed(1)}B`;
-  }
-
-  if (value >= 1000000) {
-    return `${(value / 1000000).toFixed(1)}M`;
-  }
-
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(1)}K`;
-  }
-
-  return String(value);
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-function gameCard(game) {
-  if (!game || !game.name) {
-    return "";
+function formatNumber(value) {
+  const n = Number(value || 0);
+
+  if (n >= 1000000000) {
+    return (
+      (n / 1000000000)
+        .toFixed(1)
+        .replace(".0", "") +
+      "B"
+    );
   }
 
-  const thumbnail =
-    game.thumbnail ||
-    game.icon ||
-    "";
+  if (n >= 1000000) {
+    return (
+      (n / 1000000)
+        .toFixed(1)
+        .replace(".0", "") +
+      "M"
+    );
+  }
 
-  const url =
-    game.robloxUrl ||
-    `https://www.roblox.com/games/${game.placeId}`;
+  if (n >= 1000) {
+    return (
+      (n / 1000)
+        .toFixed(1)
+        .replace(".0", "") +
+      "K"
+    );
+  }
+
+  return String(n);
+}
+
+/* ---------------- IMAGE ---------------- */
+
+function gameImage(game) {
+  /*
+    Thumbnail is preferred.
+
+    Icon is only used if Roblox didn't provide
+    a thumbnail for this experience.
+  */
+
+  const thumbnail =
+    game.thumbnail || "";
+
+  const icon =
+    game.icon || "";
+
+  if (thumbnail) {
+    return `
+      <img
+        class="game-thumbnail"
+        src="${escapeHTML(thumbnail)}"
+        alt="${escapeHTML(game.name)}"
+        loading="lazy"
+        onerror="
+          this.onerror=null;
+          this.src='${escapeHTML(icon)}';
+        "
+      >
+    `;
+  }
+
+  if (icon) {
+    return `
+      <img
+        class="game-thumbnail"
+        src="${escapeHTML(icon)}"
+        alt="${escapeHTML(game.name)}"
+        loading="lazy"
+      >
+    `;
+  }
 
   return `
-    <article class="game-card"
-      data-game-id="${escapeHTML(game.universeId)}">
-
-      <a
-        class="game-link"
-        href="${escapeHTML(url)}"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-
-        <div class="game-image-wrap">
-          ${
-            thumbnail
-              ? `
-                <img
-                  class="game-image"
-                  src="${escapeHTML(thumbnail)}"
-                  alt="${escapeHTML(game.name)}"
-                  loading="lazy"
-                  onerror="this.onerror=null;this.src='${escapeHTML(
-                    game.icon || ""
-                  )}'"
-                >
-              `
-              : `
-                <div class="game-image-placeholder">
-                  No thumbnail
-                </div>
-              `
-          }
-        </div>
-
-        <div class="game-info">
-
-          <h3 class="game-title">
-            ${escapeHTML(game.name)}
-          </h3>
-
-          <div class="game-creator">
-            ${
-              game.creator
-                ? `By ${escapeHTML(game.creator)}`
-                : "Roblox experience"
-            }
-          </div>
-
-          <div class="game-stats">
-            <span>
-              ${formatNumber(game.playing)} playing
-            </span>
-
-            <span>
-              ${formatNumber(game.favorites)} favorites
-            </span>
-          </div>
-
-        </div>
-
-      </a>
-
-    </article>
+    <div class="thumbnail-missing">
+      <span>ROBLOX</span>
+    </div>
   `;
 }
 
-function renderGames(container, games) {
-  if (!container) return;
+/* ---------------- CARD ---------------- */
 
-  const validGames =
+function createGameCard(game) {
+  if (
+    !game ||
+    !game.name ||
+    !game.placeId ||
+    !game.robloxUrl
+  ) {
+    return "";
+  }
+
+  return `
+    <a
+      class="game-card"
+      href="${escapeHTML(game.robloxUrl)}"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+
+      <div class="game-thumbnail-container">
+        ${gameImage(game)}
+      </div>
+
+      <div class="game-card-body">
+
+        <div
+          class="game-name"
+          title="${escapeHTML(game.name)}"
+        >
+          ${escapeHTML(game.name)}
+        </div>
+
+        <div class="game-creator">
+          ${
+            game.creator
+              ? `By ${escapeHTML(game.creator)}`
+              : "Roblox"
+          }
+        </div>
+
+        <div class="game-stats">
+
+          <span>
+            ${formatNumber(game.playing)}
+            playing
+          </span>
+
+          <span>•</span>
+
+          <span>
+            ${formatNumber(game.visits)}
+            visits
+          </span>
+
+        </div>
+
+      </div>
+
+    </a>
+  `;
+}
+
+/* ---------------- RENDER ---------------- */
+
+function renderGames(container, games) {
+  if (!container) {
+    return;
+  }
+
+  const valid =
     Array.isArray(games)
       ? games.filter(
           game =>
@@ -129,9 +178,9 @@ function renderGames(container, games) {
         )
       : [];
 
-  if (!validGames.length) {
+  if (!valid.length) {
     container.innerHTML = `
-      <div class="empty-state">
+      <div class="no-games">
         No Roblox experiences found.
       </div>
     `;
@@ -139,42 +188,59 @@ function renderGames(container, games) {
   }
 
   container.innerHTML =
-    validGames
-      .map(gameCard)
+    valid
+      .map(createGameCard)
       .join("");
 }
 
-function findGameContainers() {
-  return {
-    popular:
-      $("#popular-games") ||
-      $("#popularGames") ||
-      document.querySelector(
-        '[data-section="popular"]'
-      ),
+/* ---------------- CONTAINERS ---------------- */
 
-    recommended:
-      $("#recommended-games") ||
-      $("#recommendedGames") ||
-      document.querySelector(
-        '[data-section="recommended"]'
-      ),
-
-    search:
-      $("#search-results") ||
-      $("#searchResults") ||
-      document.querySelector(
-        '[data-section="search"]'
-      )
-  };
+function getPopularContainer() {
+  return (
+    document.querySelector(
+      "#popular-games"
+    ) ||
+    document.querySelector(
+      "#popularGames"
+    ) ||
+    document.querySelector(
+      '[data-section="popular"]'
+    )
+  );
 }
 
-async function loadHome() {
-  const containers =
-    findGameContainers();
+function getRecommendedContainer() {
+  return (
+    document.querySelector(
+      "#recommended-games"
+    ) ||
+    document.querySelector(
+      "#recommendedGames"
+    ) ||
+    document.querySelector(
+      '[data-section="recommended"]'
+    )
+  );
+}
 
+function getSearchContainer() {
+  return (
+    document.querySelector(
+      "#search-results"
+    ) ||
+    document.querySelector(
+      "#searchResults"
+    )
+  );
+}
+
+/* ---------------- HOME ---------------- */
+
+async function loadHome() {
   try {
-    setStatus("Loading Roblox experiences...");
+    console.log(
+      "Connecting to Roblox..."
+    );
 
     const response =
       await fetch(
@@ -195,35 +261,35 @@ async function loadHome() {
 
     if (!data.success) {
       throw new Error(
-        data.error || "Backend error"
+        data.error ||
+        "Backend returned an error"
       );
     }
 
-    state.home = [
+    homeGames = [
       ...(data.popular || []),
       ...(data.recommended || [])
     ];
 
-    if (containers.popular) {
-      renderGames(
-        containers.popular,
-        data.popular || []
-      );
-    }
+    renderGames(
+      getPopularContainer(),
+      data.popular || []
+    );
 
-    if (containers.recommended) {
-      renderGames(
-        containers.recommended,
-        data.recommended || []
-      );
-    }
-
-    setStatus("");
+    renderGames(
+      getRecommendedContainer(),
+      data.recommended || []
+    );
 
     console.log(
-      "WebBlox loaded Roblox games:",
-      state.home
+      "Roblox games loaded:",
+      homeGames
     );
+
+    setStatus(
+      "Connected to Roblox"
+    );
+
   } catch (error) {
     console.error(
       "WebBlox home error:",
@@ -231,36 +297,36 @@ async function loadHome() {
     );
 
     setStatus(
-      "Could not load Roblox experiences."
+      "Unable to connect to Roblox"
     );
   }
 }
 
-async function searchRoblox(query) {
-  const cleanQuery =
-    String(query || "").trim();
+/* ---------------- SEARCH ---------------- */
 
-  if (!cleanQuery) {
+async function searchGames(query) {
+  query =
+    String(query || "")
+      .trim();
+
+  if (!query) {
     return;
   }
 
-  if (state.searching) {
+  const container =
+    getSearchContainer();
+
+  if (!container) {
+    console.error(
+      "Search results container missing."
+    );
     return;
   }
 
-  state.searching = true;
-
-  const containers =
-    findGameContainers();
-
-  const searchContainer =
-    containers.search ||
-    createSearchContainer();
-
-  searchContainer.innerHTML = `
-    <div class="loading-state">
+  container.innerHTML = `
+    <div class="search-loading">
       Searching Roblox for
-      <strong>${escapeHTML(cleanQuery)}</strong>...
+      <strong>${escapeHTML(query)}</strong>...
     </div>
   `;
 
@@ -268,7 +334,7 @@ async function searchRoblox(query) {
     const response =
       await fetch(
         `${API_BASE}/api/search?q=${encodeURIComponent(
-          cleanQuery
+          query
         )}`,
         {
           cache: "no-store"
@@ -291,92 +357,61 @@ async function searchRoblox(query) {
       );
     }
 
-    state.search =
-      Array.isArray(data.games)
-        ? data.games
-        : [];
+    searchResults =
+      data.games || [];
 
     renderGames(
-      searchContainer,
-      state.search
+      container,
+      searchResults
     );
 
-    searchContainer.scrollIntoView({
+    container.parentElement?.scrollIntoView({
       behavior: "smooth",
       block: "start"
     });
 
     console.log(
-      `Roblox search "${cleanQuery}":`,
-      state.search
+      `Roblox search: ${query}`,
+      searchResults
     );
+
   } catch (error) {
     console.error(
-      "Roblox search error:",
+      "Search failed:",
       error
     );
 
-    searchContainer.innerHTML = `
-      <div class="error-state">
-        Roblox search failed.
-        Please try again.
+    container.innerHTML = `
+      <div class="search-error">
+        Search failed. Try again.
       </div>
     `;
-  } finally {
-    state.searching = false;
   }
 }
 
-function createSearchContainer() {
-  let container =
-    document.querySelector(
-      "#search-results"
-    );
-
-  if (container) {
-    return container;
-  }
-
-  container =
-    document.createElement("section");
-
-  container.id =
-    "search-results";
-
-  container.className =
-    "game-grid search-results";
-
-  const main =
-    document.querySelector("main") ||
-    document.body;
-
-  main.appendChild(container);
-
-  return container;
-}
-
-function setStatus(message) {
-  const status =
-    $("#status") ||
-    $("#connection-status");
-
-  if (status) {
-    status.textContent = message;
-  }
-}
+/* ---------------- SEARCH UI ---------------- */
 
 function setupSearch() {
   const input =
-    $("#search") ||
-    $("#searchInput") ||
+    document.querySelector(
+      "#search"
+    ) ||
+    document.querySelector(
+      "#searchInput"
+    ) ||
+    document.querySelector(
+      ".search-input"
+    ) ||
     document.querySelector(
       'input[type="search"]'
     );
 
   const button =
-    $("#searchButton") ||
     document.querySelector(
-      '[data-action="search"]'
+      "#searchButton"
+    ) ||
+    document.querySelector(
+      ".search-button"
     );
 
   if (!input) {
@@ -386,16 +421,20 @@ function setupSearch() {
     return;
   }
 
-  function runSearch() {
-    searchRoblox(input.value);
-  }
+  const run = () => {
+    searchGames(
+      input.value
+    );
+  };
 
   input.addEventListener(
     "keydown",
     event => {
-      if (event.key === "Enter") {
+      if (
+        event.key === "Enter"
+      ) {
         event.preventDefault();
-        runSearch();
+        run();
       }
     }
   );
@@ -403,15 +442,17 @@ function setupSearch() {
   if (button) {
     button.addEventListener(
       "click",
-      runSearch
+      run
     );
   }
 }
 
-function setupSeeAllButtons() {
+/* ---------------- SEE ALL ---------------- */
+
+function setupSeeAll() {
   document
     .querySelectorAll(
-      '[data-see-all], .see-all, .see-all-btn'
+      ".see-all, .see-all-btn, [data-see-all]"
     )
     .forEach(button => {
       button.addEventListener(
@@ -419,15 +460,21 @@ function setupSeeAllButtons() {
         event => {
           event.preventDefault();
 
-          const popular =
-            state.home.filter(Boolean);
-
           const container =
-            createSearchContainer();
+            getSearchContainer();
+
+          if (!container) {
+            return;
+          }
+
+          /*
+            "See All" displays every real game
+            currently returned by the backend.
+          */
 
           renderGames(
             container,
-            popular
+            homeGames
           );
 
           container.scrollIntoView({
@@ -438,13 +485,29 @@ function setupSeeAllButtons() {
     });
 }
 
+/* ---------------- STATUS ---------------- */
+
+function setStatus(text) {
+  const status =
+    document.querySelector(
+      "#status"
+    ) ||
+    document.querySelector(
+      "#connection-status"
+    );
+
+  if (status) {
+    status.textContent = text;
+  }
+}
+
+/* ---------------- START ---------------- */
+
 document.addEventListener(
   "DOMContentLoaded",
-  async () => {
+  () => {
     setupSearch();
-
-    setupSeeAllButtons();
-
-    await loadHome();
+    setupSeeAll();
+    loadHome();
   }
 );
