@@ -1,30 +1,33 @@
 /*
  * WebBlox Studio
- * Complete Studio controller
+ * Stage 3A
  *
- * Stage 3:
- * - Real 3D WebGL viewport
- * - Real editor camera
- * - Correct WASD editor movement
- * - Q/W/E/R Studio shortcuts
- * - Object selection
- * - Move / Scale / Rotate tools
- * - Grid / Snap
- * - Real Play Test
- * - Player system
- * - Player collisions
- * - Gravity
- * - Jumping
- * - Sprinting
- * - First person / third person
- * - Mouse wheel zoom
- * - Bacon-hair style R15 player
- * - Basic R15-style animations
- * - SpawnLocation support
- * - leaderstats support
- * - Script objects
- * - Save / Load
- * - Publish title validation
+ * COMPLETE STUDIO CONTROLLER
+ *
+ * Added:
+ * - Player runtime loading
+ * - Player Play/Stop integration
+ * - Correct WASD camera controls
+ * - RMB camera navigation
+ * - Q = Select
+ * - W = Move
+ * - E = Rotate
+ * - R = Scale
+ * - F = Focus selected object
+ * - Ctrl+D = Duplicate
+ * - Delete = Delete
+ * - Ctrl+Z = Undo
+ * - Ctrl+Y / Ctrl+Shift+Z = Redo
+ * - Escape = clear selection
+ * - Viewport dragging
+ * - Move tool
+ * - Scale tool
+ * - Rotate tool
+ * - Smoother camera
+ * - Player runtime collision support
+ *
+ * FILE MUST REMAIN:
+ * studio/studio.js
  */
 
 (() => {
@@ -45,16 +48,15 @@
         snapEnabled: true,
 
         camera: {
+            yaw: 35,
+            pitch: -25,
+            distance: 24,
+
             target: {
                 x: 0,
                 y: 0,
                 z: 0
             },
-
-            yaw: 35,
-            pitch: -20,
-
-            distance: 24,
 
             minDistance: 3,
             maxDistance: 200
@@ -66,7 +68,13 @@
             down: false,
             button: 0,
             lastX: 0,
-            lastY: 0
+            lastY: 0,
+
+            draggingObject: false,
+            dragStartX: 0,
+            dragStartY: 0,
+
+            objectStart: null
         },
 
         history: [],
@@ -111,43 +119,22 @@
 
     const selectionBox = $("selectionBox");
 
-    const oldWorld = $("world");
-    const oldWelcome = $("viewportWelcome");
-    const oldDefaultPart = $("defaultPart");
-
 
     // ============================================================
     // REMOVE OLD FAKE VIEWPORT
     // ============================================================
 
-    function removeOldViewport() {
+    [
+        $("world"),
+        $("viewportWelcome"),
+        $("defaultPart")
+    ].forEach(element => {
+        if (!element) return;
 
-        [
-            oldWorld,
-            oldWelcome,
-            oldDefaultPart
-        ].forEach(element => {
-
-            if (!element) {
-                return;
-            }
-
-            element.style.display = "none";
-            element.style.visibility = "hidden";
-            element.style.pointerEvents = "none";
-        });
-
-        if (selectionBox) {
-            selectionBox.style.display = "none";
-        }
-
-        const crosshair = $("viewportCrosshair");
-
-        if (crosshair) {
-            crosshair.style.zIndex = "30";
-            crosshair.style.pointerEvents = "none";
-        }
-    }
+        element.style.display = "none";
+        element.style.visibility = "hidden";
+        element.style.pointerEvents = "none";
+    });
 
 
     // ============================================================
@@ -159,29 +146,19 @@
     let renderer = null;
     let scene = null;
     let camera = null;
+    let canvas = null;
 
     let raycaster = null;
     let mouseVector = null;
-
-    let canvas = null;
 
     let gridHelper = null;
 
     let ambientLight = null;
     let directionalLight = null;
 
-    const meshes = new Map();
-
     let threeReady = false;
 
-
-    // ============================================================
-    // PLAYER
-    // ============================================================
-
-    let playerSystem = null;
-
-    let playerModuleLoading = null;
+    const meshes = new Map();
 
 
     // ============================================================
@@ -194,7 +171,6 @@
 
 
     function snap(value, amount = 1) {
-
         if (!state.snapEnabled) {
             return value;
         }
@@ -204,7 +180,6 @@
 
 
     function makeId(prefix = "object") {
-
         return (
             prefix +
             "_" +
@@ -218,7 +193,6 @@
 
 
     function escapeHTML(value) {
-
         return String(value ?? "")
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
@@ -229,21 +203,14 @@
 
 
     function cloneObject(object) {
-
-        return JSON.parse(
-            JSON.stringify(object)
-        );
+        return JSON.parse(JSON.stringify(object));
     }
 
 
     function log(message, type = "info") {
+        if (!outputConsole) return;
 
-        if (!outputConsole) {
-            return;
-        }
-
-        const line =
-            document.createElement("div");
+        const line = document.createElement("div");
 
         line.className =
             `console-line console-${type}`;
@@ -265,34 +232,24 @@
 
 
     function showToast(message) {
+        const container = $("toastContainer");
 
-        const container =
-            $("toastContainer");
+        if (!container) return;
 
-        if (!container) {
-            return;
-        }
-
-        const toast =
-            document.createElement("div");
+        const toast = document.createElement("div");
 
         toast.className = "toast";
-
         toast.textContent = message;
 
         container.appendChild(toast);
 
         setTimeout(() => {
-
-            toast.classList.add(
-                "toast-hide"
-            );
+            toast.classList.add("toast-hide");
 
             setTimeout(
                 () => toast.remove(),
                 250
             );
-
         }, 2500);
     }
 
@@ -302,242 +259,187 @@
     // ============================================================
 
     function loadThree() {
+        return new Promise((resolve, reject) => {
 
-        return new Promise(
-            (resolve, reject) => {
+            if (window.THREE) {
+                THREE = window.THREE;
+                resolve();
+                return;
+            }
 
-                if (window.THREE) {
+            const existing =
+                document.querySelector(
+                    "script[data-webblox-three]"
+                );
 
-                    THREE = window.THREE;
+            if (existing) {
 
-                    resolve();
-
-                    return;
-                }
-
-                const existing =
-                    document.querySelector(
-                        "script[data-webblox-three]"
-                    );
-
-                if (existing) {
-
-                    existing.addEventListener(
-                        "load",
-                        () => {
-
-                            if (window.THREE) {
-
-                                THREE =
-                                    window.THREE;
-
-                                resolve();
-
-                            } else {
-
-                                reject(
-                                    new Error(
-                                        "Three.js failed to load."
-                                    )
-                                );
-                            }
-                        }
-                    );
-
-                    existing.addEventListener(
-                        "error",
-                        () => {
-
+                existing.addEventListener(
+                    "load",
+                    () => {
+                        if (window.THREE) {
+                            THREE = window.THREE;
+                            resolve();
+                        } else {
                             reject(
                                 new Error(
-                                    "Three.js failed to load."
+                                    "Three.js unavailable."
                                 )
                             );
                         }
+                    },
+                    { once: true }
+                );
+
+                existing.addEventListener(
+                    "error",
+                    () => {
+                        reject(
+                            new Error(
+                                "Three.js failed to load."
+                            )
+                        );
+                    },
+                    { once: true }
+                );
+
+                return;
+            }
+
+            const script =
+                document.createElement("script");
+
+            script.src =
+                "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
+
+            script.dataset.webbloxThree = "true";
+
+            script.onload = () => {
+                if (!window.THREE) {
+                    reject(
+                        new Error(
+                            "Three.js loaded but unavailable."
+                        )
                     );
 
                     return;
                 }
 
-                const script =
-                    document.createElement(
-                        "script"
-                    );
+                THREE = window.THREE;
+                resolve();
+            };
 
-                script.src =
-                    "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
-
-                script.dataset.webbloxThree =
-                    "true";
-
-                script.onload = () => {
-
-                    if (!window.THREE) {
-
-                        reject(
-                            new Error(
-                                "Three.js loaded but unavailable."
-                            )
-                        );
-
-                        return;
-                    }
-
-                    THREE =
-                        window.THREE;
-
-                    resolve();
-                };
-
-                script.onerror = () => {
-
-                    reject(
-                        new Error(
-                            "Unable to load Three.js."
-                        )
-                    );
-                };
-
-                document.head.appendChild(
-                    script
+            script.onerror = () => {
+                reject(
+                    new Error(
+                        "Unable to load Three.js."
+                    )
                 );
-            }
-        );
+            };
+
+            document.head.appendChild(script);
+        });
     }
 
 
     // ============================================================
-    // PLAYER MODULE LOADER
+    // PLAYER RUNTIME LOADER
     // ============================================================
 
-    function loadPlayerModule() {
+    function loadPlayerRuntime() {
+        return new Promise((resolve, reject) => {
 
-        if (playerSystem) {
-            return Promise.resolve(
-                playerSystem
-            );
-        }
+            if (
+                window.WebBloxPlayer &&
+                typeof window.WebBloxPlayer.start === "function"
+            ) {
+                resolve(window.WebBloxPlayer);
+                return;
+            }
 
-        if (playerModuleLoading) {
-            return playerModuleLoading;
-        }
+            const existing =
+                document.querySelector(
+                    "script[data-webblox-player]"
+                );
 
-        playerModuleLoading =
-            new Promise(
-                (resolve, reject) => {
+            if (existing) {
+
+                const finish = () => {
 
                     if (
-                        window.WebBloxPlayer
+                        window.WebBloxPlayer &&
+                        typeof window.WebBloxPlayer.start === "function"
                     ) {
-
-                        playerSystem =
-                            window.WebBloxPlayer;
-
                         resolve(
-                            playerSystem
-                        );
-
-                        return;
-                    }
-
-                    const existing =
-                        document.querySelector(
-                            "script[data-webblox-player]"
-                        );
-
-                    if (existing) {
-
-                        existing.addEventListener(
-                            "load",
-                            () => {
-
-                                if (
-                                    window.WebBloxPlayer
-                                ) {
-
-                                    playerSystem =
-                                        window.WebBloxPlayer;
-
-                                    resolve(
-                                        playerSystem
-                                    );
-
-                                } else {
-
-                                    reject(
-                                        new Error(
-                                            "Player module loaded but WebBloxPlayer was not found."
-                                        )
-                                    );
-                                }
-                            }
-                        );
-
-                        existing.addEventListener(
-                            "error",
-                            () => {
-
-                                reject(
-                                    new Error(
-                                        "Player module failed to load."
-                                    )
-                                );
-                            }
-                        );
-
-                        return;
-                    }
-
-                    const script =
-                        document.createElement(
-                            "script"
-                        );
-
-                    script.src =
-                        "./Player/player.js";
-
-                    script.dataset.webbloxPlayer =
-                        "true";
-
-                    script.onload = () => {
-
-                        if (
                             window.WebBloxPlayer
-                        ) {
-
-                            playerSystem =
-                                window.WebBloxPlayer;
-
-                            resolve(
-                                playerSystem
-                            );
-
-                        } else {
-
-                            reject(
-                                new Error(
-                                    "Player system was not exported."
-                                )
-                            );
-                        }
-                    };
-
-                    script.onerror = () => {
-
+                        );
+                    } else {
                         reject(
                             new Error(
-                                "Unable to load ./Player/player.js"
+                                "Player/player.js loaded but WebBloxPlayer was not created."
                             )
                         );
-                    };
+                    }
+                };
 
-                    document.head.appendChild(
-                        script
+                existing.addEventListener(
+                    "load",
+                    finish,
+                    { once: true }
+                );
+
+                existing.addEventListener(
+                    "error",
+                    () => {
+                        reject(
+                            new Error(
+                                "Player/player.js failed to load."
+                            )
+                        );
+                    },
+                    { once: true }
+                );
+
+                return;
+            }
+
+            const script =
+                document.createElement("script");
+
+            script.src =
+                "../Player/player.js";
+
+            script.dataset.webbloxPlayer =
+                "true";
+
+            script.onload = () => {
+
+                if (
+                    window.WebBloxPlayer &&
+                    typeof window.WebBloxPlayer.start === "function"
+                ) {
+                    resolve(
+                        window.WebBloxPlayer
+                    );
+                } else {
+                    reject(
+                        new Error(
+                            "Player/player.js loaded but WebBloxPlayer was not created."
+                        )
                     );
                 }
-            );
+            };
 
-        return playerModuleLoading;
+            script.onerror = () => {
+                reject(
+                    new Error(
+                        "Could not load ../Player/player.js"
+                    )
+                );
+            };
+
+            document.head.appendChild(script);
+        });
     }
 
 
@@ -578,39 +480,21 @@
                 "Part",
 
             position: {
-                x: Number(
-                    data.position?.x ?? 0
-                ),
-                y: Number(
-                    data.position?.y ?? 0
-                ),
-                z: Number(
-                    data.position?.z ?? 0
-                )
+                x: Number(data.position?.x ?? 0),
+                y: Number(data.position?.y ?? 0),
+                z: Number(data.position?.z ?? 0)
             },
 
             rotation: {
-                x: Number(
-                    data.rotation?.x ?? 0
-                ),
-                y: Number(
-                    data.rotation?.y ?? 0
-                ),
-                z: Number(
-                    data.rotation?.z ?? 0
-                )
+                x: Number(data.rotation?.x ?? 0),
+                y: Number(data.rotation?.y ?? 0),
+                z: Number(data.rotation?.z ?? 0)
             },
 
             size: {
-                x: Number(
-                    data.size?.x ?? 4
-                ),
-                y: Number(
-                    data.size?.y ?? 1
-                ),
-                z: Number(
-                    data.size?.z ?? 4
-                )
+                x: Number(data.size?.x ?? 4),
+                y: Number(data.size?.y ?? 1),
+                z: Number(data.size?.z ?? 4)
             },
 
             color:
@@ -656,43 +540,35 @@
         state.objects.clear();
 
         createObject({
-
             id: "defaultPart",
-
             name: "Part",
-
             type: "Part",
 
             position: {
                 x: 0,
-                y: 0,
+                y: -1,
                 z: 0
             },
 
             size: {
-                x: 40,
+                x: 20,
                 y: 1,
-                z: 40
+                z: 20
             },
 
             color: "#808080",
-
             anchored: true,
-
             canCollide: true
         });
 
         createObject({
-
             id: "spawn",
-
-            name: "SpawnLocation",
-
+            name: "Spawn",
             type: "SpawnLocation",
 
             position: {
                 x: 0,
-                y: 1,
+                y: 0,
                 z: 0
             },
 
@@ -703,9 +579,7 @@
             },
 
             color: "#22c55e",
-
             anchored: true,
-
             canCollide: true
         });
 
@@ -719,56 +593,38 @@
 
     function getMaterial(object) {
 
-        const color =
-            new THREE.Color(
-                object.color || "#808080"
-            );
-
         const params = {
-
-            color,
+            color: new THREE.Color(
+                object.color || "#808080"
+            ),
 
             roughness: 0.8,
-
             metalness: 0
         };
 
         switch (object.material) {
 
             case "SmoothPlastic":
-
                 params.roughness = 0.35;
-
                 break;
 
             case "Metal":
-
                 params.roughness = 0.25;
-
                 params.metalness = 0.85;
-
                 break;
 
             case "Glass":
-
                 params.transparent = true;
-
                 params.opacity = 0.45;
-
                 params.roughness = 0.1;
-
                 break;
 
             case "Wood":
-
                 params.roughness = 0.9;
-
                 break;
 
             case "Concrete":
-
                 params.roughness = 1;
-
                 break;
         }
 
@@ -779,14 +635,12 @@
 
 
     // ============================================================
-    // CREATE 3D MESH
+    // CREATE MESH
     // ============================================================
 
     function createMeshForObject(object) {
 
-        if (!threeReady) {
-            return null;
-        }
+        if (!threeReady) return null;
 
         let root;
 
@@ -805,55 +659,47 @@
             const material =
                 getMaterial(object);
 
-            const mesh =
+            root =
                 new THREE.Mesh(
                     geometry,
                     material
                 );
 
-            mesh.castShadow =
+            root.castShadow =
                 object.castShadow;
 
-            mesh.receiveShadow = true;
-
-            root = mesh;
+            root.receiveShadow = true;
 
             if (
-                object.type ===
-                "SpawnLocation"
+                object.type === "SpawnLocation"
             ) {
 
-                const spawnMaterial =
+                const arrowMaterial =
                     new THREE.MeshStandardMaterial({
                         color: "#22c55e",
-                        roughness: 0.45,
-                        metalness: 0.05
+                        roughness: 0.45
                     });
 
-                mesh.material =
-                    spawnMaterial;
-
-                const arrowGeometry =
-                    new THREE.ConeGeometry(
-                        0.45,
-                        1.4,
-                        4
-                    );
+                root.material =
+                    arrowMaterial;
 
                 const arrow =
                     new THREE.Mesh(
-                        arrowGeometry,
-                        spawnMaterial
+                        new THREE.ConeGeometry(
+                            0.45,
+                            1.4,
+                            4
+                        ),
+                        arrowMaterial
                     );
 
                 arrow.position.y =
-                    object.size.y / 2 +
-                    0.8;
+                    object.size.y / 2 + 0.8;
 
                 arrow.rotation.x =
                     Math.PI;
 
-                mesh.add(arrow);
+                root.add(arrow);
             }
         }
 
@@ -878,7 +724,6 @@
                 );
 
             body.position.y = 1.5;
-
             body.castShadow = true;
 
             root.add(body);
@@ -894,14 +739,12 @@
                 );
 
             head.position.y = 3.9;
-
             head.castShadow = true;
 
             root.add(head);
         }
 
         else {
-
             root =
                 new THREE.Group();
         }
@@ -943,52 +786,12 @@
 
 
     // ============================================================
-    // DISPOSE
-    // ============================================================
-
-    function disposeMesh(mesh) {
-
-        if (!mesh) {
-            return;
-        }
-
-        mesh.traverse(child => {
-
-            if (child.geometry) {
-                child.geometry.dispose();
-            }
-
-            if (child.material) {
-
-                if (
-                    Array.isArray(
-                        child.material
-                    )
-                ) {
-
-                    child.material.forEach(
-                        material =>
-                            material.dispose()
-                    );
-
-                } else {
-
-                    child.material.dispose();
-                }
-            }
-        });
-    }
-
-
-    // ============================================================
     // RENDER OBJECT
     // ============================================================
 
     function renderObject(object) {
 
-        if (!threeReady) {
-            return;
-        }
+        if (!threeReady) return;
 
         const old =
             meshes.get(object.id);
@@ -999,21 +802,36 @@
                 old.parent.remove(old);
             }
 
-            disposeMesh(old);
+            old.traverse(child => {
 
-            meshes.delete(
-                object.id
-            );
+                if (child.geometry) {
+                    child.geometry.dispose();
+                }
+
+                if (child.material) {
+
+                    if (
+                        Array.isArray(
+                            child.material
+                        )
+                    ) {
+                        child.material.forEach(
+                            material =>
+                                material.dispose()
+                        );
+                    } else {
+                        child.material.dispose();
+                    }
+                }
+            });
+
+            meshes.delete(object.id);
         }
 
         const mesh =
-            createMeshForObject(
-                object
-            );
+            createMeshForObject(object);
 
-        if (!mesh) {
-            return;
-        }
+        if (!mesh) return;
 
         scene.add(mesh);
 
@@ -1022,21 +840,13 @@
             mesh
         );
 
-        updateMeshSelection(
-            object
-        );
+        updateMeshSelection(object);
     }
 
 
-    // ============================================================
-    // RENDER WORLD
-    // ============================================================
-
     function renderWorld() {
 
-        if (!threeReady) {
-            return;
-        }
+        if (!threeReady) return;
 
         for (
             const mesh
@@ -1046,8 +856,6 @@
             if (mesh.parent) {
                 mesh.parent.remove(mesh);
             }
-
-            disposeMesh(mesh);
         }
 
         meshes.clear();
@@ -1056,23 +864,14 @@
             const object
             of state.objects.values()
         ) {
-
-            renderObject(
-                object
-            );
+            renderObject(object);
         }
 
         updateSelectionVisual();
-
         updateGrid();
-
         updateCameraStatus();
     }
 
-
-    // ============================================================
-    // UPDATE MESH
-    // ============================================================
 
     function updateMeshFromObject(object) {
 
@@ -1080,23 +879,7 @@
             meshes.get(object.id);
 
         if (!mesh) {
-
-            renderObject(
-                object
-            );
-
-            return;
-        }
-
-        if (
-            object.type === "Part" ||
-            object.type === "SpawnLocation"
-        ) {
-
-            renderObject(
-                object
-            );
-
+            renderObject(object);
             return;
         }
 
@@ -1127,16 +910,18 @@
                 object.size.y,
                 object.size.z / 4
             );
+
+        } else {
+
+            renderObject(object);
         }
 
-        updateMeshSelection(
-            object
-        );
+        updateMeshSelection(object);
     }
 
 
     // ============================================================
-    // SELECTION VISUAL
+    // SELECTION
     // ============================================================
 
     function updateMeshSelection(object) {
@@ -1144,31 +929,28 @@
         const mesh =
             meshes.get(object.id);
 
-        if (!mesh) {
-            return;
-        }
+        if (!mesh) return;
 
         mesh.traverse(child => {
 
             if (
-                child.isMesh &&
-                child.material
+                !child.isMesh ||
+                !child.material
             ) {
-
-                child.material.emissive =
-                    new THREE.Color(
-                        state.selectedId ===
-                            object.id
-                            ? "#3b82f6"
-                            : "#000000"
-                    );
-
-                child.material.emissiveIntensity =
-                    state.selectedId ===
-                        object.id
-                        ? 0.35
-                        : 0;
+                return;
             }
+
+            child.material.emissive =
+                new THREE.Color(
+                    state.selectedId === object.id
+                        ? "#3b82f6"
+                        : "#000000"
+                );
+
+            child.material.emissiveIntensity =
+                state.selectedId === object.id
+                    ? 0.35
+                    : 0;
         });
     }
 
@@ -1179,10 +961,42 @@
             const object
             of state.objects.values()
         ) {
+            updateMeshSelection(object);
+        }
+    }
 
-            updateMeshSelection(
-                object
-            );
+
+    function selectObject(id) {
+
+        const object =
+            state.objects.get(id);
+
+        if (!object) return;
+
+        state.selectedId = id;
+
+        updateSelectionVisual();
+        updateProperties();
+        updateExplorerSelection();
+
+        if (studioMessage) {
+            studioMessage.textContent =
+                `Selected ${object.name}`;
+        }
+    }
+
+
+    function clearSelection() {
+
+        state.selectedId = null;
+
+        updateSelectionVisual();
+        updateProperties();
+        updateExplorerSelection();
+
+        if (studioMessage) {
+            studioMessage.textContent =
+                "Nothing selected";
         }
     }
 
@@ -1193,34 +1007,23 @@
 
     function createGrid() {
 
-        if (!threeReady) {
-            return;
-        }
+        if (!threeReady) return;
 
         if (gridHelper) {
-
-            scene.remove(
-                gridHelper
-            );
-
-            gridHelper =
-                null;
+            scene.remove(gridHelper);
         }
 
         gridHelper =
             new THREE.GridHelper(
-                400,
-                400,
+                200,
+                200,
                 0x555555,
                 0x252525
             );
 
-        gridHelper.position.y =
-            -0.51;
+        gridHelper.position.y = -0.51;
 
-        scene.add(
-            gridHelper
-        );
+        scene.add(gridHelper);
 
         updateGrid();
     }
@@ -1228,238 +1031,15 @@
 
     function updateGrid() {
 
-        if (!gridHelper) {
-            return;
-        }
-
-        gridHelper.visible =
-            state.gridEnabled;
-    }
-
-
-    // ============================================================
-    // THREE INITIALIZATION
-    // ============================================================
-
-    async function initialize3D() {
-
-        if (!viewport) {
-            return;
-        }
-
-        try {
-
-            await loadThree();
-
-            scene =
-                new THREE.Scene();
-
-            scene.background =
-                new THREE.Color(
-                    "#171717"
-                );
-
-            camera =
-                new THREE.PerspectiveCamera(
-                    60,
-                    1,
-                    0.1,
-                    2000
-                );
-
-            renderer =
-                new THREE.WebGLRenderer({
-                    antialias: true,
-                    alpha: false
-                });
-
-            renderer.setPixelRatio(
-                Math.min(
-                    window.devicePixelRatio || 1,
-                    2
-                )
-            );
-
-            renderer.shadowMap.enabled =
-                true;
-
-            renderer.shadowMap.type =
-                THREE.PCFSoftShadowMap;
-
-            renderer.outputColorSpace =
-                THREE.SRGBColorSpace;
-
-            canvas =
-                renderer.domElement;
-
-            canvas.id =
-                "webblox3DCanvas";
-
-            canvas.style.position =
-                "absolute";
-
-            canvas.style.inset = "0";
-
-            canvas.style.width =
-                "100%";
-
-            canvas.style.height =
-                "100%";
-
-            canvas.style.display =
-                "block";
-
-            canvas.style.zIndex =
-                "20";
-
-            viewport.appendChild(
-                canvas
-            );
-
-            removeOldViewport();
-
-            ambientLight =
-                new THREE.HemisphereLight(
-                    0xffffff,
-                    0x333333,
-                    1.8
-                );
-
-            scene.add(
-                ambientLight
-            );
-
-            directionalLight =
-                new THREE.DirectionalLight(
-                    0xffffff,
-                    2.5
-                );
-
-            directionalLight.position.set(
-                25,
-                40,
-                20
-            );
-
-            directionalLight.castShadow =
-                true;
-
-            directionalLight.shadow.mapSize.width =
-                2048;
-
-            directionalLight.shadow.mapSize.height =
-                2048;
-
-            scene.add(
-                directionalLight
-            );
-
-            raycaster =
-                new THREE.Raycaster();
-
-            mouseVector =
-                new THREE.Vector2();
-
-            threeReady = true;
-
-            createGrid();
-
-            setup3DInput();
-
-            resizeRenderer();
-
-            window.addEventListener(
-                "resize",
-                resizeRenderer
-            );
-
-            renderWorld();
-
-            updateCamera();
-
-            animate();
-
-            log(
-                "Real 3D WebGL viewport initialized."
-            );
-
-            log(
-                "Editor WASD controls enabled."
-            );
-
-            log(
-                "Q = Select, W = Move, E = Scale, R = Rotate."
-            );
-
-            log(
-                "Middle/right mouse rotates the editor camera."
-            );
-
-            log(
-                "Mouse wheel zooms the editor camera."
-            );
-
-            return true;
-
-        } catch (error) {
-
-            console.error(
-                "[WebBlox] 3D initialization failed:",
-                error
-            );
-
-            log(
-                "3D renderer failed to initialize.",
-                "error"
-            );
-
-            return false;
+        if (gridHelper) {
+            gridHelper.visible =
+                state.gridEnabled;
         }
     }
 
 
     // ============================================================
-    // RESIZE
-    // ============================================================
-
-    function resizeRenderer() {
-
-        if (
-            !renderer ||
-            !camera ||
-            !viewport
-        ) {
-            return;
-        }
-
-        const width =
-            viewport.clientWidth;
-
-        const height =
-            viewport.clientHeight;
-
-        if (
-            width <= 0 ||
-            height <= 0
-        ) {
-            return;
-        }
-
-        renderer.setSize(
-            width,
-            height,
-            false
-        );
-
-        camera.aspect =
-            width / height;
-
-        camera.updateProjectionMatrix();
-    }
-
-
-    // ============================================================
-    // EDITOR CAMERA
+    // CAMERA
     // ============================================================
 
     function updateCamera() {
@@ -1488,22 +1068,17 @@
             state.camera.target;
 
         const horizontal =
-            Math.cos(pitch) *
-            distance;
+            Math.cos(pitch) * distance;
 
         camera.position.set(
-
             target.x +
-                Math.sin(yaw) *
-                horizontal,
+                Math.sin(yaw) * horizontal,
 
             target.y -
-                Math.sin(pitch) *
-                distance,
+                Math.sin(pitch) * distance,
 
             target.z +
-                Math.cos(yaw) *
-                horizontal
+                Math.cos(yaw) * horizontal
         );
 
         camera.lookAt(
@@ -1518,18 +1093,12 @@
 
     function updateCameraStatus() {
 
-        if (!viewportCoordinates) {
-            return;
-        }
+        if (!viewportCoordinates) return;
 
         const p =
             camera
                 ? camera.position
-                : {
-                    x: 0,
-                    y: 0,
-                    z: 0
-                };
+                : state.camera.target;
 
         viewportCoordinates.textContent =
             `X: ${Math.round(p.x)} ` +
@@ -1540,12 +1109,14 @@
 
     function resetCamera() {
 
-        state.camera.target.x = 0;
-        state.camera.target.y = 0;
-        state.camera.target.z = 0;
+        state.camera.target = {
+            x: 0,
+            y: 0,
+            z: 0
+        };
 
         state.camera.yaw = 35;
-        state.camera.pitch = -20;
+        state.camera.pitch = -25;
         state.camera.distance = 24;
 
         updateCamera();
@@ -1554,79 +1125,81 @@
     }
 
 
-    function setPerspective() {
+    function focusSelected() {
 
-        if (!camera) {
-            return;
-        }
+        const object =
+            state.objects.get(
+                state.selectedId
+            );
 
-        camera.fov = 60;
+        if (!object) return;
 
-        camera.updateProjectionMatrix();
+        state.camera.target.x =
+            object.position.x;
 
-        if (viewportMode) {
-            viewportMode.textContent =
-                "Perspective";
-        }
-    }
+        state.camera.target.y =
+            object.position.y;
 
+        state.camera.target.z =
+            object.position.z;
 
-    function setTopCamera() {
-
-        state.camera.yaw = 0;
-
-        state.camera.pitch = -89;
-
-        state.camera.distance = 30;
+        state.camera.distance =
+            Math.max(
+                8,
+                Math.max(
+                    object.size.x,
+                    object.size.y,
+                    object.size.z
+                ) * 4
+            );
 
         updateCamera();
 
-        if (viewportMode) {
-            viewportMode.textContent =
-                "Top";
-        }
-
-        log("Top camera enabled.");
+        log(
+            `Focused "${object.name}".`
+        );
     }
 
 
     // ============================================================
-    // EDITOR CAMERA MOVEMENT
+    // CAMERA MOVEMENT
     // ============================================================
 
     function updateMovement(delta) {
 
-        if (!threeReady) {
-            return;
-        }
-
-        if (state.playing) {
-            return;
-        }
-
-        const active =
-            document.activeElement;
+        /*
+         * WASD camera movement happens while
+         * holding RMB, like a normal 3D editor.
+         *
+         * This also prevents W from fighting
+         * with the W = Move shortcut.
+         */
 
         if (
-            active &&
+            state.mouse.button !== 2 ||
+            !state.mouse.down
+        ) {
+            return;
+        }
+
+        if (
+            document.activeElement &&
             (
-                active.tagName === "INPUT" ||
-                active.tagName === "TEXTAREA" ||
-                active.tagName === "SELECT"
+                document.activeElement.tagName === "INPUT" ||
+                document.activeElement.tagName === "TEXTAREA" ||
+                document.activeElement.tagName === "SELECT"
             )
         ) {
             return;
         }
 
-        if (
-            state.mouse.down
-        ) {
-            return;
-        }
+        const speed =
+            state.keys.has("shift")
+                ? 40
+                : 18;
 
         let forward = 0;
         let right = 0;
-        let vertical = 0;
 
         if (
             state.keys.has("w") ||
@@ -1656,16 +1229,8 @@
             right -= 1;
         }
 
-        if (
-            state.keys.has("e")
-        ) {
-            vertical += 1;
-        }
-
-        if (
-            state.keys.has("q")
-        ) {
-            vertical -= 1;
+        if (!forward && !right) {
+            return;
         }
 
         const length =
@@ -1674,75 +1239,42 @@
                 right
             );
 
-        if (
-            !length &&
-            !vertical
-        ) {
-            return;
-        }
-
-        if (length) {
-
-            forward /= length;
-            right /= length;
-        }
-
-        const speed =
-            state.keys.has("shift")
-                ? 45
-                : 20;
-
-        const amount =
-            speed * delta;
+        forward /= length;
+        right /= length;
 
         const yaw =
             THREE.MathUtils.degToRad(
                 state.camera.yaw
             );
 
+        const amount =
+            speed * delta;
+
         /*
-         * Roblox Studio-style camera:
-         *
-         * W = forward
-         * S = backward
-         * A = left
-         * D = right
+         * Correct forward/right directions.
          */
 
         state.camera.target.x +=
             (
-                Math.sin(yaw) *
-                    forward +
-                Math.cos(yaw) *
-                    right
+                Math.sin(yaw) * forward +
+                Math.cos(yaw) * right
             ) * amount;
 
         state.camera.target.z +=
             (
-                Math.cos(yaw) *
-                    forward -
-                Math.sin(yaw) *
-                    right
+                Math.cos(yaw) * forward -
+                Math.sin(yaw) * right
             ) * amount;
-
-        state.camera.target.y +=
-            vertical * amount;
 
         updateCamera();
     }
 
 
     // ============================================================
-    // EDITOR CAMERA MOUSE
+    // MOUSE CAMERA
     // ============================================================
 
     function onPointerDown(event) {
-
-        if (
-            state.playing
-        ) {
-            return;
-        }
 
         if (
             event.button !== 1 &&
@@ -1754,9 +1286,7 @@
         event.preventDefault();
 
         state.mouse.down = true;
-
-        state.mouse.button =
-            event.button;
+        state.mouse.button = event.button;
 
         state.mouse.lastX =
             event.clientX;
@@ -1773,10 +1303,7 @@
 
     function onPointerMove(event) {
 
-        if (
-            state.playing ||
-            !state.mouse.down
-        ) {
+        if (!state.mouse.down) {
             return;
         }
 
@@ -1793,6 +1320,10 @@
 
         state.mouse.lastY =
             event.clientY;
+
+        /*
+         * RMB/Middle mouse rotates.
+         */
 
         state.camera.yaw -=
             dx * 0.35;
@@ -1814,33 +1345,30 @@
     function onPointerUp() {
 
         state.mouse.down = false;
+        state.mouse.button = 0;
+
+        state.mouse.draggingObject = false;
+        state.mouse.objectStart = null;
 
         if (canvas) {
             canvas.style.cursor =
-                state.playing
-                    ? "default"
-                    : "default";
+                "default";
         }
     }
 
 
     function handleWheel(event) {
 
-        if (state.playing) {
-            return;
-        }
-
         event.preventDefault();
-
-        const amount =
-            event.deltaY > 0
-                ? 2
-                : -2;
 
         state.camera.distance =
             clamp(
                 state.camera.distance +
-                    amount,
+                    (
+                        event.deltaY > 0
+                            ? 2
+                            : -2
+                    ),
                 state.camera.minDistance,
                 state.camera.maxDistance
             );
@@ -1853,22 +1381,14 @@
     // VIEWPORT SELECTION
     // ============================================================
 
-    function selectFromViewport(event) {
+    function getObjectFromViewport(event) {
 
         if (
             !raycaster ||
             !camera ||
             !canvas
         ) {
-            return;
-        }
-
-        if (
-            state.playing ||
-            event.button !== 0 ||
-            state.tool !== "select"
-        ) {
-            return;
+            return null;
         }
 
         const rect =
@@ -1909,16 +1429,11 @@
             );
 
         if (!hits.length) {
-
-            clearSelection();
-
-            return;
+            return null;
         }
 
         let current =
             hits[0].object;
-
-        let id = null;
 
         while (current) {
 
@@ -1926,32 +1441,244 @@
                 current.userData &&
                 current.userData.objectId
             ) {
-
-                id =
-                    current.userData.objectId;
-
-                break;
+                return current.userData.objectId;
             }
 
             current =
                 current.parent;
         }
 
-        if (id) {
-            selectObject(id);
+        return null;
+    }
+
+
+    function selectFromViewport(event) {
+
+        if (
+            state.tool !== "select" &&
+            state.tool !== "move" &&
+            state.tool !== "scale" &&
+            state.tool !== "rotate"
+        ) {
+            return;
+        }
+
+        if (event.button !== 0) {
+            return;
+        }
+
+        const id =
+            getObjectFromViewport(event);
+
+        if (!id) {
+
+            if (state.tool === "select") {
+                clearSelection();
+            }
+
+            return;
+        }
+
+        selectObject(id);
+
+        if (
+            state.tool !== "select"
+        ) {
+            beginTransform(event);
         }
     }
 
 
     // ============================================================
-    // INPUT
+    // TRANSFORM SYSTEM
+    // ============================================================
+
+    function beginTransform(event) {
+
+        const object =
+            state.objects.get(
+                state.selectedId
+            );
+
+        if (!object) return;
+
+        saveHistory();
+
+        state.mouse.draggingObject = true;
+
+        state.mouse.dragStartX =
+            event.clientX;
+
+        state.mouse.dragStartY =
+            event.clientY;
+
+        state.mouse.objectStart =
+            cloneObject(object);
+
+        if (canvas) {
+            canvas.style.cursor =
+                "grabbing";
+        }
+    }
+
+
+    function transformSelected(event) {
+
+        if (
+            !state.mouse.draggingObject
+        ) {
+            return;
+        }
+
+        const object =
+            state.objects.get(
+                state.selectedId
+            );
+
+        const start =
+            state.mouse.objectStart;
+
+        if (!object || !start) {
+            return;
+        }
+
+        const dx =
+            event.clientX -
+            state.mouse.dragStartX;
+
+        const dy =
+            event.clientY -
+            state.mouse.dragStartY;
+
+        const amount =
+            0.025 *
+            (
+                state.camera.distance / 10
+            );
+
+        if (
+            state.tool === "move"
+        ) {
+
+            const yaw =
+                THREE.MathUtils.degToRad(
+                    state.camera.yaw
+                );
+
+            object.position.x =
+                start.position.x +
+                (
+                    Math.cos(yaw) * dx -
+                    Math.sin(yaw) * dy
+                ) * amount;
+
+            object.position.z =
+                start.position.z +
+                (
+                    -Math.sin(yaw) * dx -
+                    Math.cos(yaw) * dy
+                ) * amount;
+
+            if (state.snapEnabled) {
+                object.position.x =
+                    snap(object.position.x);
+
+                object.position.z =
+                    snap(object.position.z);
+            }
+        }
+
+        else if (
+            state.tool === "scale"
+        ) {
+
+            const change =
+                (dx - dy) * 0.02;
+
+            object.size.x =
+                Math.max(
+                    0.1,
+                    start.size.x + change
+                );
+
+            object.size.y =
+                Math.max(
+                    0.1,
+                    start.size.y + change
+                );
+
+            object.size.z =
+                Math.max(
+                    0.1,
+                    start.size.z + change
+                );
+
+            if (state.snapEnabled) {
+
+                object.size.x =
+                    Math.max(
+                        0.1,
+                        snap(object.size.x, 0.5)
+                    );
+
+                object.size.y =
+                    Math.max(
+                        0.1,
+                        snap(object.size.y, 0.5)
+                    );
+
+                object.size.z =
+                    Math.max(
+                        0.1,
+                        snap(object.size.z, 0.5)
+                    );
+            }
+        }
+
+        else if (
+            state.tool === "rotate"
+        ) {
+
+            object.rotation.y =
+                start.rotation.y +
+                dx * 0.5;
+
+            object.rotation.x =
+                start.rotation.x -
+                dy * 0.25;
+
+            if (state.snapEnabled) {
+
+                object.rotation.y =
+                    snap(
+                        object.rotation.y,
+                        15
+                    );
+
+                object.rotation.x =
+                    snap(
+                        object.rotation.x,
+                        15
+                    );
+            }
+        }
+
+        updateMeshFromObject(object);
+        updateProperties();
+
+        state.game.saved = false;
+
+        updateGameStatus();
+    }
+
+
+    // ============================================================
+    // 3D INPUT
     // ============================================================
 
     function setup3DInput() {
 
-        if (!canvas) {
-            return;
-        }
+        if (!canvas) return;
 
         canvas.addEventListener(
             "pointerdown",
@@ -1960,26 +1687,44 @@
                 if (
                     event.button === 0
                 ) {
-
-                    selectFromViewport(
-                        event
-                    );
+                    selectFromViewport(event);
                 }
 
-                onPointerDown(
-                    event
-                );
+                onPointerDown(event);
             }
         );
 
         canvas.addEventListener(
             "pointermove",
-            onPointerMove
+            event => {
+
+                if (
+                    state.mouse.draggingObject
+                ) {
+                    transformSelected(event);
+                    return;
+                }
+
+                onPointerMove(event);
+            }
         );
 
         window.addEventListener(
             "pointerup",
-            onPointerUp
+            event => {
+
+                if (
+                    state.mouse.draggingObject
+                ) {
+                    state.mouse.draggingObject =
+                        false;
+
+                    state.mouse.objectStart =
+                        null;
+                }
+
+                onPointerUp(event);
+            }
         );
 
         canvas.addEventListener(
@@ -2005,7 +1750,7 @@
     let lastFrame =
         performance.now();
 
-    function animate(now = performance.now()) {
+    function animate(now) {
 
         requestAnimationFrame(
             animate
@@ -2013,35 +1758,19 @@
 
         const delta =
             Math.min(
-                (now - lastFrame) /
-                    1000,
+                (now - lastFrame) / 1000,
                 0.1
             );
 
         lastFrame = now;
 
-        if (!state.playing) {
-            updateMovement(delta);
-        }
-
-        if (
-            playerSystem &&
-            state.playing &&
-            typeof playerSystem.update ===
-                "function"
-        ) {
-
-            playerSystem.update(
-                delta
-            );
-        }
+        updateMovement(delta);
 
         if (
             renderer &&
             scene &&
             camera
         ) {
-
             renderer.render(
                 scene,
                 camera
@@ -2051,75 +1780,7 @@
 
 
     // ============================================================
-    // SELECTION
-    // ============================================================
-
-    function selectObject(id) {
-
-        if (state.playing) {
-            return;
-        }
-
-        const object =
-            state.objects.get(id);
-
-        if (!object) {
-            return;
-        }
-
-        state.selectedId = id;
-
-        updateSelectionVisual();
-
-        updateProperties();
-
-        updateExplorerSelection();
-
-        if (studioMessage) {
-
-            studioMessage.textContent =
-                `Selected ${object.name}`;
-        }
-
-        if (viewportMode) {
-
-            viewportMode.textContent =
-                "Select";
-        }
-    }
-
-
-    function clearSelection() {
-
-        state.selectedId = null;
-
-        updateSelectionVisual();
-
-        updateProperties();
-
-        updateExplorerSelection();
-
-        if (studioMessage) {
-            studioMessage.textContent =
-                "Nothing selected";
-        }
-    }
-
-
-    function updateSelectionBox() {
-
-        if (!selectionBox) {
-            return;
-        }
-
-        selectionBox.classList.add(
-            "hidden"
-        );
-    }
-
-
-    // ============================================================
-    // EXPLORER ICONS
+    // EXPLORER
     // ============================================================
 
     function getObjectIcon(type) {
@@ -2147,15 +1808,9 @@
     }
 
 
-    // ============================================================
-    // EXPLORER
-    // ============================================================
-
     function updateExplorer() {
 
-        if (!workspaceChildren) {
-            return;
-        }
+        if (!workspaceChildren) return;
 
         workspaceChildren
             .querySelectorAll(
@@ -2172,9 +1827,7 @@
         ) {
 
             const item =
-                document.createElement(
-                    "div"
-                );
+                document.createElement("div");
 
             item.className =
                 "tree-item";
@@ -2190,15 +1843,13 @@
 
             item.innerHTML = `
                 <span class="tree-spacer"></span>
+
                 <span class="tree-icon">
-                    ${getObjectIcon(
-                        object.type
-                    )}
+                    ${getObjectIcon(object.type)}
                 </span>
+
                 <span class="tree-name">
-                    ${escapeHTML(
-                        object.name
-                    )}
+                    ${escapeHTML(object.name)}
                 </span>
             `;
 
@@ -2214,9 +1865,7 @@
                 }
             );
 
-            workspaceChildren.appendChild(
-                item
-            );
+            workspaceChildren.appendChild(item);
         }
 
         updateExplorerSelection();
@@ -2251,16 +1900,7 @@
                 const id =
                     item.dataset.objectId;
 
-                if (
-                    !id ||
-                    id === "workspace" ||
-                    id === "camera" ||
-                    id === "lighting" ||
-                    id === "starterPlayer" ||
-                    id === "starterGui"
-                ) {
-                    return;
-                }
+                if (!id) return;
 
                 item.addEventListener(
                     "click",
@@ -2269,10 +1909,7 @@
                         if (
                             state.objects.has(id)
                         ) {
-
-                            selectObject(
-                                id
-                            );
+                            selectObject(id);
                         }
                     }
                 );
@@ -2294,13 +1931,11 @@
                         )
                         .forEach(item => {
 
-                            const name =
-                                item.textContent
-                                    .toLowerCase();
-
                             item.style.display =
                                 !query ||
-                                name.includes(query)
+                                item.textContent
+                                    .toLowerCase()
+                                    .includes(query)
                                     ? ""
                                     : "none";
                         });
@@ -2317,11 +1952,9 @@
 
         const input = $(id);
 
-        if (!input) {
-            return;
+        if (input) {
+            input.value = value;
         }
-
-        input.value = value;
     }
 
 
@@ -2329,11 +1962,9 @@
 
         const input = $(id);
 
-        if (!input) {
-            return;
+        if (input) {
+            input.checked = Boolean(value);
         }
-
-        input.checked = Boolean(value);
     }
 
 
@@ -2379,9 +2010,7 @@
 
         if (selectedObjectIcon) {
             selectedObjectIcon.textContent =
-                getObjectIcon(
-                    object.type
-                );
+                getObjectIcon(object.type);
         }
 
         setInput(
@@ -2464,6 +2093,29 @@
     }
 
 
+    function setObjectProperty(
+        object,
+        property,
+        value
+    ) {
+
+        const parts =
+            property.split(".");
+
+        if (parts.length === 1) {
+            object[parts[0]] = value;
+            return;
+        }
+
+        if (!object[parts[0]]) {
+            object[parts[0]] = {};
+        }
+
+        object[parts[0]][parts[1]] =
+            value;
+    }
+
+
     function setupProperties() {
 
         document
@@ -2481,9 +2133,7 @@
                                 state.selectedId
                             );
 
-                        if (!object) {
-                            return;
-                        }
+                        if (!object) return;
 
                         saveHistory();
 
@@ -2491,14 +2141,10 @@
                             input.dataset.property;
 
                         const value =
-                            input.type ===
-                                "checkbox"
+                            input.type === "checkbox"
                                 ? input.checked
-                                : input.type ===
-                                    "number"
-                                    ? Number(
-                                        input.value
-                                    )
+                                : input.type === "number"
+                                    ? Number(input.value)
                                     : input.value;
 
                         setObjectProperty(
@@ -2507,16 +2153,15 @@
                             value
                         );
 
-                        state.game.saved =
-                            false;
-
                         updateMeshFromObject(
                             object
                         );
 
                         updateProperties();
-
                         updateExplorer();
+
+                        state.game.saved =
+                            false;
 
                         updateGameStatus();
                     }
@@ -2525,34 +2170,8 @@
     }
 
 
-    function setObjectProperty(
-        object,
-        property,
-        value
-    ) {
-
-        const parts =
-            property.split(".");
-
-        if (parts.length === 1) {
-
-            object[parts[0]] =
-                value;
-
-            return;
-        }
-
-        if (!object[parts[0]]) {
-            object[parts[0]] = {};
-        }
-
-        object[parts[0]][parts[1]] =
-            value;
-    }
-
-
     // ============================================================
-    // INSERT OBJECT
+    // INSERT
     // ============================================================
 
     function insertObject(type = "Part") {
@@ -2565,32 +2184,19 @@
         const object =
             createObject({
 
-                id:
-                    makeId(
-                        type.toLowerCase()
-                    ),
-
                 type,
 
                 name:
-                    type ===
-                        "SpawnLocation"
+                    type === "SpawnLocation"
                         ? "SpawnLocation"
                         : type,
 
                 position: {
-
-                    x:
-                        snap(
-                            count * 2
-                        ),
-
+                    x: snap(count * 2),
                     y:
-                        type ===
-                            "SpawnLocation"
+                        type === "SpawnLocation"
                             ? 1
                             : 0,
-
                     z: 0
                 },
 
@@ -2604,29 +2210,24 @@
                         : {
                             x: 4,
                             y:
-                                type ===
-                                    "SpawnLocation"
+                                type === "SpawnLocation"
                                     ? 1
                                     : 1,
                             z: 4
                         },
 
                 color:
-                    type ===
-                        "SpawnLocation"
+                    type === "SpawnLocation"
                         ? "#22c55e"
                         : "#808080"
             });
 
         if (type === "Script") {
-
             object.script =
-                "-- WebBlox Luau\n\n" +
-                "print(\"Hello from WebBlox!\")\n";
+                "-- WebBlox Luau\n\n";
         }
 
         if (type === "Folder") {
-
             object.size = {
                 x: 1,
                 y: 1,
@@ -2636,14 +2237,11 @@
 
         renderObject(object);
 
-        selectObject(
-            object.id
-        );
+        selectObject(object.id);
 
         updateExplorer();
 
-        state.game.saved =
-            false;
+        state.game.saved = false;
 
         updateGameStatus();
 
@@ -2661,45 +2259,28 @@
 
     function deleteSelected() {
 
-        if (state.playing) {
-            return;
-        }
-
         const object =
             state.objects.get(
                 state.selectedId
             );
 
-        if (!object) {
-            return;
-        }
+        if (!object) return;
 
         saveHistory();
 
         const mesh =
-            meshes.get(
-                object.id
-            );
+            meshes.get(object.id);
 
         if (mesh) {
-
             scene.remove(mesh);
-
-            disposeMesh(mesh);
-
-            meshes.delete(
-                object.id
-            );
+            meshes.delete(object.id);
         }
 
-        state.objects.delete(
-            object.id
-        );
+        state.objects.delete(object.id);
 
         state.selectedId = null;
 
         updateExplorer();
-
         updateProperties();
 
         state.game.saved = false;
@@ -2718,25 +2299,17 @@
 
     function duplicateSelected() {
 
-        if (state.playing) {
-            return;
-        }
-
         const object =
             state.objects.get(
                 state.selectedId
             );
 
-        if (!object) {
-            return;
-        }
+        if (!object) return;
 
         saveHistory();
 
         const duplicate =
-            cloneObject(
-                object
-            );
+            cloneObject(object);
 
         duplicate.id =
             makeId(
@@ -2754,13 +2327,9 @@
             duplicate
         );
 
-        renderObject(
-            duplicate
-        );
+        renderObject(duplicate);
 
-        selectObject(
-            duplicate.id
-        );
+        selectObject(duplicate.id);
 
         updateExplorer();
 
@@ -2780,18 +2349,12 @@
 
     function renameSelected() {
 
-        if (state.playing) {
-            return;
-        }
-
         const object =
             state.objects.get(
                 state.selectedId
             );
 
-        if (!object) {
-            return;
-        }
+        if (!object) return;
 
         const newName =
             prompt(
@@ -2814,9 +2377,7 @@
         state.game.saved = false;
 
         updateExplorer();
-
         updateProperties();
-
         updateGameStatus();
     }
 
@@ -2828,36 +2389,28 @@
     function snapshot() {
 
         return {
-
             objects:
                 Array.from(
                     state.objects.values()
-                ).map(
-                    cloneObject
-                ),
+                ).map(cloneObject),
 
             selectedId:
                 state.selectedId,
 
             game:
-                cloneObject(
-                    state.game
-                )
+                cloneObject(state.game)
         };
     }
 
 
-    function restoreSnapshot(
-        snap
-    ) {
+    function restoreSnapshot(data) {
 
         state.objects.clear();
 
         for (
             const object
-            of snap.objects
+            of data.objects
         ) {
-
             state.objects.set(
                 object.id,
                 object
@@ -2865,17 +2418,15 @@
         }
 
         state.selectedId =
-            snap.selectedId;
+            data.selectedId;
 
         state.game =
-            snap.game;
+            data.game;
 
         renderWorld();
 
         updateExplorer();
-
         updateProperties();
-
         updateGameStatus();
     }
 
@@ -2887,10 +2438,8 @@
         );
 
         if (
-            state.history.length >
-            50
+            state.history.length > 50
         ) {
-
             state.history.shift();
         }
 
@@ -2900,19 +2449,14 @@
 
     function undo() {
 
-        if (!state.history.length) {
-            return;
-        }
+        if (!state.history.length) return;
 
         state.future.push(
             snapshot()
         );
 
-        const previous =
-            state.history.pop();
-
         restoreSnapshot(
-            previous
+            state.history.pop()
         );
 
         log("Undo.");
@@ -2921,19 +2465,14 @@
 
     function redo() {
 
-        if (!state.future.length) {
-            return;
-        }
+        if (!state.future.length) return;
 
         state.history.push(
             snapshot()
         );
 
-        const next =
-            state.future.pop();
-
         restoreSnapshot(
-            next
+            state.future.pop()
         );
 
         log("Redo.");
@@ -2947,11 +2486,9 @@
     function getGameData() {
 
         return {
-
             version: 3,
 
-            game:
-                state.game,
+            game: state.game,
 
             objects:
                 Array.from(
@@ -2982,14 +2519,10 @@
             );
 
         const url =
-            URL.createObjectURL(
-                blob
-            );
+            URL.createObjectURL(blob);
 
         const link =
-            document.createElement(
-                "a"
-            );
+            document.createElement("a");
 
         link.href = url;
 
@@ -3008,17 +2541,13 @@
                     "_"
                 )}.webblox.json`;
 
-        document.body.appendChild(
-            link
-        );
+        document.body.appendChild(link);
 
         link.click();
 
         link.remove();
 
-        URL.revokeObjectURL(
-            url
-        );
+        URL.revokeObjectURL(url);
 
         state.game.saved = true;
 
@@ -3037,9 +2566,7 @@
     function loadGame() {
 
         const input =
-            document.createElement(
-                "input"
-            );
+            document.createElement("input");
 
         input.type = "file";
 
@@ -3053,9 +2580,7 @@
                 const file =
                     input.files?.[0];
 
-                if (!file) {
-                    return;
-                }
+                if (!file) return;
 
                 try {
 
@@ -3070,7 +2595,6 @@
                             data.objects
                         )
                     ) {
-
                         throw new Error(
                             "Invalid WebBlox game."
                         );
@@ -3084,14 +2608,10 @@
                         const object
                         of data.objects
                     ) {
-
-                        createObject(
-                            object
-                        );
+                        createObject(object);
                     }
 
                     if (data.game) {
-
                         state.game = {
                             ...state.game,
                             ...data.game
@@ -3101,11 +2621,8 @@
                     state.selectedId = null;
 
                     renderWorld();
-
                     updateExplorer();
-
                     updateProperties();
-
                     updateGameStatus();
 
                     log(
@@ -3141,7 +2658,6 @@
     // ============================================================
 
     function openModal(id) {
-
         $(id)
             ?.classList
             .remove("hidden");
@@ -3149,7 +2665,6 @@
 
 
     function closeModal(id) {
-
         $(id)
             ?.classList
             .add("hidden");
@@ -3181,7 +2696,6 @@
         saveHistory();
 
         state.game = {
-
             name,
 
             description:
@@ -3198,9 +2712,7 @@
         renderWorld();
 
         updateExplorer();
-
         updateProperties();
-
         updateGameStatus();
 
         closeModal(
@@ -3225,9 +2737,8 @@
 
         if (
             !state.game.name ||
-            state.game.name.trim() === "" ||
-            state.game.name ===
-                "Untitled Game"
+            !state.game.name.trim() ||
+            state.game.name === "Untitled Game"
         ) {
 
             showToast(
@@ -3256,7 +2767,6 @@
         }
 
         if (description) {
-
             description.textContent =
                 state.game.description ||
                 "No description";
@@ -3318,15 +2828,9 @@
     }
 
 
-    // ============================================================
-    // GAME STATUS
-    // ============================================================
-
     function updateGameStatus() {
 
-        if (!gameStatus) {
-            return;
-        }
+        if (!gameStatus) return;
 
         gameStatus.textContent =
             state.game.saved
@@ -3336,55 +2840,29 @@
 
 
     // ============================================================
-    // PLAY TEST
+    // PLAY
     // ============================================================
 
     async function playGame() {
 
-        if (state.playing) {
-            return;
-        }
+        if (state.playing) return;
 
-        if (!threeReady) {
-
+        if (
+            !state.game.name ||
+            state.game.name === "Untitled Game"
+        ) {
             showToast(
-                "3D viewport is not ready."
+                "Create a game with a title first."
             );
 
-            return;
-        }
-
-        try {
-
-            await loadPlayerModule();
-
-        } catch (error) {
-
-            console.error(
-                error
-            );
-
-            log(
-                "Player system failed to load.",
-                "error"
-            );
-
-            showToast(
-                "Player system failed to load."
+            openModal(
+                "newGameModal"
             );
 
             return;
         }
 
         state.playing = true;
-
-        clearSelection();
-
-        if (canvas) {
-
-            canvas.style.cursor =
-                "crosshair";
-        }
 
         $("playButton")
             ?.setAttribute(
@@ -3397,63 +2875,56 @@
                 "disabled"
             );
 
-        if (viewportMode) {
-
-            viewportMode.textContent =
-                "Play Test";
-        }
-
-        if (studioMessage) {
-
-            studioMessage.textContent =
-                "Play Test";
-        }
+        log(
+            "Starting WebBlox Player runtime..."
+        );
 
         try {
 
-            playerSystem.start({
+            const Player =
+                await loadPlayerRuntime();
 
-                THREE,
+            if (!Player) {
+                throw new Error(
+                    "Player runtime unavailable."
+                );
+            }
+
+            /*
+             * Give the Player system a clean
+             * copy of the current world.
+             */
+
+            const runtimeData =
+                getGameData();
+
+            await Player.start({
+                game: runtimeData.game,
+                objects: runtimeData.objects,
 
                 scene,
-
                 camera,
-
                 renderer,
+                viewport,
 
-                objects:
-                    state.objects,
-
-                onStop: () => {
-                    stopGame();
-                },
-
-                log
+                onLog: message =>
+                    log(
+                        `[Player] ${message}`
+                    )
             });
 
             log(
-                "Play Test started."
-            );
-
-            log(
-                "Player spawned."
-            );
-
-            log(
-                "WASD = move | Space = jump | Shift = sprint."
-            );
-
-            log(
-                "Mouse = camera | Wheel = zoom."
+                "Player runtime started."
             );
 
             showToast(
-                "Play Test started"
+                "Play mode started"
             );
 
         } catch (error) {
 
             console.error(
+                "[WebBlox] Player startup failed:",
                 error
             );
 
@@ -3471,30 +2942,36 @@
                 );
 
             log(
-                "Unable to start player.",
+                `Player system failed to load: ${error.message}`,
                 "error"
             );
 
             showToast(
-                "Player failed to start"
+                "Player system failed to load"
             );
         }
     }
 
 
-    function stopGame() {
+    async function stopGame() {
 
-        if (!state.playing) {
-            return;
-        }
+        if (!state.playing) return;
 
-        if (
-            playerSystem &&
-            typeof playerSystem.stop ===
-                "function"
-        ) {
+        try {
 
-            playerSystem.stop();
+            if (
+                window.WebBloxPlayer &&
+                typeof window.WebBloxPlayer.stop === "function"
+            ) {
+                await window.WebBloxPlayer.stop();
+            }
+
+        } catch (error) {
+
+            console.error(
+                "[WebBlox] Player stop failed:",
+                error
+            );
         }
 
         state.playing = false;
@@ -3510,29 +2987,12 @@
                 ""
             );
 
-        if (canvas) {
-            canvas.style.cursor =
-                "default";
-        }
-
-        if (viewportMode) {
-            viewportMode.textContent =
-                "Perspective";
-        }
-
-        if (studioMessage) {
-            studioMessage.textContent =
-                "Play Test stopped";
-        }
-
-        updateCamera();
-
         log(
-            "Play Test stopped."
+            "Player runtime stopped."
         );
 
         showToast(
-            "Play Test stopped"
+            "Play mode stopped"
         );
     }
 
@@ -3543,25 +3003,13 @@
 
     function setTool(tool) {
 
-        if (state.playing) {
-            return;
-        }
-
         state.tool = tool;
 
         const ids = {
-
-            select:
-                "selectTool",
-
-            move:
-                "moveTool",
-
-            scale:
-                "scaleTool",
-
-            rotate:
-                "rotateTool"
+            select: "selectTool",
+            move: "moveTool",
+            scale: "scaleTool",
+            rotate: "rotateTool"
         };
 
         Object.values(ids)
@@ -3569,16 +3017,12 @@
 
                 $(id)
                     ?.classList
-                    .remove(
-                        "active"
-                    );
+                    .remove("active");
             });
 
         $(ids[tool])
             ?.classList
-            .add(
-                "active"
-            );
+            .add("active");
 
         if (viewportMode) {
 
@@ -3588,11 +3032,19 @@
                     .toUpperCase() +
                 tool.slice(1);
         }
+
+        if (canvas) {
+
+            canvas.style.cursor =
+                tool === "select"
+                    ? "default"
+                    : "crosshair";
+        }
     }
 
 
     // ============================================================
-    // KEYBOARD
+    // KEYBOARD SHORTCUTS
     // ============================================================
 
     function setupKeyboard() {
@@ -3604,32 +3056,29 @@
                 const key =
                     event.key.toLowerCase();
 
-                const active =
-                    document.activeElement;
-
-                const editing =
-                    active &&
+                const typing =
+                    document.activeElement &&
                     (
-                        active.tagName === "INPUT" ||
-                        active.tagName === "TEXTAREA" ||
-                        active.tagName === "SELECT"
+                        document.activeElement.tagName === "INPUT" ||
+                        document.activeElement.tagName === "TEXTAREA" ||
+                        document.activeElement.tagName === "SELECT"
                     );
 
-                if (
-                    !editing ||
-                    state.playing
-                ) {
+                /*
+                 * Always keep modifiers available
+                 * for camera movement.
+                 */
 
-                    state.keys.add(
-                        key
-                    );
-                }
+                state.keys.add(key);
 
-                if (
-                    state.playing
-                ) {
+                if (typing) {
                     return;
                 }
+
+
+                // ------------------------------------------------
+                // CTRL + Z
+                // ------------------------------------------------
 
                 if (
                     event.ctrlKey &&
@@ -3647,6 +3096,11 @@
                     return;
                 }
 
+
+                // ------------------------------------------------
+                // CTRL + Y
+                // ------------------------------------------------
+
                 if (
                     event.ctrlKey &&
                     key === "y"
@@ -3659,54 +3113,27 @@
                     return;
                 }
 
-                if (editing) {
-                    return;
-                }
 
-                /*
-                 * Studio shortcuts
-                 *
-                 * Q = Select
-                 * W = Move
-                 * E = Scale
-                 * R = Rotate
-                 */
+                // ------------------------------------------------
+                // CTRL + D
+                // ------------------------------------------------
 
-                if (key === "q") {
+                if (
+                    event.ctrlKey &&
+                    key === "d"
+                ) {
 
                     event.preventDefault();
 
-                    setTool("select");
+                    duplicateSelected();
 
                     return;
                 }
 
-                if (key === "w") {
 
-                    event.preventDefault();
-
-                    setTool("move");
-
-                    return;
-                }
-
-                if (key === "e") {
-
-                    event.preventDefault();
-
-                    setTool("scale");
-
-                    return;
-                }
-
-                if (key === "r") {
-
-                    event.preventDefault();
-
-                    setTool("rotate");
-
-                    return;
-                }
+                // ------------------------------------------------
+                // DELETE
+                // ------------------------------------------------
 
                 if (
                     event.key === "Delete"
@@ -3719,25 +3146,67 @@
                     return;
                 }
 
+
+                // ------------------------------------------------
+                // ESC
+                // ------------------------------------------------
+
                 if (
                     event.key === "Escape"
                 ) {
 
+                    event.preventDefault();
+
                     clearSelection();
 
+                    state.mouse.draggingObject =
+                        false;
+
                     return;
                 }
+
+
+                /*
+                 * Studio transform shortcuts.
+                 *
+                 * W/E/R only change tools when
+                 * RMB camera navigation isn't active.
+                 */
 
                 if (
-                    event.key === "F"
+                    !state.mouse.down
                 ) {
 
-                    focusSelected();
+                    if (key === "q") {
+                        setTool("select");
+                        return;
+                    }
 
-                    return;
+                    if (key === "w") {
+                        setTool("move");
+                        return;
+                    }
+
+                    if (key === "e") {
+                        setTool("rotate");
+                        return;
+                    }
+
+                    if (key === "r") {
+                        setTool("scale");
+                        return;
+                    }
+
+                    if (key === "f") {
+                        event.preventDefault();
+                        focusSelected();
+                        return;
+                    }
                 }
+
             }
         );
+
 
         window.addEventListener(
             "keyup",
@@ -3749,52 +3218,14 @@
             }
         );
 
+
         window.addEventListener(
             "blur",
             () => {
-
                 state.keys.clear();
+                state.mouse.down = false;
+                state.mouse.button = 0;
             }
-        );
-    }
-
-
-    // ============================================================
-    // FOCUS SELECTED
-    // ============================================================
-
-    function focusSelected() {
-
-        const object =
-            state.objects.get(
-                state.selectedId
-            );
-
-        if (!object) {
-            return;
-        }
-
-        state.camera.target.x =
-            object.position.x;
-
-        state.camera.target.y =
-            object.position.y;
-
-        state.camera.target.z =
-            object.position.z;
-
-        state.camera.distance =
-            Math.max(
-                object.size.x,
-                object.size.y,
-                object.size.z,
-                6
-            ) * 3;
-
-        updateCamera();
-
-        log(
-            `Focused "${object.name}".`
         );
     }
 
@@ -3850,33 +3281,35 @@
                 stopGame
             );
 
+
+        // Tools
+
         $("selectTool")
             ?.addEventListener(
                 "click",
-                () =>
-                    setTool("select")
+                () => setTool("select")
             );
 
         $("moveTool")
             ?.addEventListener(
                 "click",
-                () =>
-                    setTool("move")
+                () => setTool("move")
             );
 
         $("scaleTool")
             ?.addEventListener(
                 "click",
-                () =>
-                    setTool("scale")
+                () => setTool("scale")
             );
 
         $("rotateTool")
             ?.addEventListener(
                 "click",
-                () =>
-                    setTool("rotate")
+                () => setTool("rotate")
             );
+
+
+        // Grid
 
         $("gridButton")
             ?.addEventListener(
@@ -3897,6 +3330,9 @@
                 }
             );
 
+
+        // Snap
+
         $("snapButton")
             ?.addEventListener(
                 "click",
@@ -3914,17 +3350,8 @@
                 }
             );
 
-        $("cameraPerspectiveButton")
-            ?.addEventListener(
-                "click",
-                setPerspective
-            );
 
-        $("cameraTopButton")
-            ?.addEventListener(
-                "click",
-                setTopCamera
-            );
+        // Camera
 
         $("cameraReset")
             ?.addEventListener(
@@ -3964,6 +3391,9 @@
                 }
             );
 
+
+        // Add object
+
         $("addObjectButton")
             ?.addEventListener(
                 "click",
@@ -3971,11 +3401,10 @@
 
                     $("addObjectMenu")
                         ?.classList
-                        .toggle(
-                            "hidden"
-                        );
+                        .toggle("hidden");
                 }
             );
+
 
         document
             .querySelectorAll(
@@ -3994,12 +3423,13 @@
 
                         $("addObjectMenu")
                             ?.classList
-                            .add(
-                                "hidden"
-                            );
+                            .add("hidden");
                     }
                 );
             });
+
+
+        // Refresh
 
         $("refreshExplorerButton")
             ?.addEventListener(
@@ -4014,12 +3444,18 @@
                 }
             );
 
+
+        // Welcome
+
         $("welcomeAddPart")
             ?.addEventListener(
                 "click",
                 () =>
                     insertObject("Part")
             );
+
+
+        // Output
 
         $("clearOutputButton")
             ?.addEventListener(
@@ -4040,11 +3476,12 @@
 
                     $("outputPanel")
                         ?.classList
-                        .toggle(
-                            "collapsed"
-                        );
+                        .toggle("collapsed");
                 }
             );
+
+
+        // Modals
 
         document
             .querySelectorAll(
@@ -4062,17 +3499,22 @@
                 );
             });
 
+
         $("createGameConfirm")
             ?.addEventListener(
                 "click",
                 createNewGame
             );
 
+
         $("publishConfirmButton")
             ?.addEventListener(
                 "click",
                 publishGame
             );
+
+
+        // Actions
 
         document
             .querySelectorAll(
@@ -4093,6 +3535,9 @@
                 );
             });
 
+
+        // Property search
+
         $("propertySearchButton")
             ?.addEventListener(
                 "click",
@@ -4100,11 +3545,10 @@
 
                     $("propertySearch")
                         ?.classList
-                        .toggle(
-                            "hidden"
-                        );
+                        .toggle("hidden");
                 }
             );
+
 
         $("propertySearchInput")
             ?.addEventListener(
@@ -4133,6 +3577,7 @@
                 }
             );
 
+
         setupContextMenu();
     }
 
@@ -4149,9 +3594,7 @@
             )
             .forEach(
                 menu =>
-                    menu.classList.add(
-                        "hidden"
-                    )
+                    menu.classList.add("hidden")
             );
     }
 
@@ -4160,28 +3603,21 @@
 
         const menu = $(id);
 
-        if (!menu) {
-            return;
-        }
+        if (!menu) return;
 
-        const wasHidden =
-            menu.classList.contains(
-                "hidden"
-            );
+        const hidden =
+            menu.classList.contains("hidden");
 
         closeMenus();
 
-        if (wasHidden) {
-
-            menu.classList.remove(
-                "hidden"
-            );
+        if (hidden) {
+            menu.classList.remove("hidden");
         }
     }
 
 
     // ============================================================
-    // ACTIONS
+    // ACTION HANDLER
     // ============================================================
 
     function handleAction(action) {
@@ -4250,14 +3686,6 @@
                 insertObject("Model");
                 break;
 
-            case "insertScript":
-                insertObject("Script");
-                break;
-
-            case "insertFolder":
-                insertObject("Folder");
-                break;
-
             case "play":
                 playGame();
                 break;
@@ -4282,26 +3710,21 @@
         const menu =
             $("contextMenu");
 
-        if (!menu) {
-            return;
-        }
+        if (!menu) return;
 
         document.addEventListener(
             "contextmenu",
             event => {
 
-                const objectElement =
+                const element =
                     event.target.closest(
                         ".tree-item"
                     );
 
-                if (!objectElement) {
-                    return;
-                }
+                if (!element) return;
 
                 const id =
-                    objectElement.dataset
-                        .objectId;
+                    element.dataset.objectId;
 
                 if (
                     !state.objects.has(id)
@@ -4325,15 +3748,14 @@
             }
         );
 
+
         document.addEventListener(
             "click",
             () => {
-
-                menu.classList.add(
-                    "hidden"
-                );
+                menu.classList.add("hidden");
             }
         );
+
 
         menu.addEventListener(
             "click",
@@ -4346,9 +3768,7 @@
                         "[data-context-action]"
                     );
 
-                if (!button) {
-                    return;
-                }
+                if (!button) return;
 
                 switch (
                     button.dataset.contextAction
@@ -4384,37 +3804,275 @@
         $("fileMenuButton")
             ?.addEventListener(
                 "click",
-                () =>
-                    toggleMenu("fileMenu")
+                () => toggleMenu("fileMenu")
             );
 
         $("editMenuButton")
             ?.addEventListener(
                 "click",
-                () =>
-                    toggleMenu("editMenu")
+                () => toggleMenu("editMenu")
             );
 
         $("viewMenuButton")
             ?.addEventListener(
                 "click",
-                () =>
-                    toggleMenu("viewMenu")
+                () => toggleMenu("viewMenu")
             );
 
         $("modelMenuButton")
             ?.addEventListener(
                 "click",
-                () =>
-                    toggleMenu("modelMenu")
+                () => toggleMenu("modelMenu")
             );
 
         $("testMenuButton")
             ?.addEventListener(
                 "click",
-                () =>
-                    toggleMenu("testMenu")
+                () => toggleMenu("testMenu")
             );
+    }
+
+
+    // ============================================================
+    // INITIALIZE 3D
+    // ============================================================
+
+    async function initialize3D() {
+
+        if (!viewport) {
+            throw new Error(
+                "Viewport element not found."
+            );
+        }
+
+        await loadThree();
+
+        scene =
+            new THREE.Scene();
+
+        scene.background =
+            new THREE.Color("#171717");
+
+        camera =
+            new THREE.PerspectiveCamera(
+                60,
+                1,
+                0.1,
+                2000
+            );
+
+        renderer =
+            new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: false
+            });
+
+        renderer.setPixelRatio(
+            Math.min(
+                window.devicePixelRatio || 1,
+                2
+            )
+        );
+
+        renderer.shadowMap.enabled = true;
+
+        renderer.shadowMap.type =
+            THREE.PCFSoftShadowMap;
+
+        renderer.outputColorSpace =
+            THREE.SRGBColorSpace;
+
+        canvas =
+            renderer.domElement;
+
+        canvas.id =
+            "webblox3DCanvas";
+
+        canvas.style.position =
+            "absolute";
+
+        canvas.style.inset = "0";
+
+        canvas.style.width =
+            "100%";
+
+        canvas.style.height =
+            "100%";
+
+        canvas.style.display =
+            "block";
+
+        canvas.style.zIndex =
+            "20";
+
+        viewport.appendChild(canvas);
+
+
+        // Lighting
+
+        ambientLight =
+            new THREE.HemisphereLight(
+                0xffffff,
+                0x333333,
+                1.8
+            );
+
+        scene.add(ambientLight);
+
+
+        directionalLight =
+            new THREE.DirectionalLight(
+                0xffffff,
+                2.5
+            );
+
+        directionalLight.position.set(
+            25,
+            40,
+            20
+        );
+
+        directionalLight.castShadow = true;
+
+        directionalLight.shadow.mapSize.width =
+            2048;
+
+        directionalLight.shadow.mapSize.height =
+            2048;
+
+        scene.add(
+            directionalLight
+        );
+
+
+        // Raycasting
+
+        raycaster =
+            new THREE.Raycaster();
+
+        mouseVector =
+            new THREE.Vector2();
+
+
+        threeReady = true;
+
+        createGrid();
+
+        setup3DInput();
+
+        resizeRenderer();
+
+        window.addEventListener(
+            "resize",
+            resizeRenderer
+        );
+
+        renderWorld();
+
+        updateCamera();
+
+        animate(
+            performance.now()
+        );
+
+        log(
+            "Real 3D WebGL viewport initialized."
+        );
+
+        log(
+            "Studio controls: Q Select | W Move | E Rotate | R Scale"
+        );
+
+        log(
+            "RMB + WASD = camera movement."
+        );
+
+        log(
+            "RMB drag = camera rotation."
+        );
+
+        log(
+            "Mouse wheel = zoom."
+        );
+    }
+
+
+    function resizeRenderer() {
+
+        if (
+            !renderer ||
+            !camera ||
+            !viewport
+        ) {
+            return;
+        }
+
+        const width =
+            viewport.clientWidth;
+
+        const height =
+            viewport.clientHeight;
+
+        if (
+            width <= 0 ||
+            height <= 0
+        ) {
+            return;
+        }
+
+        renderer.setSize(
+            width,
+            height,
+            false
+        );
+
+        camera.aspect =
+            width / height;
+
+        camera.updateProjectionMatrix();
+    }
+
+
+    // ============================================================
+    // REMOVE OLD VIEWPORT
+    // ============================================================
+
+    function removeOldViewport() {
+
+        [
+            $("viewportWelcome"),
+            $("defaultPart"),
+            $("world")
+        ].forEach(element => {
+
+            if (!element) return;
+
+            element.style.display =
+                "none";
+
+            element.style.visibility =
+                "hidden";
+
+            element.style.pointerEvents =
+                "none";
+        });
+
+        if (selectionBox) {
+            selectionBox.style.display =
+                "none";
+        }
+
+        const crosshair =
+            $("viewportCrosshair");
+
+        if (crosshair) {
+
+            crosshair.style.zIndex =
+                "30";
+
+            crosshair.style.pointerEvents =
+                "none";
+        }
     }
 
 
@@ -4433,48 +4091,52 @@
         createDefaultWorld();
 
         setupKeyboard();
-
         setupExplorer();
-
         setupProperties();
-
         setupButtons();
-
         setupMenuButtons();
 
         updateExplorer();
-
         updateProperties();
-
         updateGameStatus();
 
         if (viewportMode) {
-
             viewportMode.textContent =
                 "Perspective";
         }
 
-        await initialize3D();
+        try {
 
-        removeOldViewport();
+            await initialize3D();
 
-        updateCamera();
+            removeOldViewport();
 
-        updateExplorer();
+            updateCamera();
 
-        updateProperties();
+            updateExplorer();
 
-        log(
-            "WebBlox Studio ready."
-        );
+            updateProperties();
 
-        log(
-            "Stage 3 Player system available."
-        );
+            log(
+                "WebBlox Studio ready."
+            );
 
-        console.log(
-            "[WebBlox Studio] Ready."
-        );
+            console.log(
+                "[WebBlox Studio] Ready."
+            );
+
+        } catch (error) {
+
+            console.error(
+                "[WebBlox Studio] Initialization failed:",
+                error
+            );
+
+            log(
+                `Studio initialization failed: ${error.message}`,
+                "error"
+            );
+        }
 
         const loading =
             $("studioLoading");
@@ -4491,11 +4153,9 @@
 
             setTimeout(
                 () => {
-
                     loading.classList.add(
                         "hidden"
                     );
-
                 },
                 350
             );
@@ -4512,44 +4172,32 @@
         state,
 
         createObject,
-
         insertObject,
 
         selectObject,
-
         clearSelection,
 
         deleteSelected,
-
         duplicateSelected,
-
         renameSelected,
 
         undo,
-
         redo,
 
         saveGame,
-
         loadGame,
 
         playGame,
-
         stopGame,
 
         resetCamera,
-
-        setPerspective,
-
-        setTopCamera,
+        focusSelected,
 
         setTool,
 
         renderWorld,
 
-        publishGame,
-
-        focusSelected
+        publishGame
     };
 
 
@@ -4558,8 +4206,7 @@
     // ============================================================
 
     if (
-        document.readyState ===
-        "loading"
+        document.readyState === "loading"
     ) {
 
         document.addEventListener(
