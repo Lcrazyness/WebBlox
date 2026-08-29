@@ -6,110 +6,85 @@
 ============================================================
 
  First Studio system:
-
  - Explorer
- - Object selection
  - Properties
- - Viewport
- - Parts
- - Move / Rotate / Scale modes
- - Insert objects
- - Delete objects
+ - Scene / viewport
+ - Part creation
+ - Object selection
+ - Object deletion
+ - Object duplication
  - Rename objects
- - Duplicate objects
- - Basic project state
+ - Position / rotation / size editing
+ - Basic camera controls
+ - Play / Stop
  - Save project locally
  - Load project locally
- - Play / Stop preview
- - Keyboard shortcuts
+ - New project
+ - WebBlox project structure
 
- This is the foundation for the WebBlox game editor.
 ============================================================
 */
 
 (() => {
 
     /*
-    ========================================================
+    ============================================================
      CONFIG
-    ========================================================
+    ============================================================
     */
 
-    const STORAGE_KEY = "webblox-studio-project";
+    const API_BASE =
+        "https://webblox-backend.onrender.com";
+
 
     /*
-    ========================================================
+    ============================================================
      STATE
-    ========================================================
+    ============================================================
     */
 
     const state = {
 
-        projectName:
-            "Untitled WebBlox Game",
+        project: {
 
-        selectedId:
+            name:
+                "Untitled WebBlox Game",
+
+            version:
+                "1.0",
+
+            objects: []
+
+        },
+
+        selectedObjectId:
             null,
-
-        tool:
-            "select",
 
         playing:
             false,
 
-        nextId:
-            1,
+        camera: {
 
-        objects: []
+            x: 0,
+
+            y: 8,
+
+            z: 18,
+
+            zoom: 1
+
+        },
+
+        nextObjectId:
+            1
 
     };
 
 
     /*
-    ========================================================
-     OBJECT TYPES
-    ========================================================
-    */
-
-    const OBJECT_TYPES = {
-
-        Part: {
-            icon: "🧱",
-            name: "Part"
-        },
-
-        SpawnLocation: {
-            icon: "🟢",
-            name: "SpawnLocation"
-        },
-
-        Model: {
-            icon: "📦",
-            name: "Model"
-        },
-
-        Folder: {
-            icon: "📁",
-            name: "Folder"
-        },
-
-        PointLight: {
-            icon: "💡",
-            name: "PointLight"
-        },
-
-        Camera: {
-            icon: "📷",
-            name: "Camera"
-        }
-
-    };
-
-
-    /*
-    ========================================================
+    ============================================================
      DOM HELPERS
-    ========================================================
+    ============================================================
     */
 
     function $(selector) {
@@ -123,50 +98,27 @@
 
     function $all(selector) {
 
-        return Array.from(
-            document.querySelectorAll(
+        return [
+            ...document.querySelectorAll(
                 selector
             )
-        );
-
-    }
-
-
-    function findAny(...selectors) {
-
-        for (
-            const selector
-            of selectors
-        ) {
-
-            const element =
-                $(selector);
-
-            if (element) {
-
-                return element;
-
-            }
-
-        }
-
-        return null;
+        ];
 
     }
 
 
     /*
-    ========================================================
-     ID GENERATOR
-    ========================================================
+    ============================================================
+     OBJECT IDS
+    ============================================================
     */
 
     function createId() {
 
         const id =
-            `object_${state.nextId}`;
+            `object_${state.nextObjectId}`;
 
-        state.nextId++;
+        state.nextObjectId++;
 
         return id;
 
@@ -174,33 +126,31 @@
 
 
     /*
-    ========================================================
-     DEFAULT OBJECT
-    ========================================================
+    ============================================================
+     OBJECT CREATION
+    ============================================================
     */
 
-    function createObject(
-        type = "Part",
-        name = null
+    function createPart(
+        type = "Part"
     ) {
-
-        const id =
-            createId();
 
         const object = {
 
-            id,
-
-            type,
+            id:
+                createId(),
 
             name:
-                name ||
-                `${type}${state.nextId - 1}`,
+                type,
+
+            type,
 
             position: {
 
                 x: 0,
+
                 y: 0,
+
                 z: 0
 
             },
@@ -208,7 +158,9 @@
             rotation: {
 
                 x: 0,
+
                 y: 0,
+
                 z: 0
 
             },
@@ -216,98 +168,42 @@
             size: {
 
                 x: 4,
+
                 y: 1,
+
                 z: 4
 
             },
 
             color:
-                "#888888",
+                "#808080",
 
             anchored:
                 true,
 
-            visible:
+            collidable:
                 true,
 
-            transparency:
-                0,
-
-            parent:
-                null
+            visible:
+                true
 
         };
 
-        return object;
 
-    }
-
-
-    /*
-    ========================================================
-     FIND OBJECT
-    ========================================================
-    */
-
-    function getObject(id) {
-
-        return state.objects.find(
-            object =>
-                object.id === id
-        );
-
-    }
-
-
-    /*
-    ========================================================
-     ADD OBJECT
-    ========================================================
-    */
-
-    function addObject(
-        type = "Part"
-    ) {
-
-        const object =
-            createObject(
-                type
-            );
-
-        /*
-         * Place new parts near the currently
-         * selected object when possible.
-         */
-
-        const selected =
-            getObject(
-                state.selectedId
-            );
-
-        if (selected) {
-
-            object.position.x =
-                selected.position.x + 5;
-
-            object.position.y =
-                selected.position.y;
-
-            object.position.z =
-                selected.position.z;
-
-        }
-
-        state.objects.push(
+        state.project.objects.push(
             object
         );
+
 
         selectObject(
             object.id
         );
 
-        renderAll();
 
-        saveProject();
+        renderScene();
+
+        renderExplorer();
+
 
         return object;
 
@@ -315,65 +211,114 @@
 
 
     /*
-    ========================================================
-     DELETE OBJECT
-    ========================================================
+    ============================================================
+     GET SELECTED OBJECT
+    ============================================================
     */
 
-    function deleteSelected() {
+    function getSelectedObject() {
 
-        if (!state.selectedId) {
-
-            return;
-
-        }
-
-        const index =
-            state.objects.findIndex(
-                object =>
-                    object.id ===
-                    state.selectedId
-            );
-
-        if (index === -1) {
-
-            return;
-
-        }
-
-        state.objects.splice(
-            index,
-            1
-        );
-
-        state.selectedId =
-            null;
-
-        renderAll();
-
-        saveProject();
+        return state.project.objects.find(
+            object =>
+                object.id ===
+                state.selectedObjectId
+        ) || null;
 
     }
 
 
     /*
-    ========================================================
-     DUPLICATE OBJECT
-    ========================================================
+    ============================================================
+     SELECT OBJECT
+    ============================================================
     */
 
-    function duplicateSelected() {
+    function selectObject(id) {
+
+        state.selectedObjectId =
+            id;
+
+
+        renderExplorer();
+
+        renderProperties();
+
+        highlightSceneObject();
+
+    }
+
+
+    /*
+    ============================================================
+     DELETE OBJECT
+    ============================================================
+    */
+
+    function deleteSelectedObject() {
+
+        if (
+            !state.selectedObjectId
+        ) {
+
+            return;
+
+        }
+
+
+        const index =
+            state.project.objects.findIndex(
+                object =>
+                    object.id ===
+                    state.selectedObjectId
+            );
+
+
+        if (
+            index === -1
+        ) {
+
+            return;
+
+        }
+
+
+        state.project.objects.splice(
+            index,
+            1
+        );
+
+
+        state.selectedObjectId =
+            null;
+
+
+        renderScene();
+
+        renderExplorer();
+
+        renderProperties();
+
+    }
+
+
+    /*
+    ============================================================
+     DUPLICATE OBJECT
+    ============================================================
+    */
+
+    function duplicateSelectedObject() {
 
         const original =
-            getObject(
-                state.selectedId
-            );
+            getSelectedObject();
+
 
         if (!original) {
 
             return;
 
         }
+
 
         const copy =
             JSON.parse(
@@ -382,254 +327,343 @@
                 )
             );
 
+
         copy.id =
             createId();
+
 
         copy.name =
             `${original.name} Copy`;
 
+
         copy.position.x += 2;
+
         copy.position.z += 2;
 
-        state.objects.push(
+
+        state.project.objects.push(
             copy
         );
+
 
         selectObject(
             copy.id
         );
 
-        renderAll();
 
-        saveProject();
+        renderScene();
+
+        renderExplorer();
 
     }
 
 
     /*
-    ========================================================
-     SELECT OBJECT
-    ========================================================
+    ============================================================
+     RENAME OBJECT
+    ============================================================
     */
 
-    function selectObject(id) {
+    function renameSelectedObject() {
 
-        state.selectedId =
-            id || null;
+        const object =
+            getSelectedObject();
+
+
+        if (!object) {
+
+            return;
+
+        }
+
+
+        const name =
+            prompt(
+                "Rename object:",
+                object.name
+            );
+
+
+        if (
+            name === null
+        ) {
+
+            return;
+
+        }
+
+
+        const trimmed =
+            name.trim();
+
+
+        if (!trimmed) {
+
+            return;
+
+        }
+
+
+        object.name =
+            trimmed;
+
 
         renderExplorer();
+
         renderProperties();
-        renderViewport();
 
-        /*
-         * Tell other WebBlox systems that the
-         * Studio selection changed.
-         */
+    }
 
-        window.dispatchEvent(
-            new CustomEvent(
-                "webblox:studio-selection",
-                {
-                    detail: {
-                        object:
-                            getObject(
-                                id
-                            )
-                    }
-                }
+
+    /*
+    ============================================================
+     SCENE
+    ============================================================
+    */
+
+    function findViewport() {
+
+        return (
+            $(
+                "#studioViewport"
+            ) ||
+            $(
+                "#viewport"
+            ) ||
+            $(
+                ".studio-viewport"
+            ) ||
+            $(
+                ".viewport"
+            ) ||
+            $(
+                "[data-studio-viewport]"
             )
         );
 
     }
 
 
-    /*
-    ========================================================
-     RENAME OBJECT
-    ========================================================
-    */
+    function renderScene() {
 
-    function renameSelected(
-        name
-    ) {
+        const viewport =
+            findViewport();
 
-        const object =
-            getObject(
-                state.selectedId
+
+        if (!viewport) {
+
+            return;
+
+        }
+
+
+        let scene =
+            viewport.querySelector(
+                ".webblox-scene"
             );
 
-        if (!object) {
 
-            return;
+        if (!scene) {
+
+            scene =
+                document.createElement(
+                    "div"
+                );
+
+            scene.className =
+                "webblox-scene";
+
+
+            viewport.appendChild(
+                scene
+            );
 
         }
 
-        name =
-            String(
-                name || ""
-            ).trim();
 
-        if (!name) {
+        scene.innerHTML =
+            "";
 
-            return;
+
+        for (
+            const object
+            of state.project.objects
+        ) {
+
+            if (
+                object.visible === false
+            ) {
+
+                continue;
+
+            }
+
+
+            const element =
+                document.createElement(
+                    "div"
+                );
+
+
+            element.className =
+                "studio-part";
+
+
+            element.dataset.objectId =
+                object.id;
+
+
+            const x =
+                object.position.x *
+                20;
+
+
+            const y =
+                object.position.y *
+                -20;
+
+
+            const width =
+                Math.max(
+                    20,
+                    object.size.x *
+                    20
+                );
+
+
+            const height =
+                Math.max(
+                    20,
+                    object.size.y *
+                    20
+                );
+
+
+            element.style.position =
+                "absolute";
+
+
+            element.style.left =
+                `calc(50% + ${x}px)`;
+
+
+            element.style.top =
+                `calc(50% + ${y}px)`;
+
+
+            element.style.width =
+                `${width}px`;
+
+
+            element.style.height =
+                `${height}px`;
+
+
+            element.style.background =
+                object.color;
+
+
+            element.style.transform =
+                `translate(-50%, -50%) rotate(${object.rotation.z}deg)`;
+
+
+            element.style.border =
+                "1px solid rgba(255,255,255,.25)";
+
+
+            element.style.boxSizing =
+                "border-box";
+
+
+            element.title =
+                object.name;
+
+
+            if (
+                object.id ===
+                state.selectedObjectId
+            ) {
+
+                element.classList.add(
+                    "selected"
+                );
+
+            }
+
+
+            element.addEventListener(
+                "click",
+                event => {
+
+                    event.stopPropagation();
+
+                    selectObject(
+                        object.id
+                    );
+
+                }
+            );
+
+
+            scene.appendChild(
+                element
+            );
 
         }
-
-        object.name =
-            name;
-
-        renderExplorer();
-        renderProperties();
-
-        saveProject();
 
     }
 
 
     /*
-    ========================================================
-     PROPERTY EDITING
-    ========================================================
+    ============================================================
+     SCENE HIGHLIGHT
+    ============================================================
     */
 
-    function updateProperty(
-        property,
-        value
-    ) {
+    function highlightSceneObject() {
 
-        const object =
-            getObject(
-                state.selectedId
-            );
+        $all(
+            ".studio-part"
+        )
+        .forEach(
+            element => {
 
-        if (!object) {
-
-            return;
-
-        }
-
-        if (
-            property === "position.x" ||
-            property === "position.y" ||
-            property === "position.z"
-        ) {
-
-            const axis =
-                property.split(".")[1];
-
-            object.position[axis] =
-                Number(value) || 0;
-
-        }
-
-        else if (
-            property === "rotation.x" ||
-            property === "rotation.y" ||
-            property === "rotation.z"
-        ) {
-
-            const axis =
-                property.split(".")[1];
-
-            object.rotation[axis] =
-                Number(value) || 0;
-
-        }
-
-        else if (
-            property === "size.x" ||
-            property === "size.y" ||
-            property === "size.z"
-        ) {
-
-            const axis =
-                property.split(".")[1];
-
-            object.size[axis] =
-                Math.max(
-                    0.1,
-                    Number(value) || 0.1
+                element.classList.toggle(
+                    "selected",
+                    element.dataset.objectId ===
+                    state.selectedObjectId
                 );
 
-        }
-
-        else if (
-            property === "color"
-        ) {
-
-            object.color =
-                value;
-
-        }
-
-        else if (
-            property === "anchored"
-        ) {
-
-            object.anchored =
-                Boolean(value);
-
-        }
-
-        else if (
-            property === "visible"
-        ) {
-
-            object.visible =
-                Boolean(value);
-
-        }
-
-        else if (
-            property === "transparency"
-        ) {
-
-            object.transparency =
-                Math.max(
-                    0,
-                    Math.min(
-                        1,
-                        Number(value) || 0
-                    )
-                );
-
-        }
-
-        else if (
-            property === "name"
-        ) {
-
-            object.name =
-                String(value);
-
-        }
-
-        renderExplorer();
-        renderProperties();
-        renderViewport();
-
-        saveProject();
+            }
+        );
 
     }
 
 
     /*
-    ========================================================
+    ============================================================
      EXPLORER
-    ========================================================
+    ============================================================
     */
 
-    function getExplorerContainer() {
+    function findExplorer() {
 
-        return findAny(
-
-            "#explorer",
-            "#explorerPanel",
-            "#explorerTree",
-            ".explorer-tree",
-            ".explorer-content",
-            "[data-explorer]"
-
+        return (
+            $(
+                "#explorer"
+            ) ||
+            $(
+                "#explorerPanel"
+            ) ||
+            $(
+                ".explorer"
+            ) ||
+            $(
+                ".explorer-panel"
+            ) ||
+            $(
+                "[data-studio-explorer]"
+            )
         );
 
     }
@@ -637,71 +671,60 @@
 
     function renderExplorer() {
 
-        const container =
-            getExplorerContainer();
+        const explorer =
+            findExplorer();
 
-        if (!container) {
 
-            return;
-
-        }
-
-        if (!state.objects.length) {
-
-            container.innerHTML = `
-
-                <div class="studio-empty">
-
-                    <div>
-                        🌎
-                    </div>
-
-                    <span>
-                        Workspace is empty
-                    </span>
-
-                    <small>
-                        Insert a Part to begin
-                    </small>
-
-                </div>
-
-            `;
+        if (!explorer) {
 
             return;
 
         }
 
-        container.innerHTML = "";
 
-        /*
-         * Workspace root
-         */
+        explorer.innerHTML =
+            "";
 
-        const root =
+
+        const title =
             document.createElement(
                 "div"
             );
 
-        root.className =
-            "explorer-root";
 
-        root.innerHTML = `
-            <span class="explorer-arrow">
-                ▾
-            </span>
+        title.className =
+            "explorer-title";
 
-            <span class="explorer-icon">
-                🌎
-            </span>
 
-            <span class="explorer-name">
-                Workspace
-            </span>
-        `;
+        title.textContent =
+            "Workspace";
 
-        container.appendChild(
-            root
+
+        explorer.appendChild(
+            title
+        );
+
+
+        /*
+         * Camera
+         */
+
+        const camera =
+            document.createElement(
+                "div"
+            );
+
+
+        camera.className =
+            "explorer-item";
+
+
+        camera.textContent =
+            "📷 Camera";
+
+
+        explorer.appendChild(
+            camera
         );
 
 
@@ -711,7 +734,7 @@
 
         for (
             const object
-            of state.objects
+            of state.project.objects
         ) {
 
             const row =
@@ -719,12 +742,18 @@
                     "div"
                 );
 
+
             row.className =
                 "explorer-item";
 
+
+            row.dataset.objectId =
+                object.id;
+
+
             if (
                 object.id ===
-                state.selectedId
+                state.selectedObjectId
             ) {
 
                 row.classList.add(
@@ -733,37 +762,14 @@
 
             }
 
-            row.dataset.objectId =
-                object.id;
-
-            const type =
-                OBJECT_TYPES[
-                    object.type
-                ] ||
-                OBJECT_TYPES.Part;
 
             row.innerHTML = `
-
-                <span class="explorer-indent">
-                </span>
-
-                <span class="explorer-arrow">
-                    ${object.type === "Model"
-                        ? "▸"
-                        : ""}
-                </span>
-
-                <span class="explorer-icon">
-                    ${type.icon}
-                </span>
-
+                <span class="explorer-icon">▰</span>
                 <span class="explorer-name">
-                    ${escapeHTML(
-                        object.name
-                    )}
+                    ${escapeHTML(object.name)}
                 </span>
-
             `;
+
 
             row.addEventListener(
                 "click",
@@ -776,7 +782,8 @@
                 }
             );
 
-            container.appendChild(
+
+            explorer.appendChild(
                 row
             );
 
@@ -786,14 +793,1210 @@
 
 
     /*
-    ========================================================
-     ESCAPE HTML
-    ========================================================
+    ============================================================
+     PROPERTIES
+    ============================================================
     */
 
-    function escapeHTML(
-        value
+    function findProperties() {
+
+        return (
+            $(
+                "#properties"
+            ) ||
+            $(
+                "#propertiesPanel"
+            ) ||
+            $(
+                ".properties"
+            ) ||
+            $(
+                ".properties-panel"
+            ) ||
+            $(
+                "[data-studio-properties]"
+            )
+        );
+
+    }
+
+
+    function renderProperties() {
+
+        const properties =
+            findProperties();
+
+
+        if (!properties) {
+
+            return;
+
+        }
+
+
+        properties.innerHTML =
+            "";
+
+
+        const object =
+            getSelectedObject();
+
+
+        if (!object) {
+
+            properties.innerHTML = `
+                <div class="properties-empty">
+                    Select an object to view
+                    its properties.
+                </div>
+            `;
+
+            return;
+
+        }
+
+
+        properties.innerHTML = `
+            <div class="properties-title">
+                Properties
+            </div>
+
+            <div class="property-section">
+
+                <div class="property-section-title">
+                    ${escapeHTML(object.name)}
+                </div>
+
+                <label>
+                    Name
+
+                    <input
+                        data-property="name"
+                        value="${escapeHTML(object.name)}"
+                    >
+                </label>
+
+                <label>
+                    Type
+
+                    <input
+                        value="${escapeHTML(object.type)}"
+                        disabled
+                    >
+                </label>
+
+            </div>
+
+            <div class="property-section">
+
+                <div class="property-section-title">
+                    Transform
+                </div>
+
+                <div class="property-group-title">
+                    Position
+                </div>
+
+                ${numberInput("x", object.position.x, "position")}
+                ${numberInput("y", object.position.y, "position")}
+                ${numberInput("z", object.position.z, "position")}
+
+                <div class="property-group-title">
+                    Rotation
+                </div>
+
+                ${numberInput("x", object.rotation.x, "rotation")}
+                ${numberInput("y", object.rotation.y, "rotation")}
+                ${numberInput("z", object.rotation.z, "rotation")}
+
+                <div class="property-group-title">
+                    Size
+                </div>
+
+                ${numberInput("x", object.size.x, "size")}
+                ${numberInput("y", object.size.y, "size")}
+                ${numberInput("z", object.size.z, "size")}
+
+            </div>
+
+            <div class="property-section">
+
+                <div class="property-section-title">
+                    Appearance
+                </div>
+
+                <label>
+                    Color
+
+                    <input
+                        type="color"
+                        data-property="color"
+                        value="${escapeHTML(object.color)}"
+                    >
+                </label>
+
+            </div>
+
+            <div class="property-section">
+
+                <div class="property-section-title">
+                    Physics
+                </div>
+
+                <label class="checkbox-property">
+
+                    <input
+                        type="checkbox"
+                        data-property="anchored"
+                        ${object.anchored ? "checked" : ""}
+                    >
+
+                    Anchored
+
+                </label>
+
+                <label class="checkbox-property">
+
+                    <input
+                        type="checkbox"
+                        data-property="collidable"
+                        ${object.collidable ? "checked" : ""}
+                    >
+
+                    Can Collide
+
+                </label>
+
+            </div>
+        `;
+
+
+        bindPropertyInputs();
+
+    }
+
+
+    function numberInput(
+        axis,
+        value,
+        group
     ) {
+
+        return `
+            <label>
+
+                ${group} ${axis.toUpperCase()}
+
+                <input
+                    type="number"
+                    step="0.1"
+                    data-property-group="${group}"
+                    data-axis="${axis}"
+                    value="${Number(value) || 0}"
+                >
+
+            </label>
+        `;
+
+    }
+
+
+    /*
+    ============================================================
+     PROPERTY INPUTS
+    ============================================================
+    */
+
+    function bindPropertyInputs() {
+
+        const object =
+            getSelectedObject();
+
+
+        if (!object) {
+
+            return;
+
+        }
+
+
+        $all(
+            "[data-property]"
+        )
+        .forEach(
+            input => {
+
+                input.addEventListener(
+                    "input",
+                    () => {
+
+                        const property =
+                            input.dataset.property;
+
+
+                        if (
+                            property ===
+                            "name"
+                        ) {
+
+                            object.name =
+                                input.value ||
+                                "Part";
+
+                        }
+
+
+                        if (
+                            property ===
+                            "color"
+                        ) {
+
+                            object.color =
+                                input.value;
+
+                        }
+
+
+                        if (
+                            property ===
+                            "anchored"
+                        ) {
+
+                            object.anchored =
+                                input.checked;
+
+                        }
+
+
+                        if (
+                            property ===
+                            "collidable"
+                        ) {
+
+                            object.collidable =
+                                input.checked;
+
+                        }
+
+
+                        renderExplorer();
+
+                        renderScene();
+
+                    }
+                );
+
+            }
+        );
+
+
+        $all(
+            "[data-property-group]"
+        )
+        .forEach(
+            input => {
+
+                input.addEventListener(
+                    "input",
+                    () => {
+
+                        const group =
+                            input.dataset.propertyGroup;
+
+
+                        const axis =
+                            input.dataset.axis;
+
+
+                        object[group][axis] =
+                            Number(
+                                input.value
+                            ) || 0;
+
+
+                        renderScene();
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+
+    /*
+    ============================================================
+     BUTTON SYSTEM
+    ============================================================
+    */
+
+    function setupButtons() {
+
+        /*
+         * Add Part
+         */
+
+        $all(
+            [
+                "#addPart",
+                "#insertPart",
+                "[data-action='add-part']",
+                "[data-studio-add='part']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        createPart(
+                            "Part"
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+        /*
+         * Add Spawn
+         */
+
+        $all(
+            [
+                "#addSpawn",
+                "[data-action='add-spawn']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        const spawn =
+                            createPart(
+                                "SpawnLocation"
+                            );
+
+
+                        spawn.color =
+                            "#4CAF50";
+
+
+                        spawn.size = {
+
+                            x: 6,
+
+                            y: 1,
+
+                            z: 6
+
+                        };
+
+
+                        renderScene();
+
+                        renderProperties();
+
+                    }
+                );
+
+            }
+        );
+
+
+        /*
+         * Delete
+         */
+
+        $all(
+            [
+                "#deleteObject",
+                "#deleteButton",
+                "[data-action='delete']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    deleteSelectedObject
+                );
+
+            }
+        );
+
+
+        /*
+         * Duplicate
+         */
+
+        $all(
+            [
+                "#duplicateObject",
+                "#duplicateButton",
+                "[data-action='duplicate']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    duplicateSelectedObject
+                );
+
+            }
+        );
+
+
+        /*
+         * Rename
+         */
+
+        $all(
+            [
+                "#renameObject",
+                "#renameButton",
+                "[data-action='rename']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    renameSelectedObject
+                );
+
+            }
+        );
+
+
+        /*
+         * Play
+         */
+
+        $all(
+            [
+                "#playButton",
+                "#playGame",
+                "[data-action='play']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    playGame
+                );
+
+            }
+        );
+
+
+        /*
+         * Stop
+         */
+
+        $all(
+            [
+                "#stopButton",
+                "#stopGame",
+                "[data-action='stop']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    stopGame
+                );
+
+            }
+        );
+
+
+        /*
+         * New project
+         */
+
+        $all(
+            [
+                "#newProject",
+                "[data-action='new-project']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    newProject
+                );
+
+            }
+        );
+
+
+        /*
+         * Save
+         */
+
+        $all(
+            [
+                "#saveProject",
+                "#saveButton",
+                "[data-action='save']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    saveProject
+                );
+
+            }
+        );
+
+
+        /*
+         * Load
+         */
+
+        $all(
+            [
+                "#loadProject",
+                "#loadButton",
+                "[data-action='load']"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    loadProject
+                );
+
+            }
+        );
+
+    }
+
+
+    /*
+    ============================================================
+     PLAY MODE
+    ============================================================
+    */
+
+    function playGame() {
+
+        if (
+            state.playing
+        ) {
+
+            return;
+
+        }
+
+
+        state.playing =
+            true;
+
+
+        document.body.classList.add(
+            "studio-playing"
+        );
+
+
+        console.log(
+            "[WebBlox Studio] Play mode started."
+        );
+
+
+        updatePlayButtons();
+
+    }
+
+
+    function stopGame() {
+
+        if (
+            !state.playing
+        ) {
+
+            return;
+
+        }
+
+
+        state.playing =
+            false;
+
+
+        document.body.classList.remove(
+            "studio-playing"
+        );
+
+
+        console.log(
+            "[WebBlox Studio] Play mode stopped."
+        );
+
+
+        updatePlayButtons();
+
+    }
+
+
+    function updatePlayButtons() {
+
+        $all(
+            [
+                "#playButton",
+                "#playGame"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.disabled =
+                    state.playing;
+
+            }
+        );
+
+
+        $all(
+            [
+                "#stopButton",
+                "#stopGame"
+            ].join(",")
+        )
+        .forEach(
+            button => {
+
+                button.disabled =
+                    !state.playing;
+
+            }
+        );
+
+    }
+
+
+    /*
+    ============================================================
+     PROJECT SYSTEM
+    ============================================================
+    */
+
+    function newProject() {
+
+        const confirmed =
+            confirm(
+                "Create a new WebBlox project? Unsaved changes will be lost."
+            );
+
+
+        if (!confirmed) {
+
+            return;
+
+        }
+
+
+        state.project = {
+
+            name:
+                "Untitled WebBlox Game",
+
+            version:
+                "1.0",
+
+            objects: []
+
+        };
+
+
+        state.selectedObjectId =
+            null;
+
+
+        state.nextObjectId =
+            1;
+
+
+        stopGame();
+
+
+        renderAll();
+
+    }
+
+
+    function saveProject() {
+
+        const project =
+            JSON.stringify(
+                state.project,
+                null,
+                2
+            );
+
+
+        localStorage.setItem(
+            "webblox-studio-project",
+            project
+        );
+
+
+        /*
+         * Also download a project file.
+         */
+
+        const blob =
+            new Blob(
+                [project],
+                {
+                    type:
+                        "application/json"
+                }
+            );
+
+
+        const url =
+            URL.createObjectURL(
+                blob
+            );
+
+
+        const link =
+            document.createElement(
+                "a"
+            );
+
+
+        link.href =
+            url;
+
+
+        link.download =
+            `${safeFilename(
+                state.project.name
+            )}.webblox.json`;
+
+
+        document.body.appendChild(
+            link
+        );
+
+
+        link.click();
+
+
+        link.remove();
+
+
+        URL.revokeObjectURL(
+            url
+        );
+
+
+        console.log(
+            "[WebBlox Studio] Project saved."
+        );
+
+    }
+
+
+    function loadProject() {
+
+        const stored =
+            localStorage.getItem(
+                "webblox-studio-project"
+            );
+
+
+        if (!stored) {
+
+            alert(
+                "No WebBlox Studio project has been saved yet."
+            );
+
+            return;
+
+        }
+
+
+        try {
+
+            const project =
+                JSON.parse(
+                    stored
+                );
+
+
+            if (
+                !project ||
+                !Array.isArray(
+                    project.objects
+                )
+            ) {
+
+                throw new Error(
+                    "Invalid project."
+                );
+
+            }
+
+
+            state.project =
+                project;
+
+
+            state.selectedObjectId =
+                null;
+
+
+            state.nextObjectId =
+                state.project.objects.length +
+                1;
+
+
+            renderAll();
+
+
+            console.log(
+                "[WebBlox Studio] Project loaded."
+            );
+
+        } catch (
+            error
+        ) {
+
+            console.error(
+                error
+            );
+
+
+            alert(
+                "The saved WebBlox project could not be loaded."
+            );
+
+        }
+
+    }
+
+
+    /*
+    ============================================================
+     EXPORT PROJECT
+    ============================================================
+    */
+
+    function exportProject() {
+
+        return JSON.parse(
+            JSON.stringify(
+                state.project
+            )
+        );
+
+    }
+
+
+    /*
+    ============================================================
+     IMPORT PROJECT
+    ============================================================
+    */
+
+    function importProject(project) {
+
+        if (
+            !project ||
+            !Array.isArray(
+                project.objects
+            )
+        ) {
+
+            throw new Error(
+                "Invalid WebBlox project."
+            );
+
+        }
+
+
+        state.project =
+            JSON.parse(
+                JSON.stringify(
+                    project
+                )
+            );
+
+
+        state.selectedObjectId =
+            null;
+
+
+        state.nextObjectId =
+            state.project.objects.length +
+            1;
+
+
+        renderAll();
+
+    }
+
+
+    /*
+    ============================================================
+     KEYBOARD SHORTCUTS
+    ============================================================
+    */
+
+    function setupKeyboard() {
+
+        document.addEventListener(
+            "keydown",
+            event => {
+
+                /*
+                 * Do not intercept typing.
+                 */
+
+                const tag =
+                    event.target?.tagName;
+
+
+                if (
+                    tag === "INPUT" ||
+                    tag === "TEXTAREA" ||
+                    tag === "SELECT"
+                ) {
+
+                    return;
+
+                }
+
+
+                /*
+                 * Delete
+                 */
+
+                if (
+                    event.key ===
+                    "Delete"
+                ) {
+
+                    deleteSelectedObject();
+
+                }
+
+
+                /*
+                 * Ctrl + D
+                 */
+
+                if (
+                    event.ctrlKey &&
+                    event.key.toLowerCase() ===
+                    "d"
+                ) {
+
+                    event.preventDefault();
+
+                    duplicateSelectedObject();
+
+                }
+
+
+                /*
+                 * Ctrl + S
+                 */
+
+                if (
+                    event.ctrlKey &&
+                    event.key.toLowerCase() ===
+                    "s"
+                ) {
+
+                    event.preventDefault();
+
+                    saveProject();
+
+                }
+
+
+                /*
+                 * F2
+                 */
+
+                if (
+                    event.key ===
+                    "F2"
+                ) {
+
+                    event.preventDefault();
+
+                    renameSelectedObject();
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /*
+    ============================================================
+     VIEWPORT CLICK
+    ============================================================
+    */
+
+    function setupViewport() {
+
+        const viewport =
+            findViewport();
+
+
+        if (!viewport) {
+
+            return;
+
+        }
+
+
+        viewport.addEventListener(
+            "click",
+            event => {
+
+                if (
+                    event.target ===
+                    viewport ||
+                    event.target.classList.contains(
+                        "webblox-scene"
+                    )
+                ) {
+
+                    selectObject(
+                        null
+                    );
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /*
+    ============================================================
+     CAMERA CONTROLS
+    ============================================================
+    */
+
+    function setupCameraControls() {
+
+        const viewport =
+            findViewport();
+
+
+        if (!viewport) {
+
+            return;
+
+        }
+
+
+        viewport.addEventListener(
+            "wheel",
+            event => {
+
+                event.preventDefault();
+
+
+                state.camera.zoom +=
+                    event.deltaY > 0
+                        ? -0.1
+                        : 0.1;
+
+
+                state.camera.zoom =
+                    Math.max(
+                        0.25,
+                        Math.min(
+                            3,
+                            state.camera.zoom
+                        )
+                    );
+
+
+                const scene =
+                    viewport.querySelector(
+                        ".webblox-scene"
+                    );
+
+
+                if (scene) {
+
+                    scene.style.transform =
+                        `scale(${state.camera.zoom})`;
+
+                }
+
+            },
+            {
+                passive: false
+            }
+        );
+
+    }
+
+
+    /*
+    ============================================================
+     RENDER ALL
+    ============================================================
+    */
+
+    function renderAll() {
+
+        renderScene();
+
+        renderExplorer();
+
+        renderProperties();
+
+        updatePlayButtons();
+
+    }
+
+
+    /*
+    ============================================================
+     HTML ESCAPING
+    ============================================================
+    */
+
+    function escapeHTML(value) {
 
         return String(
             value ?? ""
@@ -823,1643 +2026,50 @@
 
 
     /*
-    ========================================================
-     PROPERTIES
-    ========================================================
+    ============================================================
+     SAFE FILENAME
+    ============================================================
     */
 
-    function getPropertiesContainer() {
+    function safeFilename(name) {
 
-        return findAny(
-
-            "#properties",
-            "#propertiesPanel",
-            "#propertiesContent",
-            ".properties-content",
-            ".properties-panel",
-            "[data-properties]"
-
-        );
-
-    }
-
-
-    function propertyNumber(
-        label,
-        property,
-        value
-    ) {
-
-        return `
-
-            <label class="property-row">
-
-                <span>
-                    ${label}
-                </span>
-
-                <input
-                    type="number"
-                    step="0.1"
-                    data-property="${property}"
-                    value="${value}"
-                >
-
-            </label>
-
-        `;
-
-    }
-
-
-    function renderProperties() {
-
-        const container =
-            getPropertiesContainer();
-
-        if (!container) {
-
-            return;
-
-        }
-
-        const object =
-            getObject(
-                state.selectedId
-            );
-
-        if (!object) {
-
-            container.innerHTML = `
-
-                <div class="properties-empty">
-
-                    <div>
-                        ⚙️
-                    </div>
-
-                    <strong>
-                        No Selection
-                    </strong>
-
-                    <span>
-                        Select an object to edit
-                        its properties.
-                    </span>
-
-                </div>
-
-            `;
-
-            return;
-
-        }
-
-        container.innerHTML = `
-
-            <div class="properties-header">
-
-                <span class="properties-icon">
-                    ${
-                        OBJECT_TYPES[
-                            object.type
-                        ]?.icon || "🧱"
-                    }
-                </span>
-
-                <div>
-
-                    <strong>
-                        ${escapeHTML(
-                            object.name
-                        )}
-                    </strong>
-
-                    <small>
-                        ${escapeHTML(
-                            object.type
-                        )}
-                    </small>
-
-                </div>
-
-            </div>
-
-
-            <div class="property-section">
-
-                <div class="property-section-title">
-                    Identity
-                </div>
-
-                <label class="property-row">
-
-                    <span>
-                        Name
-                    </span>
-
-                    <input
-                        type="text"
-                        data-property="name"
-                        value="${escapeHTML(
-                            object.name
-                        )}"
-                    >
-
-                </label>
-
-                <label class="property-row">
-
-                    <span>
-                        Type
-                    </span>
-
-                    <input
-                        type="text"
-                        value="${escapeHTML(
-                            object.type
-                        )}"
-                        disabled
-                    >
-
-                </label>
-
-            </div>
-
-
-            <div class="property-section">
-
-                <div class="property-section-title">
-                    Position
-                </div>
-
-                ${propertyNumber(
-                    "X",
-                    "position.x",
-                    object.position.x
-                )}
-
-                ${propertyNumber(
-                    "Y",
-                    "position.y",
-                    object.position.y
-                )}
-
-                ${propertyNumber(
-                    "Z",
-                    "position.z",
-                    object.position.z
-                )}
-
-            </div>
-
-
-            <div class="property-section">
-
-                <div class="property-section-title">
-                    Rotation
-                </div>
-
-                ${propertyNumber(
-                    "X",
-                    "rotation.x",
-                    object.rotation.x
-                )}
-
-                ${propertyNumber(
-                    "Y",
-                    "rotation.y",
-                    object.rotation.y
-                )}
-
-                ${propertyNumber(
-                    "Z",
-                    "rotation.z",
-                    object.rotation.z
-                )}
-
-            </div>
-
-
-            <div class="property-section">
-
-                <div class="property-section-title">
-                    Size
-                </div>
-
-                ${propertyNumber(
-                    "X",
-                    "size.x",
-                    object.size.x
-                )}
-
-                ${propertyNumber(
-                    "Y",
-                    "size.y",
-                    object.size.y
-                )}
-
-                ${propertyNumber(
-                    "Z",
-                    "size.z",
-                    object.size.z
-                )}
-
-            </div>
-
-
-            <div class="property-section">
-
-                <div class="property-section-title">
-                    Appearance
-                </div>
-
-                <label class="property-row">
-
-                    <span>
-                        Color
-                    </span>
-
-                    <input
-                        type="color"
-                        data-property="color"
-                        value="${escapeHTML(
-                            object.color
-                        )}"
-                    >
-
-                </label>
-
-                <label class="property-row">
-
-                    <span>
-                        Transparency
-                    </span>
-
-                    <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        data-property="transparency"
-                        value="${object.transparency}"
-                    >
-
-                </label>
-
-            </div>
-
-
-            <div class="property-section">
-
-                <div class="property-section-title">
-                    Behavior
-                </div>
-
-                <label class="property-checkbox">
-
-                    <input
-                        type="checkbox"
-                        data-property="anchored"
-                        ${
-                            object.anchored
-                                ? "checked"
-                                : ""
-                        }
-                    >
-
-                    <span>
-                        Anchored
-                    </span>
-
-                </label>
-
-
-                <label class="property-checkbox">
-
-                    <input
-                        type="checkbox"
-                        data-property="visible"
-                        ${
-                            object.visible
-                                ? "checked"
-                                : ""
-                        }
-                    >
-
-                    <span>
-                        Visible
-                    </span>
-
-                </label>
-
-            </div>
-
-        `;
-
-
-        /*
-         * Property listeners
-         */
-
-        container
-            .querySelectorAll(
-                "[data-property]"
-            )
-            .forEach(
-                input => {
-
-                    input.addEventListener(
-                        "change",
-                        () => {
-
-                            const property =
-                                input.dataset.property;
-
-                            if (
-                                input.type ===
-                                "checkbox"
-                            ) {
-
-                                updateProperty(
-                                    property,
-                                    input.checked
-                                );
-
-                            } else {
-
-                                updateProperty(
-                                    property,
-                                    input.value
-                                );
-
-                            }
-
-                        }
-                    );
-
-                }
-            );
-
-    }
-
-
-    /*
-    ========================================================
-     VIEWPORT
-    ========================================================
-    */
-
-    function getViewport() {
-
-        return findAny(
-
-            "#viewport",
-            "#gameViewport",
-            "#studioViewport",
-            ".studio-viewport",
-            ".viewport",
-            "[data-viewport]"
-
-        );
-
-    }
-
-
-    function renderViewport() {
-
-        const viewport =
-            getViewport();
-
-        if (!viewport) {
-
-            return;
-
-        }
-
-        /*
-         * Do not destroy custom Studio UI
-         * that does not belong to our renderer.
-         */
-
-        let world =
-            viewport.querySelector(
-                ".webblox-world"
-            );
-
-        if (!world) {
-
-            world =
-                document.createElement(
-                    "div"
-                );
-
-            world.className =
-                "webblox-world";
-
-            viewport.appendChild(
-                world
-            );
-
-        }
-
-        world.innerHTML = "";
-
-
-        /*
-         * Basic browser 3D-style representation.
-         *
-         * This is intentionally lightweight.
-         * The real WebBlox renderer can later replace
-         * this with WebGL / Three.js.
-         */
-
-        for (
-            const object
-            of state.objects
-        ) {
-
-            if (
-                !object.visible
-            ) {
-
-                continue;
-
-            }
-
-            if (
-                object.type !== "Part" &&
-                object.type !== "SpawnLocation"
-            ) {
-
-                continue;
-
-            }
-
-            const part =
-                document.createElement(
-                    "div"
-                );
-
-            part.className =
-                "webblox-part";
-
-            if (
-                object.id ===
-                state.selectedId
-            ) {
-
-                part.classList.add(
-                    "selected"
-                );
-
-            }
-
-            /*
-             * Simple perspective mapping.
-             */
-
-            const x =
-                50 +
-                object.position.x * 3;
-
-            const y =
-                50 -
-                object.position.y * 3;
-
-            const width =
-                Math.max(
-                    12,
-                    object.size.x * 8
-                );
-
-            const height =
-                Math.max(
-                    8,
-                    object.size.y * 8
-                );
-
-            part.style.left =
-                `${x}%`;
-
-            part.style.top =
-                `${y}%`;
-
-            part.style.width =
-                `${width}px`;
-
-            part.style.height =
-                `${height}px`;
-
-            part.style.background =
-                object.color;
-
-            part.style.opacity =
-                String(
-                    1 -
-                    object.transparency
-                );
-
-            part.style.transform =
-                `translate(-50%, -50%) rotate(${object.rotation.z}deg)`;
-
-            part.dataset.objectId =
-                object.id;
-
-            part.title =
-                object.name;
-
-            part.addEventListener(
-                "click",
-                event => {
-
-                    event.stopPropagation();
-
-                    selectObject(
-                        object.id
-                    );
-
-                }
-            );
-
-            world.appendChild(
-                part
-            );
-
-        }
-
-    }
-
-
-    /*
-    ========================================================
-     TOOLBAR
-    ========================================================
-    */
-
-    function setTool(
-        tool
-    ) {
-
-        const validTools = [
-
-            "select",
-            "move",
-            "rotate",
-            "scale"
-
-        ];
-
-        if (
-            !validTools.includes(
-                tool
-            )
-        ) {
-
-            return;
-
-        }
-
-        state.tool =
-            tool;
-
-        $all(
-            "[data-studio-tool]"
+        return String(
+            name || "webblox-game"
         )
-        .forEach(
-            button => {
-
-                button.classList.toggle(
-                    "active",
-                    button.dataset.studioTool ===
-                    tool
-                );
-
-            }
-        );
-
-        document.body.dataset.studioTool =
-            tool;
-
-    }
-
-
-    function setupTools() {
-
-        $all(
-            "[data-studio-tool]"
+        .replace(
+            /[^a-z0-9-_ ]/gi,
+            ""
         )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        setTool(
-                            button.dataset.studioTool
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-    }
-
-
-    /*
-    ========================================================
-     INSERT MENU
-    ========================================================
-    */
-
-    function setupInsertButtons() {
-
-        $all(
-            "[data-insert-object]"
+        .trim()
+        .replace(
+            /\s+/g,
+            "-"
         )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        const type =
-                            button.dataset.insertObject ||
-                            "Part";
-
-                        addObject(
-                            type
-                        );
-
-                    }
-                );
-
-            }
-        );
+        .toLowerCase() ||
+        "webblox-game";
 
     }
 
 
     /*
-    ========================================================
-     BUTTON DISCOVERY
-    ========================================================
-    */
-
-    function setupCommonButtons() {
-
-        /*
-         * Delete
-         */
-
-        $all(
-            [
-                "#deleteButton",
-                "#deleteObject",
-                "[data-studio-action='delete']"
-            ].join(",")
-        )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    deleteSelected
-                );
-
-            }
-        );
-
-
-        /*
-         * Duplicate
-         */
-
-        $all(
-            [
-                "#duplicateButton",
-                "#duplicateObject",
-                "[data-studio-action='duplicate']"
-            ].join(",")
-        )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    duplicateSelected
-                );
-
-            }
-        );
-
-
-        /*
-         * Add Part
-         */
-
-        $all(
-            [
-                "#addPartButton",
-                "#insertPart",
-                "[data-studio-action='add-part']"
-            ].join(",")
-        )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        addObject(
-                            "Part"
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-
-        /*
-         * Play
-         */
-
-        $all(
-            [
-                "#playButton",
-                "#studioPlay",
-                "[data-studio-action='play']"
-            ].join(",")
-        )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    playGame
-                );
-
-            }
-        );
-
-
-        /*
-         * Stop
-         */
-
-        $all(
-            [
-                "#stopButton",
-                "#studioStop",
-                "[data-studio-action='stop']"
-            ].join(",")
-        )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    stopGame
-                );
-
-            }
-        );
-
-
-        /*
-         * Save
-         */
-
-        $all(
-            [
-                "#saveButton",
-                "#studioSave",
-                "[data-studio-action='save']"
-            ].join(",")
-        )
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        saveProject();
-
-                        notify(
-                            "Project saved."
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-    }
-
-
-    /*
-    ========================================================
-     VIEWPORT CLICK
-    ========================================================
-    */
-
-    function setupViewport() {
-
-        const viewport =
-            getViewport();
-
-        if (!viewport) {
-
-            return;
-
-        }
-
-        viewport.addEventListener(
-            "click",
-            event => {
-
-                if (
-                    event.target ===
-                    viewport ||
-                    event.target.classList.contains(
-                        "webblox-world"
-                    )
-                ) {
-
-                    selectObject(
-                        null
-                    );
-
-                }
-
-            }
-        );
-
-    }
-
-
-    /*
-    ========================================================
-     PROJECT SAVE
-    ========================================================
-    */
-
-    function saveProject() {
-
-        const project = {
-
-            version:
-                1,
-
-            projectName:
-                state.projectName,
-
-            nextId:
-                state.nextId,
-
-            objects:
-                state.objects
-
-        };
-
-        try {
-
-            localStorage.setItem(
-                STORAGE_KEY,
-                JSON.stringify(
-                    project
-                )
-            );
-
-        } catch (
-            error
-        ) {
-
-            console.warn(
-                "[WebBlox Studio] Could not save project:",
-                error
-            );
-
-        }
-
-        window.dispatchEvent(
-            new CustomEvent(
-                "webblox:studio-saved",
-                {
-                    detail:
-                        project
-                }
-            )
-        );
-
-    }
-
-
-    /*
-    ========================================================
-     PROJECT LOAD
-    ========================================================
-    */
-
-    function loadProject() {
-
-        try {
-
-            const raw =
-                localStorage.getItem(
-                    STORAGE_KEY
-                );
-
-            if (!raw) {
-
-                createDefaultProject();
-
-                return;
-
-            }
-
-            const project =
-                JSON.parse(
-                    raw
-                );
-
-            state.projectName =
-                project.projectName ||
-                "Untitled WebBlox Game";
-
-            state.nextId =
-                Number(
-                    project.nextId
-                ) || 1;
-
-            state.objects =
-                Array.isArray(
-                    project.objects
-                )
-                    ? project.objects
-                    : [];
-
-            state.selectedId =
-                null;
-
-            renderAll();
-
-            console.log(
-                "[WebBlox Studio] Project loaded."
-            );
-
-        } catch (
-            error
-        ) {
-
-            console.warn(
-                "[WebBlox Studio] Project load failed:",
-                error
-            );
-
-            createDefaultProject();
-
-        }
-
-    }
-
-
-    /*
-    ========================================================
-     DEFAULT PROJECT
-    ========================================================
-    */
-
-    function createDefaultProject() {
-
-        state.objects = [];
-
-        state.nextId = 1;
-
-        state.selectedId =
-            null;
-
-        /*
-         * Base platform
-         */
-
-        const base =
-            createObject(
-                "Part",
-                "Baseplate"
-            );
-
-        base.position.y =
-            -2;
-
-        base.size.x =
-            40;
-
-        base.size.y =
-            1;
-
-        base.size.z =
-            40;
-
-        base.color =
-            "#555555";
-
-        base.anchored =
-            true;
-
-        state.objects.push(
-            base
-        );
-
-
-        /*
-         * Spawn
-         */
-
-        const spawn =
-            createObject(
-                "SpawnLocation",
-                "SpawnLocation"
-            );
-
-        spawn.position.y =
-            0;
-
-        spawn.size.x =
-            4;
-
-        spawn.size.y =
-            1;
-
-        spawn.size.z =
-            4;
-
-        spawn.color =
-            "#00aa55";
-
-        state.objects.push(
-            spawn
-        );
-
-
-        /*
-         * Example block
-         */
-
-        const part =
-            createObject(
-                "Part",
-                "Part"
-            );
-
-        part.position.x =
-            6;
-
-        part.position.y =
-            2;
-
-        part.size.x =
-            4;
-
-        part.size.y =
-            4;
-
-        part.size.z =
-            4;
-
-        part.color =
-            "#888888";
-
-        state.objects.push(
-            part
-        );
-
-
-        saveProject();
-
-        renderAll();
-
-    }
-
-
-    /*
-    ========================================================
-     PLAY MODE
-    ========================================================
-    */
-
-    function playGame() {
-
-        if (
-            state.playing
-        ) {
-
-            return;
-
-        }
-
-        state.playing =
-            true;
-
-        document.body.classList.add(
-            "studio-playing"
-        );
-
-        updatePlayButtons();
-
-        notify(
-            "Play mode started."
-        );
-
-        window.dispatchEvent(
-            new CustomEvent(
-                "webblox:studio-play",
-                {
-                    detail: {
-                        project:
-                            getProject()
-                    }
-                }
-            )
-        );
-
-    }
-
-
-    /*
-    ========================================================
-     STOP MODE
-    ========================================================
-    */
-
-    function stopGame() {
-
-        if (
-            !state.playing
-        ) {
-
-            return;
-
-        }
-
-        state.playing =
-            false;
-
-        document.body.classList.remove(
-            "studio-playing"
-        );
-
-        updatePlayButtons();
-
-        notify(
-            "Play mode stopped."
-        );
-
-        window.dispatchEvent(
-            new CustomEvent(
-                "webblox:studio-stop"
-            )
-        );
-
-    }
-
-
-    function updatePlayButtons() {
-
-        $all(
-            [
-                "#playButton",
-                "#studioPlay",
-                "[data-studio-action='play']"
-            ].join(",")
-        )
-        .forEach(
-            button => {
-
-                button.classList.toggle(
-                    "playing",
-                    state.playing
-                );
-
-                if (
-                    state.playing
-                ) {
-
-                    button.textContent =
-                        "▶ Playing";
-
-                } else {
-
-                    button.textContent =
-                        "▶ Play";
-
-                }
-
-            }
-        );
-
-    }
-
-
-    /*
-    ========================================================
-     NOTIFICATION
-    ========================================================
-    */
-
-    function notify(
-        message
-    ) {
-
-        let notification =
-            document.querySelector(
-                ".studio-notification"
-            );
-
-        if (!notification) {
-
-            notification =
-                document.createElement(
-                    "div"
-                );
-
-            notification.className =
-                "studio-notification";
-
-            document.body.appendChild(
-                notification
-            );
-
-        }
-
-        notification.textContent =
-            message;
-
-        notification.classList.add(
-            "visible"
-        );
-
-        clearTimeout(
-            notification._timer
-        );
-
-        notification._timer =
-            setTimeout(
-                () => {
-
-                    notification.classList.remove(
-                        "visible"
-                    );
-
-                },
-                2200
-            );
-
-    }
-
-
-    /*
-    ========================================================
-     KEYBOARD SHORTCUTS
-    ========================================================
-    */
-
-    function setupKeyboard() {
-
-        document.addEventListener(
-            "keydown",
-            event => {
-
-                const target =
-                    event.target;
-
-                const typing =
-                    target instanceof
-                        HTMLInputElement ||
-                    target instanceof
-                        HTMLTextAreaElement ||
-                    target.isContentEditable;
-
-                if (
-                    typing
-                ) {
-
-                    /*
-                     * Allow Ctrl+S while typing.
-                     */
-
-                    if (
-                        !(
-                            event.ctrlKey &&
-                            event.key.toLowerCase() ===
-                            "s"
-                        )
-                    ) {
-
-                        return;
-
-                    }
-
-                }
-
-
-                /*
-                 * Delete
-                 */
-
-                if (
-                    event.key ===
-                    "Delete"
-                ) {
-
-                    deleteSelected();
-
-                    return;
-
-                }
-
-
-                /*
-                 * Duplicate
-                 */
-
-                if (
-                    event.ctrlKey &&
-                    event.key.toLowerCase() ===
-                    "d"
-                ) {
-
-                    event.preventDefault();
-
-                    duplicateSelected();
-
-                    return;
-
-                }
-
-
-                /*
-                 * Save
-                 */
-
-                if (
-                    event.ctrlKey &&
-                    event.key.toLowerCase() ===
-                    "s"
-                ) {
-
-                    event.preventDefault();
-
-                    saveProject();
-
-                    notify(
-                        "Project saved."
-                    );
-
-                    return;
-
-                }
-
-
-                /*
-                 * Play
-                 */
-
-                if (
-                    event.key ===
-                    "F5"
-                ) {
-
-                    event.preventDefault();
-
-                    if (
-                        state.playing
-                    ) {
-
-                        stopGame();
-
-                    } else {
-
-                        playGame();
-
-                    }
-
-                    return;
-
-                }
-
-
-                /*
-                 * Tools
-                 */
-
-                if (
-                    event.key ===
-                    "q"
-                ) {
-
-                    setTool(
-                        "select"
-                    );
-
-                }
-
-                if (
-                    event.key ===
-                    "w"
-                ) {
-
-                    setTool(
-                        "move"
-                    );
-
-                }
-
-                if (
-                    event.key ===
-                    "e"
-                ) {
-
-                    setTool(
-                        "rotate"
-                    );
-
-                }
-
-                if (
-                    event.key ===
-                    "r"
-                ) {
-
-                    setTool(
-                        "scale"
-                    );
-
-                }
-
-            }
-        );
-
-    }
-
-
-    /*
-    ========================================================
-     PROJECT API
-    ========================================================
-    */
-
-    function getProject() {
-
-        return {
-
-            version:
-                1,
-
-            projectName:
-                state.projectName,
-
-            objects:
-                JSON.parse(
-                    JSON.stringify(
-                        state.objects
-                    )
-                )
-
-        };
-
-    }
-
-
-    function setProject(
-        project
-    ) {
-
-        if (
-            !project ||
-            typeof project !==
-                "object"
-        ) {
-
-            return false;
-
-        }
-
-        state.projectName =
-            project.projectName ||
-            "Untitled WebBlox Game";
-
-        state.objects =
-            Array.isArray(
-                project.objects
-            )
-                ? project.objects
-                : [];
-
-        /*
-         * Recalculate ID counter.
-         */
-
-        let highest =
-            0;
-
-        for (
-            const object
-            of state.objects
-        ) {
-
-            const match =
-                String(
-                    object.id || ""
-                )
-                .match(
-                    /(\d+)$/
-                );
-
-            if (match) {
-
-                highest =
-                    Math.max(
-                        highest,
-                        Number(
-                            match[1]
-                        )
-                    );
-
-            }
-
-        }
-
-        state.nextId =
-            highest + 1;
-
-        state.selectedId =
-            null;
-
-        renderAll();
-
-        saveProject();
-
-        return true;
-
-    }
-
-
-    /*
-    ========================================================
-     RENDER EVERYTHING
-    ========================================================
-    */
-
-    function renderAll() {
-
-        renderExplorer();
-
-        renderProperties();
-
-        renderViewport();
-
-        updatePlayButtons();
-
-    }
-
-
-    /*
-    ========================================================
-     PUBLIC WEBBLOX STUDIO API
-    ========================================================
+    ============================================================
+     PUBLIC API
+    ============================================================
     */
 
     window.WebBloxStudio = {
 
         state,
 
-        addObject,
-
-        createObject,
-
-        deleteSelected,
-
-        duplicateSelected,
+        createPart,
 
         selectObject,
 
-        getObject,
+        deleteSelectedObject,
 
-        renameSelected,
+        duplicateSelectedObject,
 
-        updateProperty,
-
-        setTool,
+        renameSelectedObject,
 
         playGame,
 
@@ -2469,27 +2079,19 @@
 
         loadProject,
 
-        getProject,
+        exportProject,
 
-        setProject,
+        importProject,
 
-        renderAll,
-
-        renderExplorer,
-
-        renderProperties,
-
-        renderViewport,
-
-        notify
+        renderAll
 
     };
 
 
     /*
-    ========================================================
+    ============================================================
      INITIALIZATION
-    ========================================================
+    ============================================================
     */
 
     function init() {
@@ -2499,67 +2101,78 @@
         );
 
         console.log(
-            "[WebBlox Studio] Initializing..."
-        );
-
-        console.log(
-            "[WebBlox Studio] Editor systems loading."
+            "[WebBlox Studio] Starting..."
         );
 
 
-        setupTools();
-
-        setupInsertButtons();
-
-        setupCommonButtons();
-
-        setupViewport();
+        setupButtons();
 
         setupKeyboard();
 
+        setupViewport();
 
-        /*
-         * Load existing project.
-         * If there isn't one, create a starter map.
-         */
+        setupCameraControls();
 
-        loadProject();
+        renderAll();
 
 
         /*
-         * If there was no saved project and
-         * loadProject didn't create anything,
-         * make sure something exists.
+         * Give every new Studio project
+         * a basic baseplate.
          */
 
         if (
-            !state.objects.length
+            state.project.objects.length ===
+            0
         ) {
 
-            createDefaultProject();
+            const baseplate =
+                createPart(
+                    "Baseplate"
+                );
+
+
+            baseplate.position = {
+
+                x: 0,
+
+                y: -1,
+
+                z: 0
+
+            };
+
+
+            baseplate.size = {
+
+                x: 32,
+
+                y: 1,
+
+                z: 32
+
+            };
+
+
+            baseplate.color =
+                "#5f6368";
+
+
+            state.selectedObjectId =
+                null;
+
+
+            renderAll();
 
         }
-
-
-        renderAll();
 
 
         console.log(
             "[WebBlox Studio] Ready."
         );
 
-        console.log(
-            "===================================="
-        );
-
     }
 
-
-    /*
-    ========================================================
-     START
-    ========================================================
-    */
 
     if (
         document.readyState ===
