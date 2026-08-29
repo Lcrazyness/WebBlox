@@ -1,1080 +1,515 @@
-"use strict";
+```javascript
+/*
+ * WebBlox - games.js
+ * Real Roblox experience loader
+ *
+ * Uses the WebBlox backend instead of putting Roblox API requests
+ * directly in the browser.
+ */
 
-/* ============================================================
-   WEBBLOX GAMES
-   ============================================================
+(() => {
+    "use strict";
 
-   This file controls the NEW WebBlox Games system.
+    // ------------------------------------------------------------
+    // CONFIG
+    // ------------------------------------------------------------
 
-   Roblox experiences:
-       script.js
+    // Change this to your deployed WebBlox backend URL.
+    // Do NOT put /api/home at the end.
+    const API_BASE = "https://YOUR-WEBBLOX-BACKEND.onrender.com";
 
-   WebBlox-created games:
-       games.js
+    const ENDPOINTS = {
+        home: `${API_BASE}/api/home`,
+        search: `${API_BASE}/api/search`
+    };
 
-   Backend:
-       https://webblox-backend.onrender.com
+    // ------------------------------------------------------------
+    // STATE
+    // ------------------------------------------------------------
 
-   ============================================================ */
+    let currentGames = [];
+    let searchTimeout = null;
 
+    // ------------------------------------------------------------
+    // HELPERS
+    // ------------------------------------------------------------
 
-/* ============================================================
-   CONFIG
-   ============================================================ */
+    function escapeHTML(value) {
+        if (value === null || value === undefined) return "";
 
-const WEBBLOX_GAMES_API =
-    "https://webblox-backend.onrender.com";
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 
+    function formatNumber(number) {
+        number = Number(number) || 0;
 
-/* ============================================================
-   API ROUTES
-   ============================================================ */
+        if (number >= 1_000_000_000) {
+            return (number / 1_000_000_000).toFixed(1).replace(".0", "") + "B";
+        }
 
-const WEBBLOX_GAMES_API_ROUTES = {
+        if (number >= 1_000_000) {
+            return (number / 1_000_000).toFixed(1).replace(".0", "") + "M";
+        }
 
-    stats:
-        WEBBLOX_GAMES_API +
-        "/api/webblox/stats",
+        if (number >= 1_000) {
+            return (number / 1_000).toFixed(1).replace(".0", "") + "K";
+        }
 
-    games:
-        WEBBLOX_GAMES_API +
-        "/api/webblox/games",
+        return number.toLocaleString();
+    }
 
-    popular:
-        WEBBLOX_GAMES_API +
-        "/api/webblox/games/popular",
+    function getGameURL(game) {
+        if (game.robloxUrl) {
+            return game.robloxUrl;
+        }
 
-    search:
-        WEBBLOX_GAMES_API +
-        "/api/webblox/games/search"
+        if (game.placeId) {
+            return `https://www.roblox.com/games/${game.placeId}`;
+        }
 
-};
+        if (game.id) {
+            return `https://www.roblox.com/games/${game.id}`;
+        }
 
+        return "#";
+    }
 
-/* ============================================================
-   STATE
-   ============================================================ */
+    function getThumbnail(game) {
+        return (
+            game.thumbnail ||
+            game.icon ||
+            "https://tr.rbxcdn.com/180DAY-00000000000000000000000000000000/420/420/Image/Webp/noFilter"
+        );
+    }
 
-const WebBloxGames = {
+    // ------------------------------------------------------------
+    // GAME CARD
+    // ------------------------------------------------------------
 
-    games: [],
+    function createGameCard(game) {
+        const name = escapeHTML(game.name || "Unknown Experience");
+        const creator = escapeHTML(game.creator || "Roblox");
+        const description = escapeHTML(
+            game.description || "No description available."
+        );
 
-    popular: [],
+        const thumbnail = escapeHTML(getThumbnail(game));
+        const url = escapeHTML(getGameURL(game));
 
-    searchResults: [],
+        const playing = formatNumber(game.playing);
+        const visits = formatNumber(game.visits);
 
-    stats: {
+        return `
+            <div class="game-card" data-game-id="${escapeHTML(game.id || game.universeId || "")}">
+                
+                <a
+                    class="game-thumbnail-link"
+                    href="${url}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <img
+                        class="game-thumbnail"
+                        src="${thumbnail}"
+                        alt="${name}"
+                        loading="lazy"
+                        onerror="this.style.display='none';"
+                    >
+                </a>
 
-        games: 0,
+                <div class="game-card-info">
 
-        publicGames: 0
+                    <a
+                        class="game-name"
+                        href="${url}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        ${name}
+                    </a>
 
-    },
+                    <div class="game-creator">
+                        ${creator}
+                    </div>
 
-    initialized: false
+                    <div class="game-description">
+                        ${description}
+                    </div>
 
-};
+                    <div class="game-stats">
+                        <span>👥 ${playing} playing</span>
+                        <span>▶ ${visits} visits</span>
+                    </div>
 
+                </div>
+            </div>
+        `;
+    }
 
-/* ============================================================
-   DEBUG
-   ============================================================ */
+    // ------------------------------------------------------------
+    // RENDER GAMES
+    // ------------------------------------------------------------
 
-function webBloxGamesLog(...args) {
+    function renderGames(games, container) {
+        if (!container) return;
 
-    console.log(
-        "[WebBlox Games]",
-        ...args
-    );
+        if (!Array.isArray(games) || games.length === 0) {
+            container.innerHTML = `
+                <div class="games-empty">
+                    No experiences found.
+                </div>
+            `;
+            return;
+        }
 
-}
+        container.innerHTML = games
+            .map(createGameCard)
+            .join("");
+    }
 
+    // ------------------------------------------------------------
+    // FIND CONTAINERS
+    // ------------------------------------------------------------
 
-/* ============================================================
-   API REQUEST
-   ============================================================ */
+    function findContainer(...selectors) {
+        for (const selector of selectors) {
+            const element = document.querySelector(selector);
 
-async function webBloxGamesFetch(url) {
+            if (element) {
+                return element;
+            }
+        }
 
-    webBloxGamesLog(
-        "Request:",
-        url
-    );
+        return null;
+    }
 
-    let response;
+    // ------------------------------------------------------------
+    // HOME
+    // ------------------------------------------------------------
 
-    try {
+    async function loadHome() {
+        try {
+            const response = await fetch(ENDPOINTS.home, {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json"
+                }
+            });
 
-        response =
-            await fetch(
-                url,
-                {
-                    method: "GET",
+            if (!response.ok) {
+                throw new Error(`Home API returned ${response.status}`);
+            }
 
-                    headers: {
-                        "Accept":
-                            "application/json"
-                    },
+            const data = await response.json();
 
-                    cache:
-                        "no-store"
+            if (!data.success) {
+                throw new Error(data.error || "Home API failed");
+            }
+
+            const recommended = Array.isArray(data.recommended)
+                ? data.recommended
+                : [];
+
+            const popular = Array.isArray(data.popular)
+                ? data.popular
+                : [];
+
+            currentGames = [
+                ...recommended,
+                ...popular
+            ];
+
+            // Remove duplicate games.
+            currentGames = currentGames.filter(
+                (game, index, array) => {
+                    const id =
+                        game.universeId ||
+                        game.id ||
+                        game.placeId ||
+                        game.name;
+
+                    return (
+                        index ===
+                        array.findIndex(other => {
+                            const otherId =
+                                other.universeId ||
+                                other.id ||
+                                other.placeId ||
+                                other.name;
+
+                            return otherId === id;
+                        })
+                    );
                 }
             );
 
-    } catch (error) {
-
-        throw new Error(
-            "Could not connect to the WebBlox Games server."
-        );
-
-    }
-
-
-    const text =
-        await response.text();
-
-
-    if (!text) {
-
-        throw new Error(
-            "WebBlox Games server returned an empty response."
-        );
-
-    }
-
-
-    let data;
-
-    try {
-
-        data =
-            JSON.parse(text);
-
-    } catch (error) {
-
-        throw new Error(
-            "WebBlox Games server returned invalid JSON."
-        );
-
-    }
-
-
-    if (!response.ok) {
-
-        throw new Error(
-            data.error ||
-            "WebBlox Games server returned HTTP " +
-            response.status
-        );
-
-    }
-
-
-    if (
-        data.success === false
-    ) {
-
-        throw new Error(
-            data.error ||
-            "WebBlox Games request failed."
-        );
-
-    }
-
-
-    webBloxGamesLog(
-        "Response:",
-        data
-    );
-
-
-    return data;
-
-}
-
-
-/* ============================================================
-   LOAD STATS
-   ============================================================ */
-
-async function loadWebBloxGameStats() {
-
-    try {
-
-        const data =
-            await webBloxGamesFetch(
-                WEBBLOX_GAMES_API_ROUTES.stats
+            const recommendedContainer = findContainer(
+                "#recommended-games",
+                "#recommendedGames",
+                ".recommended-games",
+                "[data-games='recommended']"
             );
 
-
-        WebBloxGames.stats = {
-
-            games:
-                Number(
-                    data.games
-                ) || 0,
-
-            publicGames:
-                Number(
-                    data.publicGames
-                ) || 0
-
-        };
-
-
-        webBloxGamesLog(
-            "Stats loaded:",
-            WebBloxGames.stats
-        );
-
-
-        return WebBloxGames.stats;
-
-    } catch (error) {
-
-        console.error(
-            "[WebBlox Games] Stats error:",
-            error
-        );
-
-
-        return null;
-
-    }
-
-}
-
-
-/* ============================================================
-   LOAD ALL WEBBLOX GAMES
-   ============================================================ */
-
-async function loadWebBloxGames() {
-
-    try {
-
-        const data =
-            await webBloxGamesFetch(
-                WEBBLOX_GAMES_API_ROUTES.games
+            const popularContainer = findContainer(
+                "#popular-games",
+                "#popularGames",
+                ".popular-games",
+                "[data-games='popular']"
             );
 
+            renderGames(recommended, recommendedContainer);
+            renderGames(popular, popularContainer);
 
-        const games =
-            Array.isArray(
-                data.games
+            // If there is only one general games container,
+            // put all loaded games there.
+            if (!recommendedContainer && !popularContainer) {
+                const generalContainer = findContainer(
+                    "#games",
+                    "#game-list",
+                    "#gameList",
+                    ".games-grid",
+                    ".game-grid",
+                    "[data-games]"
+                );
+
+                renderGames(currentGames, generalContainer);
+            }
+
+            console.log(
+                `[WebBlox] Loaded ${currentGames.length} Roblox experiences`
+            );
+
+        } catch (error) {
+            console.error("[WebBlox] Failed to load games:", error);
+
+            const containers = [
+                "#recommended-games",
+                "#recommendedGames",
+                ".recommended-games",
+                "#popular-games",
+                "#popularGames",
+                ".popular-games",
+                "#games",
+                "#game-list",
+                "#gameList"
+            ];
+
+            containers.forEach(selector => {
+                const element = document.querySelector(selector);
+
+                if (element) {
+                    element.innerHTML = `
+                        <div class="games-error">
+                            Unable to load Roblox experiences.
+                            <button onclick="window.WebBloxGames.loadHome()">
+                                Retry
+                            </button>
+                        </div>
+                    `;
+                }
+            });
+        }
+    }
+
+    // ------------------------------------------------------------
+    // SEARCH
+    // ------------------------------------------------------------
+
+    async function searchGames(query) {
+        query = String(query || "").trim();
+
+        if (!query) {
+            await loadHome();
+            return;
+        }
+
+        try {
+            const url =
+                `${ENDPOINTS.search}?q=${encodeURIComponent(query)}`;
+
+            const response = await fetch(url, {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json"
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Search API returned ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || "Search failed");
+            }
+
+            /*
+             * Supports several possible backend response names.
+             */
+            const results =
+                Array.isArray(data.results) ? data.results :
+                Array.isArray(data.games) ? data.games :
+                Array.isArray(data.experiences) ? data.experiences :
+                [];
+
+            currentGames = results;
+
+            const container = findContainer(
+                "#search-results",
+                "#searchResults",
+                "#games",
+                "#game-list",
+                "#gameList",
+                ".games-grid",
+                ".game-grid",
+                "[data-games]"
+            );
+
+            renderGames(results, container);
+
+            // Hide normal sections while searching.
+            document
+                .querySelectorAll(
+                    "#recommended-section, " +
+                    "#recommendedGamesSection, " +
+                    ".recommended-section, " +
+                    "#popular-section, " +
+                    "#popularGamesSection, " +
+                    ".popular-section"
+                )
+                .forEach(element => {
+                    element.style.display = "none";
+                });
+
+            console.log(
+                `[WebBlox] Search "${query}" → ${results.length} results`
+            );
+
+            return results;
+
+        } catch (error) {
+            console.error("[WebBlox] Search failed:", error);
+
+            const container = findContainer(
+                "#search-results",
+                "#searchResults",
+                "#games",
+                "#game-list",
+                "#gameList",
+                ".games-grid",
+                ".game-grid"
+            );
+
+            if (container) {
+                container.innerHTML = `
+                    <div class="games-error">
+                        Search failed.
+                        <button onclick="window.WebBloxGames.searchGames(${JSON.stringify(query)})">
+                            Retry
+                        </button>
+                    </div>
+                `;
+            }
+
+            return [];
+        }
+    }
+
+    // ------------------------------------------------------------
+    // SEARCH BAR
+    // ------------------------------------------------------------
+
+    function setupSearch() {
+        const searchInput = document.querySelector(
+            "#search, #searchInput, #search-input, input[name='search']"
+        );
+
+        if (!searchInput) {
+            console.warn("[WebBlox] Search input not found.");
+            return;
+        }
+
+        searchInput.addEventListener("input", () => {
+            clearTimeout(searchTimeout);
+
+            const query = searchInput.value.trim();
+
+            searchTimeout = setTimeout(() => {
+                if (query.length >= 2) {
+                    searchGames(query);
+                } else if (query.length === 0) {
+                    showHomeSections();
+                    loadHome();
+                }
+            }, 350);
+        });
+
+        searchInput.addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+
+                clearTimeout(searchTimeout);
+
+                searchGames(searchInput.value);
+            }
+        });
+    }
+
+    // ------------------------------------------------------------
+    // SHOW HOME
+    // ------------------------------------------------------------
+
+    function showHomeSections() {
+        document
+            .querySelectorAll(
+                "#recommended-section, " +
+                "#recommendedGamesSection, " +
+                ".recommended-section, " +
+                "#popular-section, " +
+                "#popularGamesSection, " +
+                ".popular-section"
             )
-                ? data.games
-                : [];
-
-
-        WebBloxGames.games =
-            games;
-
-
-        webBloxGamesLog(
-            "Games loaded:",
-            games.length
-        );
-
-
-        return games;
-
-    } catch (error) {
-
-        console.error(
-            "[WebBlox Games] Games error:",
-            error
-        );
-
-
-        WebBloxGames.games =
-            [];
-
-
-        return [];
-
+            .forEach(element => {
+                element.style.display = "";
+            });
     }
 
-}
+    // ------------------------------------------------------------
+    // INITIALIZE
+    // ------------------------------------------------------------
 
+    async function init() {
+        console.log("[WebBlox] Initializing games system...");
 
-/* ============================================================
-   LOAD POPULAR WEBBLOX GAMES
-   ============================================================ */
+        setupSearch();
+        await loadHome();
 
-async function loadPopularWebBloxGames() {
-
-    try {
-
-        const data =
-            await webBloxGamesFetch(
-                WEBBLOX_GAMES_API_ROUTES.popular
-            );
-
-
-        const games =
-            Array.isArray(
-                data.games
-            )
-                ? data.games
-                : [];
-
-
-        WebBloxGames.popular =
-            games;
-
-
-        webBloxGamesLog(
-            "Popular games loaded:",
-            games.length
-        );
-
-
-        return games;
-
-    } catch (error) {
-
-        console.error(
-            "[WebBlox Games] Popular games error:",
-            error
-        );
-
-
-        WebBloxGames.popular =
-            [];
-
-
-        return [];
-
+        console.log("[WebBlox] Games system ready.");
     }
 
-}
+    // ------------------------------------------------------------
+    // PUBLIC API
+    // ------------------------------------------------------------
 
-
-/* ============================================================
-   SEARCH WEBBLOX GAMES
-   ============================================================ */
-
-async function searchWebBloxGames(query) {
-
-    query =
-        String(
-            query || ""
-        ).trim();
-
-
-    if (!query) {
-
-        WebBloxGames.searchResults =
-            [];
-
-        return [];
-
-    }
-
-
-    try {
-
-        const url =
-            WEBBLOX_GAMES_API_ROUTES.search +
-            "?q=" +
-            encodeURIComponent(
-                query
-            );
-
-
-        const data =
-            await webBloxGamesFetch(
-                url
-            );
-
-
-        const games =
-            Array.isArray(
-                data.games
-            )
-                ? data.games
-                : [];
-
-
-        WebBloxGames.searchResults =
-            games;
-
-
-        webBloxGamesLog(
-            "Search results:",
-            games.length
-        );
-
-
-        return games;
-
-    } catch (error) {
-
-        console.error(
-            "[WebBlox Games] Search error:",
-            error
-        );
-
-
-        WebBloxGames.searchResults =
-            [];
-
-
-        return [];
-
-    }
-
-}
-
-
-/* ============================================================
-   NORMALIZE GAME
-   ============================================================
-
-   This makes sure every WebBlox Game has a predictable
-   structure.
-
-   Eventually this will support:
-
-   - creator
-   - creatorId
-   - thumbnail
-   - game ID
-   - player count
-   - visits
-   - description
-   - version
-   - multiplayer
-   ============================================================ */
-
-function normalizeWebBloxGame(game) {
-
-    if (!game) {
-
-        return null;
-
-    }
-
-
-    return {
-
-        id:
-            game.id ||
-            game.gameId ||
-            game._id ||
-            "",
-
-        name:
-            game.name ||
-            "Untitled WebBlox Game",
-
-        description:
-            game.description ||
-            "No description available.",
-
-        creator:
-            game.creator ||
-            game.creatorName ||
-            "Unknown Creator",
-
-        creatorId:
-            game.creatorId ||
-            "",
-
-        thumbnail:
-            game.thumbnail ||
-            game.image ||
-            game.icon ||
-            "",
-
-        players:
-            Number(
-                game.players ||
-                game.playing ||
-                0
-            ),
-
-        visits:
-            Number(
-                game.visits ||
-                0
-            ),
-
-        likes:
-            Number(
-                game.likes ||
-                0
-            ),
-
-        createdAt:
-            game.createdAt ||
-            "",
-
-        updatedAt:
-            game.updatedAt ||
-            "",
-
-        version:
-            game.version ||
-            "1.0",
-
-        public:
-            game.public !== false,
-
-        multiplayer:
-            game.multiplayer === true,
-
-        raw:
-            game
-
+    window.WebBloxGames = {
+        loadHome,
+        searchGames,
+        renderGames,
+        getGameURL
     };
 
-}
-
-
-/* ============================================================
-   GET NORMALIZED GAMES
-   ============================================================ */
-
-function getWebBloxGames() {
-
-    return WebBloxGames.games
-        .map(
-            normalizeWebBloxGame
-        )
-        .filter(
-            Boolean
-        );
-
-}
-
-
-/* ============================================================
-   GET POPULAR NORMALIZED GAMES
-   ============================================================ */
-
-function getPopularWebBloxGames() {
-
-    return WebBloxGames.popular
-        .map(
-            normalizeWebBloxGame
-        )
-        .filter(
-            Boolean
-        );
-
-}
-
-
-/* ============================================================
-   FIND GAME
-   ============================================================ */
-
-function findWebBloxGame(id) {
-
-    const gameId =
-        String(
-            id || ""
-        );
-
-
-    return getWebBloxGames()
-        .find(
-            game =>
-                String(
-                    game.id
-                ) === gameId
-        ) || null;
-
-}
-
-
-/* ============================================================
-   GAME URL
-   ============================================================ */
-
-function getWebBloxGameUrl(game) {
-
-    if (!game) {
-
-        return "#";
-
+    // Start once DOM is ready.
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
     }
 
-
-    const id =
-        game.id ||
-        game.gameId;
-
-
-    if (!id) {
-
-        return "#";
-
-    }
-
-
-    return (
-        "game.html?id=" +
-        encodeURIComponent(
-            id
-        )
-    );
-
-}
-
-
-/* ============================================================
-   ESCAPE HTML
-   ============================================================ */
-
-function escapeWebBloxGameHTML(value) {
-
-    return String(
-        value ?? ""
-    )
-        .replaceAll(
-            "&",
-            "&amp;"
-        )
-        .replaceAll(
-            "<",
-            "&lt;"
-        )
-        .replaceAll(
-            ">",
-            "&gt;"
-        )
-        .replaceAll(
-            '"',
-            "&quot;"
-        )
-        .replaceAll(
-            "'",
-            "&#039;"
-        );
-
-}
-
-
-/* ============================================================
-   FORMAT NUMBERS
-   ============================================================ */
-
-function formatWebBloxGameNumber(number) {
-
-    number =
-        Number(
-            number
-        ) || 0;
-
-
-    if (
-        number >= 1000000000
-    ) {
-
-        return (
-            number /
-            1000000000
-        ).toFixed(1) + "B";
-
-    }
-
-
-    if (
-        number >= 1000000
-    ) {
-
-        return (
-            number /
-            1000000
-        ).toFixed(1) + "M";
-
-    }
-
-
-    if (
-        number >= 1000
-    ) {
-
-        return (
-            number /
-            1000
-        ).toFixed(1) + "K";
-
-    }
-
-
-    return number.toLocaleString();
-
-}
-
-
-/* ============================================================
-   CREATE GAME CARD
-   ============================================================ */
-
-function createWebBloxGameCard(game) {
-
-    game =
-        normalizeWebBloxGame(
-            game
-        );
-
-
-    if (!game) {
-
-        return null;
-
-    }
-
-
-    const card =
-        document.createElement(
-            "article"
-        );
-
-
-    card.className =
-        "game-card webblox-game-card";
-
-
-    card.dataset.gameId =
-        game.id;
-
-
-    /* IMAGE */
-
-    const image =
-        document.createElement(
-            "img"
-        );
-
-
-    image.className =
-        "game-thumbnail";
-
-
-    image.alt =
-        game.name;
-
-
-    image.loading =
-        "lazy";
-
-
-    if (game.thumbnail) {
-
-        image.src =
-            game.thumbnail;
-
-    }
-
-
-    image.onerror =
-        function() {
-
-            this.style.display =
-                "none";
-
-        };
-
-
-    /* BODY */
-
-    const body =
-        document.createElement(
-            "div"
-        );
-
-
-    body.className =
-        "game-card-body";
-
-
-    /* TITLE */
-
-    const title =
-        document.createElement(
-            "h3"
-        );
-
-
-    title.className =
-        "game-title";
-
-
-    title.textContent =
-        game.name;
-
-
-    /* CREATOR */
-
-    const creator =
-        document.createElement(
-            "p"
-        );
-
-
-    creator.className =
-        "game-creator";
-
-
-    creator.textContent =
-        "By " +
-        game.creator;
-
-
-    /* STATS */
-
-    const stats =
-        document.createElement(
-            "div"
-        );
-
-
-    stats.className =
-        "game-stats";
-
-
-    const players =
-        document.createElement(
-            "span"
-        );
-
-
-    players.textContent =
-        "● " +
-        formatWebBloxGameNumber(
-            game.players
-        ) +
-        " playing";
-
-
-    const visits =
-        document.createElement(
-            "span"
-        );
-
-
-    visits.textContent =
-        formatWebBloxGameNumber(
-            game.visits
-        ) +
-        " visits";
-
-
-    stats.appendChild(
-        players
-    );
-
-
-    stats.appendChild(
-        visits
-    );
-
-
-    body.appendChild(
-        title
-    );
-
-
-    body.appendChild(
-        creator
-    );
-
-
-    body.appendChild(
-        stats
-    );
-
-
-    card.appendChild(
-        image
-    );
-
-
-    card.appendChild(
-        body
-    );
-
-
-    /* CLICK */
-
-    card.addEventListener(
-        "click",
-        function() {
-
-            openWebBloxGame(
-                game
-            );
-
-        }
-    );
-
-
-    return card;
-
-}
-
-
-/* ============================================================
-   OPEN WEBBLOX GAME
-   ============================================================ */
-
-function openWebBloxGame(game) {
-
-    game =
-        normalizeWebBloxGame(
-            game
-        );
-
-
-    if (!game) {
-
-        return;
-
-    }
-
-
-    webBloxGamesLog(
-        "Opening game:",
-        game
-    );
-
-
-    /*
-       For now, use the future game page.
-
-       We will build game.html later.
-    */
-
-    const url =
-        getWebBloxGameUrl(
-            game
-        );
-
-
-    if (
-        url !== "#"
-    ) {
-
-        window.location.href =
-            url;
-
-    }
-
-}
-
-
-/* ============================================================
-   INITIALIZE
-   ============================================================ */
-
-async function initializeWebBloxGames() {
-
-    if (
-        WebBloxGames.initialized
-    ) {
-
-        return;
-
-    }
-
-
-    WebBloxGames.initialized =
-        true;
-
-
-    webBloxGamesLog(
-        "Initializing..."
-    );
-
-
-    /*
-       Stats are loaded independently.
-
-       This lets the frontend continue working
-       even if there aren't any published games yet.
-    */
-
-    await loadWebBloxGameStats();
-
-
-    await loadWebBloxGames();
-
-
-    /*
-       Popular is separate because eventually
-       it will be calculated by the backend.
-    */
-
-    await loadPopularWebBloxGames();
-
-
-    webBloxGamesLog(
-        "Initialization complete."
-    );
-
-
-    webBloxGamesLog(
-        "Total games:",
-        WebBloxGames.stats.games
-    );
-
-
-    webBloxGamesLog(
-        "Public games:",
-        WebBloxGames.stats.publicGames
-    );
-
-}
-
-
-/* ============================================================
-   PUBLIC API
-   ============================================================
-
-   Other frontend files can use:
-
-       WebBloxGames.games
-       WebBloxGames.popular
-       WebBloxGames.stats
-
-   and:
-
-       loadWebBloxGames()
-       searchWebBloxGames()
-       findWebBloxGame()
-       openWebBloxGame()
-
-   ============================================================ */
-
-window.WebBloxGames =
-    WebBloxGames;
-
-window.loadWebBloxGames =
-    loadWebBloxGames;
-
-window.loadPopularWebBloxGames =
-    loadPopularWebBloxGames;
-
-window.searchWebBloxGames =
-    searchWebBloxGames;
-
-window.findWebBloxGame =
-    findWebBloxGame;
-
-window.openWebBloxGame =
-    openWebBloxGame;
-
-window.createWebBloxGameCard =
-    createWebBloxGameCard;
-
-
-/* ============================================================
-   START
-   ============================================================ */
-
-initializeWebBloxGames();
+})();
+```
