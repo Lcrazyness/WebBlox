@@ -11,10 +11,6 @@
 
 <body>
 
-<!-- ============================================================
-     TOP BAR
-     ============================================================ -->
-
 <header class="topbar">
 
     <div class="topbar-inner">
@@ -40,6 +36,14 @@
                 type="button"
             >
                 Favorites
+            </button>
+
+            <button
+                class="nav-btn studio-nav-btn"
+                id="studioButton"
+                type="button"
+            >
+                Studio
             </button>
 
         </nav>
@@ -69,19 +73,9 @@
 </header>
 
 
-<!-- ============================================================
-     MAIN
-     ============================================================ -->
-
 <main>
 
-    <!-- ========================================================
-         DISCOVER PAGE
-         ======================================================== -->
-
     <div id="discoverPage">
-
-        <!-- HERO -->
 
         <section class="hero">
 
@@ -101,20 +95,30 @@
                     find new games, and jump in.
                 </p>
 
-                <button
-                    class="hero-button"
-                    id="exploreButton"
-                    type="button"
-                >
-                    Explore Games
-                </button>
+                <div class="hero-actions">
+
+                    <button
+                        class="hero-button"
+                        id="exploreButton"
+                        type="button"
+                    >
+                        Explore Games
+                    </button>
+
+                    <button
+                        class="hero-studio-button"
+                        id="heroStudioButton"
+                        type="button"
+                    >
+                        Open Studio
+                    </button>
+
+                </div>
 
             </div>
 
         </section>
 
-
-        <!-- SEARCH RESULTS -->
 
         <section
             id="searchSection"
@@ -145,8 +149,6 @@
 
         </section>
 
-
-        <!-- RECOMMENDED -->
 
         <section
             id="recommendedSection"
@@ -185,8 +187,6 @@
         </section>
 
 
-        <!-- POPULAR -->
-
         <section
             id="popularSection"
             class="game-section"
@@ -218,10 +218,6 @@
     </div>
 
 
-    <!-- ========================================================
-         FAVORITES PAGE
-         ======================================================== -->
-
     <div
         id="favoritesPage"
         class="hidden"
@@ -247,10 +243,6 @@
 
     </div>
 
-
-    <!-- ========================================================
-         ERROR
-         ======================================================== -->
 
     <section
         id="errorSection"
@@ -281,10 +273,6 @@
 
 </main>
 
-
-<!-- ============================================================
-     GAME MODAL
-     ============================================================ -->
 
 <div
     id="gameModal"
@@ -393,13 +381,7 @@
 </div>
 
 
-<!-- ============================================================
-     JAVASCRIPT
-     ============================================================ -->
-
 <script src="script.js"></script>
-
-<!-- WebBlox Games system -->
 <script src="games.js"></script>
 
 </body>
