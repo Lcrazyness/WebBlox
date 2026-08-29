@@ -2,28 +2,27 @@
  * WebBlox Studio
  * Complete Studio controller
  *
- * Stage 2:
+ * Stage 3:
  * - Real 3D WebGL viewport
- * - Three.js renderer
- * - Real 3D Parts
- * - Real 3D SpawnLocation
- * - Basic 3D Models
- * - Perspective camera
- * - WASD movement
- * - Shift fast movement
- * - Mouse camera rotation
- * - Mouse wheel zoom
+ * - Real editor camera
+ * - Correct WASD editor movement
+ * - Q/W/E/R Studio shortcuts
  * - Object selection
- * - Explorer selection
- * - Properties synchronization
  * - Move / Scale / Rotate tools
- * - Grid
- * - Snap
- * - Add Part / Spawn / Model / Folder / Script
- * - Duplicate
- * - Delete
- * - Undo / Redo
- * - New Game
+ * - Grid / Snap
+ * - Real Play Test
+ * - Player system
+ * - Player collisions
+ * - Gravity
+ * - Jumping
+ * - Sprinting
+ * - First person / third person
+ * - Mouse wheel zoom
+ * - Bacon-hair style R15 player
+ * - Basic R15-style animations
+ * - SpawnLocation support
+ * - leaderstats support
+ * - Script objects
  * - Save / Load
  * - Publish title validation
  */
@@ -46,12 +45,6 @@
         snapEnabled: true,
 
         camera: {
-            position: {
-                x: 14,
-                y: 10,
-                z: 20
-            },
-
             target: {
                 x: 0,
                 y: 0,
@@ -101,7 +94,6 @@
     const explorerPanel = $("explorerPanel");
     const propertiesPanel = $("propertiesPanel");
 
-    const explorerTree = $("explorerTree");
     const workspaceChildren = $("workspaceChildren");
 
     const outputConsole = $("outputConsole");
@@ -119,24 +111,47 @@
 
     const selectionBox = $("selectionBox");
 
-    // Remove old fake viewport objects immediately.
     const oldWorld = $("world");
-    if (oldWorld) {
-        oldWorld.style.display = "none";
-    }
-
     const oldWelcome = $("viewportWelcome");
-    if (oldWelcome) {
-        oldWelcome.style.display = "none";
-    }
-
     const oldDefaultPart = $("defaultPart");
-    if (oldDefaultPart) {
-        oldDefaultPart.style.display = "none";
-    }
+
 
     // ============================================================
-    // THREE.JS
+    // REMOVE OLD FAKE VIEWPORT
+    // ============================================================
+
+    function removeOldViewport() {
+
+        [
+            oldWorld,
+            oldWelcome,
+            oldDefaultPart
+        ].forEach(element => {
+
+            if (!element) {
+                return;
+            }
+
+            element.style.display = "none";
+            element.style.visibility = "hidden";
+            element.style.pointerEvents = "none";
+        });
+
+        if (selectionBox) {
+            selectionBox.style.display = "none";
+        }
+
+        const crosshair = $("viewportCrosshair");
+
+        if (crosshair) {
+            crosshair.style.zIndex = "30";
+            crosshair.style.pointerEvents = "none";
+        }
+    }
+
+
+    // ============================================================
+    // THREE
     // ============================================================
 
     let THREE = null;
@@ -161,6 +176,15 @@
 
 
     // ============================================================
+    // PLAYER
+    // ============================================================
+
+    let playerSystem = null;
+
+    let playerModuleLoading = null;
+
+
+    // ============================================================
     // HELPERS
     // ============================================================
 
@@ -170,6 +194,7 @@
 
 
     function snap(value, amount = 1) {
+
         if (!state.snapEnabled) {
             return value;
         }
@@ -179,6 +204,7 @@
 
 
     function makeId(prefix = "object") {
+
         return (
             prefix +
             "_" +
@@ -192,6 +218,7 @@
 
 
     function escapeHTML(value) {
+
         return String(value ?? "")
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
@@ -202,6 +229,7 @@
 
 
     function cloneObject(object) {
+
         return JSON.parse(
             JSON.stringify(object)
         );
@@ -209,6 +237,7 @@
 
 
     function log(message, type = "info") {
+
         if (!outputConsole) {
             return;
         }
@@ -236,6 +265,7 @@
 
 
     function showToast(message) {
+
         const container =
             $("toastContainer");
 
@@ -253,6 +283,7 @@
         container.appendChild(toast);
 
         setTimeout(() => {
+
             toast.classList.add(
                 "toast-hide"
             );
@@ -261,21 +292,26 @@
                 () => toast.remove(),
                 250
             );
+
         }, 2500);
     }
 
 
     // ============================================================
-    // THREE.JS LOADER
+    // THREE LOADER
     // ============================================================
 
     function loadThree() {
+
         return new Promise(
             (resolve, reject) => {
 
                 if (window.THREE) {
+
                     THREE = window.THREE;
+
                     resolve();
+
                     return;
                 }
 
@@ -285,13 +321,20 @@
                     );
 
                 if (existing) {
+
                     existing.addEventListener(
                         "load",
                         () => {
+
                             if (window.THREE) {
-                                THREE = window.THREE;
+
+                                THREE =
+                                    window.THREE;
+
                                 resolve();
+
                             } else {
+
                                 reject(
                                     new Error(
                                         "Three.js failed to load."
@@ -304,6 +347,7 @@
                     existing.addEventListener(
                         "error",
                         () => {
+
                             reject(
                                 new Error(
                                     "Three.js failed to load."
@@ -327,22 +371,26 @@
                     "true";
 
                 script.onload = () => {
+
                     if (!window.THREE) {
+
                         reject(
                             new Error(
-                                "Three.js loaded but was unavailable."
+                                "Three.js loaded but unavailable."
                             )
                         );
 
                         return;
                     }
 
-                    THREE = window.THREE;
+                    THREE =
+                        window.THREE;
 
                     resolve();
                 };
 
                 script.onerror = () => {
+
                     reject(
                         new Error(
                             "Unable to load Three.js."
@@ -355,6 +403,141 @@
                 );
             }
         );
+    }
+
+
+    // ============================================================
+    // PLAYER MODULE LOADER
+    // ============================================================
+
+    function loadPlayerModule() {
+
+        if (playerSystem) {
+            return Promise.resolve(
+                playerSystem
+            );
+        }
+
+        if (playerModuleLoading) {
+            return playerModuleLoading;
+        }
+
+        playerModuleLoading =
+            new Promise(
+                (resolve, reject) => {
+
+                    if (
+                        window.WebBloxPlayer
+                    ) {
+
+                        playerSystem =
+                            window.WebBloxPlayer;
+
+                        resolve(
+                            playerSystem
+                        );
+
+                        return;
+                    }
+
+                    const existing =
+                        document.querySelector(
+                            "script[data-webblox-player]"
+                        );
+
+                    if (existing) {
+
+                        existing.addEventListener(
+                            "load",
+                            () => {
+
+                                if (
+                                    window.WebBloxPlayer
+                                ) {
+
+                                    playerSystem =
+                                        window.WebBloxPlayer;
+
+                                    resolve(
+                                        playerSystem
+                                    );
+
+                                } else {
+
+                                    reject(
+                                        new Error(
+                                            "Player module loaded but WebBloxPlayer was not found."
+                                        )
+                                    );
+                                }
+                            }
+                        );
+
+                        existing.addEventListener(
+                            "error",
+                            () => {
+
+                                reject(
+                                    new Error(
+                                        "Player module failed to load."
+                                    )
+                                );
+                            }
+                        );
+
+                        return;
+                    }
+
+                    const script =
+                        document.createElement(
+                            "script"
+                        );
+
+                    script.src =
+                        "./Player/player.js";
+
+                    script.dataset.webbloxPlayer =
+                        "true";
+
+                    script.onload = () => {
+
+                        if (
+                            window.WebBloxPlayer
+                        ) {
+
+                            playerSystem =
+                                window.WebBloxPlayer;
+
+                            resolve(
+                                playerSystem
+                            );
+
+                        } else {
+
+                            reject(
+                                new Error(
+                                    "Player system was not exported."
+                                )
+                            );
+                        }
+                    };
+
+                    script.onerror = () => {
+
+                        reject(
+                            new Error(
+                                "Unable to load ./Player/player.js"
+                            )
+                        );
+                    };
+
+                    document.head.appendChild(
+                        script
+                    );
+                }
+            );
+
+        return playerModuleLoading;
     }
 
 
@@ -373,17 +556,13 @@
             name:
                 data.name ||
                 (
-                    data.type ===
-                    "SpawnLocation"
+                    data.type === "SpawnLocation"
                         ? "Spawn"
-                        : data.type ===
-                          "Model"
+                        : data.type === "Model"
                             ? "Model"
-                            : data.type ===
-                              "Folder"
+                            : data.type === "Folder"
                                 ? "Folder"
-                                : data.type ===
-                                  "Script"
+                                : data.type === "Script"
                                     ? "Script"
                                     : "Part"
                 ),
@@ -437,8 +616,7 @@
             color:
                 data.color ||
                 (
-                    data.type ===
-                    "SpawnLocation"
+                    data.type === "SpawnLocation"
                         ? "#22c55e"
                         : "#808080"
                 ),
@@ -478,8 +656,11 @@
         state.objects.clear();
 
         createObject({
+
             id: "defaultPart",
+
             name: "Part",
+
             type: "Part",
 
             position: {
@@ -489,23 +670,30 @@
             },
 
             size: {
-                x: 4,
+                x: 40,
                 y: 1,
-                z: 4
+                z: 40
             },
 
-            color: "#808080"
+            color: "#808080",
+
+            anchored: true,
+
+            canCollide: true
         });
 
         createObject({
+
             id: "spawn",
-            name: "Spawn",
+
+            name: "SpawnLocation",
+
             type: "SpawnLocation",
 
             position: {
                 x: 0,
                 y: 1,
-                z: 8
+                z: 0
             },
 
             size: {
@@ -514,11 +702,14 @@
                 z: 4
             },
 
-            color: "#22c55e"
+            color: "#22c55e",
+
+            anchored: true,
+
+            canCollide: true
         });
 
-        state.selectedId =
-            null;
+        state.selectedId = null;
     }
 
 
@@ -530,40 +721,54 @@
 
         const color =
             new THREE.Color(
-                object.color ||
-                "#808080"
+                object.color || "#808080"
             );
 
-        let params = {
+        const params = {
+
             color,
+
             roughness: 0.8,
+
             metalness: 0
         };
 
         switch (object.material) {
 
             case "SmoothPlastic":
+
                 params.roughness = 0.35;
+
                 break;
 
             case "Metal":
+
                 params.roughness = 0.25;
+
                 params.metalness = 0.85;
+
                 break;
 
             case "Glass":
+
                 params.transparent = true;
+
                 params.opacity = 0.45;
+
                 params.roughness = 0.1;
-                params.metalness = 0;
+
                 break;
 
             case "Wood":
+
                 params.roughness = 0.9;
+
                 break;
 
             case "Concrete":
+
                 params.roughness = 1;
+
                 break;
         }
 
@@ -584,10 +789,6 @@
         }
 
         let root;
-
-        // --------------------------------------------------------
-        // PART
-        // --------------------------------------------------------
 
         if (
             object.type === "Part" ||
@@ -656,10 +857,6 @@
             }
         }
 
-        // --------------------------------------------------------
-        // MODEL
-        // --------------------------------------------------------
-
         else if (
             object.type === "Model"
         ) {
@@ -680,8 +877,7 @@
                     material
                 );
 
-            body.position.y =
-                1.5;
+            body.position.y = 1.5;
 
             body.castShadow = true;
 
@@ -697,17 +893,12 @@
                     material
                 );
 
-            head.position.y =
-                3.9;
+            head.position.y = 3.9;
 
             head.castShadow = true;
 
             root.add(head);
         }
-
-        // --------------------------------------------------------
-        // FOLDER / SCRIPT
-        // --------------------------------------------------------
 
         else {
 
@@ -739,6 +930,7 @@
         if (
             object.type === "Model"
         ) {
+
             root.scale.set(
                 object.size.x / 4,
                 object.size.y,
@@ -747,6 +939,44 @@
         }
 
         return root;
+    }
+
+
+    // ============================================================
+    // DISPOSE
+    // ============================================================
+
+    function disposeMesh(mesh) {
+
+        if (!mesh) {
+            return;
+        }
+
+        mesh.traverse(child => {
+
+            if (child.geometry) {
+                child.geometry.dispose();
+            }
+
+            if (child.material) {
+
+                if (
+                    Array.isArray(
+                        child.material
+                    )
+                ) {
+
+                    child.material.forEach(
+                        material =>
+                            material.dispose()
+                    );
+
+                } else {
+
+                    child.material.dispose();
+                }
+            }
+        });
     }
 
 
@@ -769,28 +999,7 @@
                 old.parent.remove(old);
             }
 
-            old.traverse(child => {
-
-                if (child.geometry) {
-                    child.geometry.dispose();
-                }
-
-                if (child.material) {
-
-                    if (
-                        Array.isArray(
-                            child.material
-                        )
-                    ) {
-                        child.material.forEach(
-                            material =>
-                                material.dispose()
-                        );
-                    } else {
-                        child.material.dispose();
-                    }
-                }
-            });
+            disposeMesh(old);
 
             meshes.delete(
                 object.id
@@ -820,7 +1029,7 @@
 
 
     // ============================================================
-    // RENDER ALL OBJECTS
+    // RENDER WORLD
     // ============================================================
 
     function renderWorld() {
@@ -833,11 +1042,12 @@
             const mesh
             of meshes.values()
         ) {
+
             if (mesh.parent) {
-                mesh.parent.remove(
-                    mesh
-                );
+                mesh.parent.remove(mesh);
             }
+
+            disposeMesh(mesh);
         }
 
         meshes.clear();
@@ -846,6 +1056,7 @@
             const object
             of state.objects.values()
         ) {
+
             renderObject(
                 object
             );
@@ -860,18 +1071,32 @@
 
 
     // ============================================================
-    // UPDATE OBJECT MESH
+    // UPDATE MESH
     // ============================================================
 
-    function updateMeshFromObject(
-        object
-    ) {
+    function updateMeshFromObject(object) {
 
         const mesh =
             meshes.get(object.id);
 
         if (!mesh) {
-            renderObject(object);
+
+            renderObject(
+                object
+            );
+
+            return;
+        }
+
+        if (
+            object.type === "Part" ||
+            object.type === "SpawnLocation"
+        ) {
+
+            renderObject(
+                object
+            );
+
             return;
         }
 
@@ -896,19 +1121,12 @@
         if (
             object.type === "Model"
         ) {
+
             mesh.scale.set(
                 object.size.x / 4,
                 object.size.y,
                 object.size.z / 4
             );
-        }
-
-        else if (
-            object.type === "Part" ||
-            object.type ===
-                "SpawnLocation"
-        ) {
-            renderObject(object);
         }
 
         updateMeshSelection(
@@ -921,9 +1139,7 @@
     // SELECTION VISUAL
     // ============================================================
 
-    function updateMeshSelection(
-        object
-    ) {
+    function updateMeshSelection(object) {
 
         const mesh =
             meshes.get(object.id);
@@ -963,6 +1179,7 @@
             const object
             of state.objects.values()
         ) {
+
             updateMeshSelection(
                 object
             );
@@ -992,8 +1209,8 @@
 
         gridHelper =
             new THREE.GridHelper(
-                200,
-                200,
+                400,
+                400,
                 0x555555,
                 0x252525
             );
@@ -1021,7 +1238,7 @@
 
 
     // ============================================================
-    // THREE.JS INITIALIZATION
+    // THREE INITIALIZATION
     // ============================================================
 
     async function initialize3D() {
@@ -1050,12 +1267,6 @@
                     2000
                 );
 
-            camera.position.set(
-                state.camera.position.x,
-                state.camera.position.y,
-                state.camera.position.z
-            );
-
             renderer =
                 new THREE.WebGLRenderer({
                     antialias: true,
@@ -1064,8 +1275,7 @@
 
             renderer.setPixelRatio(
                 Math.min(
-                    window.devicePixelRatio ||
-                        1,
+                    window.devicePixelRatio || 1,
                     2
                 )
             );
@@ -1106,26 +1316,7 @@
                 canvas
             );
 
-            // Remove old fake viewport
-            // layers from the screen.
-            if (oldWorld) {
-                oldWorld.style.display =
-                    "none";
-            }
-
-            if (oldWelcome) {
-                oldWelcome.style.display =
-                    "none";
-            }
-
-            if (oldDefaultPart) {
-                oldDefaultPart.style.display =
-                    "none";
-            }
-
-            // ----------------------------------------------------
-            // LIGHTING
-            // ----------------------------------------------------
+            removeOldViewport();
 
             ambientLight =
                 new THREE.HemisphereLight(
@@ -1163,25 +1354,15 @@
                 directionalLight
             );
 
-            // ----------------------------------------------------
-            // RAYCASTING
-            // ----------------------------------------------------
-
             raycaster =
                 new THREE.Raycaster();
 
             mouseVector =
                 new THREE.Vector2();
 
-            // ----------------------------------------------------
-            // GRID
-            // ----------------------------------------------------
+            threeReady = true;
 
             createGrid();
-
-            // ----------------------------------------------------
-            // EVENTS
-            // ----------------------------------------------------
 
             setup3DInput();
 
@@ -1192,9 +1373,9 @@
                 resizeRenderer
             );
 
-            threeReady = true;
-
             renderWorld();
+
+            updateCamera();
 
             animate();
 
@@ -1203,15 +1384,19 @@
             );
 
             log(
-                "WASD camera controls enabled."
+                "Editor WASD controls enabled."
             );
 
             log(
-                "Middle/right mouse rotates the camera."
+                "Q = Select, W = Move, E = Scale, R = Rotate."
             );
 
             log(
-                "Mouse wheel controls zoom."
+                "Middle/right mouse rotates the editor camera."
+            );
+
+            log(
+                "Mouse wheel zooms the editor camera."
             );
 
             return true;
@@ -1274,7 +1459,7 @@
 
 
     // ============================================================
-    // CAMERA
+    // EDITOR CAMERA
     // ============================================================
 
     function updateCamera() {
@@ -1307,6 +1492,7 @@
             distance;
 
         camera.position.set(
+
             target.x +
                 Math.sin(yaw) *
                 horizontal,
@@ -1339,7 +1525,11 @@
         const p =
             camera
                 ? camera.position
-                : state.camera.position;
+                : {
+                    x: 0,
+                    y: 0,
+                    z: 0
+                };
 
         viewportCoordinates.textContent =
             `X: ${Math.round(p.x)} ` +
@@ -1356,14 +1546,11 @@
 
         state.camera.yaw = 35;
         state.camera.pitch = -20;
-
         state.camera.distance = 24;
 
         updateCamera();
 
-        log(
-            "Camera reset."
-        );
+        log("Camera reset.");
     }
 
 
@@ -1381,17 +1568,15 @@
             viewportMode.textContent =
                 "Perspective";
         }
-
-        log(
-            "Perspective camera enabled."
-        );
     }
 
 
     function setTopCamera() {
 
         state.camera.yaw = 0;
+
         state.camera.pitch = -89;
+
         state.camera.distance = 30;
 
         updateCamera();
@@ -1401,14 +1586,12 @@
                 "Top";
         }
 
-        log(
-            "Top camera enabled."
-        );
+        log("Top camera enabled.");
     }
 
 
     // ============================================================
-    // CAMERA MOVEMENT
+    // EDITOR CAMERA MOVEMENT
     // ============================================================
 
     function updateMovement(delta) {
@@ -1417,15 +1600,19 @@
             return;
         }
 
+        if (state.playing) {
+            return;
+        }
+
+        const active =
+            document.activeElement;
+
         if (
-            document.activeElement &&
+            active &&
             (
-                document.activeElement.tagName ===
-                    "INPUT" ||
-                document.activeElement.tagName ===
-                    "TEXTAREA" ||
-                document.activeElement.tagName ===
-                    "SELECT"
+                active.tagName === "INPUT" ||
+                active.tagName === "TEXTAREA" ||
+                active.tagName === "SELECT"
             )
         ) {
             return;
@@ -1437,27 +1624,9 @@
             return;
         }
 
-        if (
-            !state.keys.size
-        ) {
-            return;
-        }
-
-        const speed =
-            state.keys.has("shift")
-                ? 35
-                : 16;
-
-        const amount =
-            speed * delta;
-
-        const yaw =
-            THREE.MathUtils.degToRad(
-                state.camera.yaw
-            );
-
         let forward = 0;
         let right = 0;
+        let vertical = 0;
 
         if (
             state.keys.has("w") ||
@@ -1487,18 +1656,58 @@
             right -= 1;
         }
 
+        if (
+            state.keys.has("e")
+        ) {
+            vertical += 1;
+        }
+
+        if (
+            state.keys.has("q")
+        ) {
+            vertical -= 1;
+        }
+
         const length =
             Math.hypot(
                 forward,
                 right
             );
 
-        if (!length) {
+        if (
+            !length &&
+            !vertical
+        ) {
             return;
         }
 
-        forward /= length;
-        right /= length;
+        if (length) {
+
+            forward /= length;
+            right /= length;
+        }
+
+        const speed =
+            state.keys.has("shift")
+                ? 45
+                : 20;
+
+        const amount =
+            speed * delta;
+
+        const yaw =
+            THREE.MathUtils.degToRad(
+                state.camera.yaw
+            );
+
+        /*
+         * Roblox Studio-style camera:
+         *
+         * W = forward
+         * S = backward
+         * A = left
+         * D = right
+         */
 
         state.camera.target.x +=
             (
@@ -1516,15 +1725,24 @@
                     right
             ) * amount;
 
+        state.camera.target.y +=
+            vertical * amount;
+
         updateCamera();
     }
 
 
     // ============================================================
-    // MOUSE CAMERA
+    // EDITOR CAMERA MOUSE
     // ============================================================
 
     function onPointerDown(event) {
+
+        if (
+            state.playing
+        ) {
+            return;
+        }
 
         if (
             event.button !== 1 &&
@@ -1535,8 +1753,7 @@
 
         event.preventDefault();
 
-        state.mouse.down =
-            true;
+        state.mouse.down = true;
 
         state.mouse.button =
             event.button;
@@ -1556,7 +1773,10 @@
 
     function onPointerMove(event) {
 
-        if (!state.mouse.down) {
+        if (
+            state.playing ||
+            !state.mouse.down
+        ) {
             return;
         }
 
@@ -1593,17 +1813,22 @@
 
     function onPointerUp() {
 
-        state.mouse.down =
-            false;
+        state.mouse.down = false;
 
         if (canvas) {
             canvas.style.cursor =
-                "default";
+                state.playing
+                    ? "default"
+                    : "default";
         }
     }
 
 
     function handleWheel(event) {
+
+        if (state.playing) {
+            return;
+        }
 
         event.preventDefault();
 
@@ -1625,12 +1850,10 @@
 
 
     // ============================================================
-    // 3D SELECTION
+    // VIEWPORT SELECTION
     // ============================================================
 
-    function selectFromViewport(
-        event
-    ) {
+    function selectFromViewport(event) {
 
         if (
             !raycaster ||
@@ -1641,14 +1864,9 @@
         }
 
         if (
-            event.button !== 0
-        ) {
-            return;
-        }
-
-        if (
-            state.tool !==
-            "select"
+            state.playing ||
+            event.button !== 0 ||
+            state.tool !== "select"
         ) {
             return;
         }
@@ -1662,7 +1880,7 @@
                     event.clientX -
                     rect.left
                 ) /
-                    rect.width
+                rect.width
             ) * 2 - 1;
 
         mouseVector.y =
@@ -1671,7 +1889,7 @@
                     event.clientY -
                     rect.top
                 ) /
-                    rect.height
+                rect.height
             ) * 2 + 1;
 
         raycaster.setFromCamera(
@@ -1691,7 +1909,9 @@
             );
 
         if (!hits.length) {
+
             clearSelection();
+
             return;
         }
 
@@ -1700,14 +1920,13 @@
 
         let id = null;
 
-        while (
-            current
-        ) {
+        while (current) {
 
             if (
                 current.userData &&
                 current.userData.objectId
             ) {
+
                 id =
                     current.userData.objectId;
 
@@ -1725,7 +1944,7 @@
 
 
     // ============================================================
-    // 3D INPUT
+    // INPUT
     // ============================================================
 
     function setup3DInput() {
@@ -1741,6 +1960,7 @@
                 if (
                     event.button === 0
                 ) {
+
                     selectFromViewport(
                         event
                     );
@@ -1785,7 +2005,7 @@
     let lastFrame =
         performance.now();
 
-    function animate(now) {
+    function animate(now = performance.now()) {
 
         requestAnimationFrame(
             animate
@@ -1798,18 +2018,30 @@
                 0.1
             );
 
-        lastFrame =
-            now;
+        lastFrame = now;
 
-        updateMovement(
-            delta
-        );
+        if (!state.playing) {
+            updateMovement(delta);
+        }
+
+        if (
+            playerSystem &&
+            state.playing &&
+            typeof playerSystem.update ===
+                "function"
+        ) {
+
+            playerSystem.update(
+                delta
+            );
+        }
 
         if (
             renderer &&
             scene &&
             camera
         ) {
+
             renderer.render(
                 scene,
                 camera
@@ -1824,6 +2056,10 @@
 
     function selectObject(id) {
 
+        if (state.playing) {
+            return;
+        }
+
         const object =
             state.objects.get(id);
 
@@ -1831,8 +2067,7 @@
             return;
         }
 
-        state.selectedId =
-            id;
+        state.selectedId = id;
 
         updateSelectionVisual();
 
@@ -1841,11 +2076,13 @@
         updateExplorerSelection();
 
         if (studioMessage) {
+
             studioMessage.textContent =
                 `Selected ${object.name}`;
         }
 
         if (viewportMode) {
+
             viewportMode.textContent =
                 "Select";
         }
@@ -1854,8 +2091,7 @@
 
     function clearSelection() {
 
-        state.selectedId =
-            null;
+        state.selectedId = null;
 
         updateSelectionVisual();
 
@@ -1870,23 +2106,12 @@
     }
 
 
-    // ============================================================
-    // SELECTION BOX
-    // ============================================================
-
     function updateSelectionBox() {
 
         if (!selectionBox) {
             return;
         }
 
-        /*
-         * The old HTML selection box belongs to
-         * the fake CSS renderer.
-         *
-         * Real WebGL selection is handled by
-         * emissive highlighting.
-         */
         selectionBox.classList.add(
             "hidden"
         );
@@ -1897,9 +2122,7 @@
     // EXPLORER ICONS
     // ============================================================
 
-    function getObjectIcon(
-        type
-    ) {
+    function getObjectIcon(type) {
 
         switch (type) {
 
@@ -2044,11 +2267,12 @@
                     () => {
 
                         if (
-                            state.objects.has(
-                                id
-                            )
+                            state.objects.has(id)
                         ) {
-                            selectObject(id);
+
+                            selectObject(
+                                id
+                            );
                         }
                     }
                 );
@@ -2076,9 +2300,7 @@
 
                             item.style.display =
                                 !query ||
-                                name.includes(
-                                    query
-                                )
+                                name.includes(query)
                                     ? ""
                                     : "none";
                         });
@@ -2091,37 +2313,27 @@
     // PROPERTIES
     // ============================================================
 
-    function setInput(
-        id,
-        value
-    ) {
+    function setInput(id, value) {
 
-        const input =
-            $(id);
+        const input = $(id);
 
         if (!input) {
             return;
         }
 
-        input.value =
-            value;
+        input.value = value;
     }
 
 
-    function setChecked(
-        id,
-        value
-    ) {
+    function setChecked(id, value) {
 
-        const input =
-            $(id);
+        const input = $(id);
 
         if (!input) {
             return;
         }
 
-        input.checked =
-            Boolean(value);
+        input.checked = Boolean(value);
     }
 
 
@@ -2138,16 +2350,12 @@
                 ?.classList
                 .remove("hidden");
 
-            if (
-                selectedObjectName
-            ) {
+            if (selectedObjectName) {
                 selectedObjectName.textContent =
                     "Nothing selected";
             }
 
-            if (
-                selectedObjectType
-            ) {
+            if (selectedObjectType) {
                 selectedObjectType.textContent =
                     "Select an object";
             }
@@ -2159,23 +2367,17 @@
             ?.classList
             .add("hidden");
 
-        if (
-            selectedObjectName
-        ) {
+        if (selectedObjectName) {
             selectedObjectName.textContent =
                 object.name;
         }
 
-        if (
-            selectedObjectType
-        ) {
+        if (selectedObjectType) {
             selectedObjectType.textContent =
                 object.type;
         }
 
-        if (
-            selectedObjectIcon
-        ) {
+        if (selectedObjectIcon) {
             selectedObjectIcon.textContent =
                 getObjectIcon(
                     object.type
@@ -2264,13 +2466,11 @@
 
     function setupProperties() {
 
-        const propertyInputs =
-            document.querySelectorAll(
+        document
+            .querySelectorAll(
                 "[data-property]"
-            );
-
-        propertyInputs.forEach(
-            input => {
+            )
+            .forEach(input => {
 
                 input.addEventListener(
                     "change",
@@ -2295,10 +2495,10 @@
                                 "checkbox"
                                 ? input.checked
                                 : input.type ===
-                                  "number"
+                                    "number"
                                     ? Number(
-                                          input.value
-                                      )
+                                        input.value
+                                    )
                                     : input.value;
 
                         setObjectProperty(
@@ -2321,8 +2521,7 @@
                         updateGameStatus();
                     }
                 );
-            }
-        );
+            });
     }
 
 
@@ -2335,25 +2534,20 @@
         const parts =
             property.split(".");
 
-        if (
-            parts.length === 1
-        ) {
+        if (parts.length === 1) {
+
             object[parts[0]] =
                 value;
 
             return;
         }
 
-        if (
-            !object[parts[0]]
-        ) {
-            object[parts[0]] =
-                {};
+        if (!object[parts[0]]) {
+            object[parts[0]] = {};
         }
 
-        object[parts[0]][
-            parts[1]
-        ] = value;
+        object[parts[0]][parts[1]] =
+            value;
     }
 
 
@@ -2361,9 +2555,7 @@
     // INSERT OBJECT
     // ============================================================
 
-    function insertObject(
-        type = "Part"
-    ) {
+    function insertObject(type = "Part") {
 
         saveHistory();
 
@@ -2387,35 +2579,37 @@
                         : type,
 
                 position: {
+
                     x:
                         snap(
                             count * 2
                         ),
+
                     y:
                         type ===
                             "SpawnLocation"
                             ? 1
                             : 0,
+
                     z: 0
                 },
 
                 size:
-                    type ===
-                        "Model"
+                    type === "Model"
                         ? {
-                              x: 4,
-                              y: 1,
-                              z: 4
-                          }
+                            x: 4,
+                            y: 1,
+                            z: 4
+                        }
                         : {
-                              x: 4,
-                              y:
-                                  type ===
-                                      "SpawnLocation"
-                                      ? 1
-                                      : 1,
-                              z: 4
-                          },
+                            x: 4,
+                            y:
+                                type ===
+                                    "SpawnLocation"
+                                    ? 1
+                                    : 1,
+                            z: 4
+                        },
 
                 color:
                     type ===
@@ -2425,11 +2619,14 @@
             });
 
         if (type === "Script") {
+
             object.script =
-                "-- WebBlox Luau\n\n";
+                "-- WebBlox Luau\n\n" +
+                "print(\"Hello from WebBlox!\")\n";
         }
 
         if (type === "Folder") {
+
             object.size = {
                 x: 1,
                 y: 1,
@@ -2437,9 +2634,7 @@
             };
         }
 
-        renderObject(
-            object
-        );
+        renderObject(object);
 
         selectObject(
             object.id
@@ -2466,6 +2661,10 @@
 
     function deleteSelected() {
 
+        if (state.playing) {
+            return;
+        }
+
         const object =
             state.objects.get(
                 state.selectedId
@@ -2483,9 +2682,10 @@
             );
 
         if (mesh) {
-            scene.remove(
-                mesh
-            );
+
+            scene.remove(mesh);
+
+            disposeMesh(mesh);
 
             meshes.delete(
                 object.id
@@ -2496,15 +2696,13 @@
             object.id
         );
 
-        state.selectedId =
-            null;
+        state.selectedId = null;
 
         updateExplorer();
 
         updateProperties();
 
-        state.game.saved =
-            false;
+        state.game.saved = false;
 
         updateGameStatus();
 
@@ -2519,6 +2717,10 @@
     // ============================================================
 
     function duplicateSelected() {
+
+        if (state.playing) {
+            return;
+        }
 
         const object =
             state.objects.get(
@@ -2544,11 +2746,8 @@
         duplicate.name =
             `${object.name} Copy`;
 
-        duplicate.position.x +=
-            2;
-
-        duplicate.position.z +=
-            2;
+        duplicate.position.x += 2;
+        duplicate.position.z += 2;
 
         state.objects.set(
             duplicate.id,
@@ -2565,8 +2764,7 @@
 
         updateExplorer();
 
-        state.game.saved =
-            false;
+        state.game.saved = false;
 
         updateGameStatus();
 
@@ -2581,6 +2779,10 @@
     // ============================================================
 
     function renameSelected() {
+
+        if (state.playing) {
+            return;
+        }
 
         const object =
             state.objects.get(
@@ -2609,8 +2811,7 @@
         object.name =
             newName.trim();
 
-        state.game.saved =
-            false;
+        state.game.saved = false;
 
         updateExplorer();
 
@@ -2627,6 +2828,7 @@
     function snapshot() {
 
         return {
+
             objects:
                 Array.from(
                     state.objects.values()
@@ -2646,15 +2848,16 @@
 
 
     function restoreSnapshot(
-        snapshot
+        snap
     ) {
 
         state.objects.clear();
 
         for (
             const object
-            of snapshot.objects
+            of snap.objects
         ) {
+
             state.objects.set(
                 object.id,
                 object
@@ -2662,10 +2865,10 @@
         }
 
         state.selectedId =
-            snapshot.selectedId;
+            snap.selectedId;
 
         state.game =
-            snapshot.game;
+            snap.game;
 
         renderWorld();
 
@@ -2687,6 +2890,7 @@
             state.history.length >
             50
         ) {
+
             state.history.shift();
         }
 
@@ -2696,9 +2900,7 @@
 
     function undo() {
 
-        if (
-            !state.history.length
-        ) {
+        if (!state.history.length) {
             return;
         }
 
@@ -2713,17 +2915,13 @@
             previous
         );
 
-        log(
-            "Undo."
-        );
+        log("Undo.");
     }
 
 
     function redo() {
 
-        if (
-            !state.future.length
-        ) {
+        if (!state.future.length) {
             return;
         }
 
@@ -2738,9 +2936,7 @@
             next
         );
 
-        log(
-            "Redo."
-        );
+        log("Redo.");
     }
 
 
@@ -2751,9 +2947,11 @@
     function getGameData() {
 
         return {
-            version: 2,
 
-            game: state.game,
+            version: 3,
+
+            game:
+                state.game,
 
             objects:
                 Array.from(
@@ -2822,18 +3020,13 @@
             url
         );
 
-        state.game.saved =
-            true;
+        state.game.saved = true;
 
         updateGameStatus();
 
-        log(
-            "Game saved."
-        );
+        log("Game saved.");
 
-        showToast(
-            "Game saved"
-        );
+        showToast("Game saved");
     }
 
 
@@ -2848,8 +3041,7 @@
                 "input"
             );
 
-        input.type =
-            "file";
+        input.type = "file";
 
         input.accept =
             ".json,.webblox.json";
@@ -2871,15 +3063,14 @@
                         await file.text();
 
                     const data =
-                        JSON.parse(
-                            text
-                        );
+                        JSON.parse(text);
 
                     if (
                         !Array.isArray(
                             data.objects
                         )
                     ) {
+
                         throw new Error(
                             "Invalid WebBlox game."
                         );
@@ -2893,21 +3084,21 @@
                         const object
                         of data.objects
                     ) {
+
                         createObject(
                             object
                         );
                     }
 
                     if (data.game) {
-                        state.game =
-                            {
-                                ...state.game,
-                                ...data.game
-                            };
+
+                        state.game = {
+                            ...state.game,
+                            ...data.game
+                        };
                     }
 
-                    state.selectedId =
-                        null;
+                    state.selectedId = null;
 
                     renderWorld();
 
@@ -2927,9 +3118,7 @@
 
                 } catch (error) {
 
-                    console.error(
-                        error
-                    );
+                    console.error(error);
 
                     log(
                         "Unable to load game file.",
@@ -2992,11 +3181,15 @@
         saveHistory();
 
         state.game = {
+
             name,
+
             description:
                 descriptionInput?.value.trim() ||
                 "",
+
             icon: "",
+
             saved: false
         };
 
@@ -3063,6 +3256,7 @@
         }
 
         if (description) {
+
             description.textContent =
                 state.game.description ||
                 "No description";
@@ -3078,8 +3272,7 @@
 
         const title =
             String(
-                state.game.name ||
-                ""
+                state.game.name || ""
             ).trim();
 
         if (!title) {
@@ -3095,11 +3288,6 @@
             return;
         }
 
-        /*
-         * Icon and description are optional.
-         * Title is mandatory.
-         */
-
         const gameData =
             getGameData();
 
@@ -3108,8 +3296,7 @@
             gameData
         );
 
-        state.game.saved =
-            true;
+        state.game.saved = true;
 
         updateGameStatus();
 
@@ -3149,17 +3336,55 @@
 
 
     // ============================================================
-    // PLAY
+    // PLAY TEST
     // ============================================================
 
-    function playGame() {
+    async function playGame() {
 
         if (state.playing) {
             return;
         }
 
-        state.playing =
-            true;
+        if (!threeReady) {
+
+            showToast(
+                "3D viewport is not ready."
+            );
+
+            return;
+        }
+
+        try {
+
+            await loadPlayerModule();
+
+        } catch (error) {
+
+            console.error(
+                error
+            );
+
+            log(
+                "Player system failed to load.",
+                "error"
+            );
+
+            showToast(
+                "Player system failed to load."
+            );
+
+            return;
+        }
+
+        state.playing = true;
+
+        clearSelection();
+
+        if (canvas) {
+
+            canvas.style.cursor =
+                "crosshair";
+        }
 
         $("playButton")
             ?.setAttribute(
@@ -3167,22 +3392,93 @@
                 ""
             );
 
-        const stop =
-            $("stopButton");
-
-        if (stop) {
-            stop.removeAttribute(
+        $("stopButton")
+            ?.removeAttribute(
                 "disabled"
             );
+
+        if (viewportMode) {
+
+            viewportMode.textContent =
+                "Play Test";
         }
 
-        log(
-            "Play mode started."
-        );
+        if (studioMessage) {
 
-        showToast(
-            "Play mode started"
-        );
+            studioMessage.textContent =
+                "Play Test";
+        }
+
+        try {
+
+            playerSystem.start({
+
+                THREE,
+
+                scene,
+
+                camera,
+
+                renderer,
+
+                objects:
+                    state.objects,
+
+                onStop: () => {
+                    stopGame();
+                },
+
+                log
+            });
+
+            log(
+                "Play Test started."
+            );
+
+            log(
+                "Player spawned."
+            );
+
+            log(
+                "WASD = move | Space = jump | Shift = sprint."
+            );
+
+            log(
+                "Mouse = camera | Wheel = zoom."
+            );
+
+            showToast(
+                "Play Test started"
+            );
+
+        } catch (error) {
+
+            console.error(
+                error
+            );
+
+            state.playing = false;
+
+            $("playButton")
+                ?.removeAttribute(
+                    "disabled"
+                );
+
+            $("stopButton")
+                ?.setAttribute(
+                    "disabled",
+                    ""
+                );
+
+            log(
+                "Unable to start player.",
+                "error"
+            );
+
+            showToast(
+                "Player failed to start"
+            );
+        }
     }
 
 
@@ -3192,8 +3488,16 @@
             return;
         }
 
-        state.playing =
-            false;
+        if (
+            playerSystem &&
+            typeof playerSystem.stop ===
+                "function"
+        ) {
+
+            playerSystem.stop();
+        }
+
+        state.playing = false;
 
         $("playButton")
             ?.removeAttribute(
@@ -3206,12 +3510,29 @@
                 ""
             );
 
+        if (canvas) {
+            canvas.style.cursor =
+                "default";
+        }
+
+        if (viewportMode) {
+            viewportMode.textContent =
+                "Perspective";
+        }
+
+        if (studioMessage) {
+            studioMessage.textContent =
+                "Play Test stopped";
+        }
+
+        updateCamera();
+
         log(
-            "Play mode stopped."
+            "Play Test stopped."
         );
 
         showToast(
-            "Play mode stopped"
+            "Play Test stopped"
         );
     }
 
@@ -3222,16 +3543,23 @@
 
     function setTool(tool) {
 
-        state.tool =
-            tool;
+        if (state.playing) {
+            return;
+        }
+
+        state.tool = tool;
 
         const ids = {
+
             select:
                 "selectTool",
+
             move:
                 "moveTool",
+
             scale:
                 "scaleTool",
+
             rotate:
                 "rotateTool"
         };
@@ -3253,20 +3581,13 @@
             );
 
         if (viewportMode) {
+
             viewportMode.textContent =
                 tool
                     .charAt(0)
                     .toUpperCase() +
                 tool.slice(1);
         }
-
-        /*
-         * Transform tools are intentionally
-         * basic during Stage 2.
-         *
-         * Properties are already fully
-         * editable and synchronized.
-         */
     }
 
 
@@ -3283,9 +3604,32 @@
                 const key =
                     event.key.toLowerCase();
 
-                state.keys.add(
-                    key
-                );
+                const active =
+                    document.activeElement;
+
+                const editing =
+                    active &&
+                    (
+                        active.tagName === "INPUT" ||
+                        active.tagName === "TEXTAREA" ||
+                        active.tagName === "SELECT"
+                    );
+
+                if (
+                    !editing ||
+                    state.playing
+                ) {
+
+                    state.keys.add(
+                        key
+                    );
+                }
+
+                if (
+                    state.playing
+                ) {
+                    return;
+                }
 
                 if (
                     event.ctrlKey &&
@@ -3315,27 +3659,82 @@
                     return;
                 }
 
-                if (
-                    event.key ===
-                    "Delete"
-                ) {
+                if (editing) {
+                    return;
+                }
 
-                    if (
-                        document.activeElement
-                            ?.tagName ===
-                            "INPUT"
-                    ) {
-                        return;
-                    }
+                /*
+                 * Studio shortcuts
+                 *
+                 * Q = Select
+                 * W = Move
+                 * E = Scale
+                 * R = Rotate
+                 */
 
-                    deleteSelected();
+                if (key === "q") {
+
+                    event.preventDefault();
+
+                    setTool("select");
+
+                    return;
+                }
+
+                if (key === "w") {
+
+                    event.preventDefault();
+
+                    setTool("move");
+
+                    return;
+                }
+
+                if (key === "e") {
+
+                    event.preventDefault();
+
+                    setTool("scale");
+
+                    return;
+                }
+
+                if (key === "r") {
+
+                    event.preventDefault();
+
+                    setTool("rotate");
+
+                    return;
                 }
 
                 if (
-                    event.key ===
-                    "Escape"
+                    event.key === "Delete"
                 ) {
+
+                    event.preventDefault();
+
+                    deleteSelected();
+
+                    return;
+                }
+
+                if (
+                    event.key === "Escape"
+                ) {
+
                     clearSelection();
+
+                    return;
+                }
+
+                if (
+                    event.key === "F"
+                ) {
+
+                    focusSelected();
+
+                    return;
                 }
             }
         );
@@ -3353,8 +3752,49 @@
         window.addEventListener(
             "blur",
             () => {
+
                 state.keys.clear();
             }
+        );
+    }
+
+
+    // ============================================================
+    // FOCUS SELECTED
+    // ============================================================
+
+    function focusSelected() {
+
+        const object =
+            state.objects.get(
+                state.selectedId
+            );
+
+        if (!object) {
+            return;
+        }
+
+        state.camera.target.x =
+            object.position.x;
+
+        state.camera.target.y =
+            object.position.y;
+
+        state.camera.target.z =
+            object.position.z;
+
+        state.camera.distance =
+            Math.max(
+                object.size.x,
+                object.size.y,
+                object.size.z,
+                6
+            ) * 3;
+
+        updateCamera();
+
+        log(
+            `Focused "${object.name}".`
         );
     }
 
@@ -3364,10 +3804,6 @@
     // ============================================================
 
     function setupButtons() {
-
-        // --------------------------------------------------------
-        // Main toolbar
-        // --------------------------------------------------------
 
         $("newGameButton")
             ?.addEventListener(
@@ -3414,49 +3850,33 @@
                 stopGame
             );
 
-        // --------------------------------------------------------
-        // Tools
-        // --------------------------------------------------------
-
         $("selectTool")
             ?.addEventListener(
                 "click",
                 () =>
-                    setTool(
-                        "select"
-                    )
+                    setTool("select")
             );
 
         $("moveTool")
             ?.addEventListener(
                 "click",
                 () =>
-                    setTool(
-                        "move"
-                    )
+                    setTool("move")
             );
 
         $("scaleTool")
             ?.addEventListener(
                 "click",
                 () =>
-                    setTool(
-                        "scale"
-                    )
+                    setTool("scale")
             );
 
         $("rotateTool")
             ?.addEventListener(
                 "click",
                 () =>
-                    setTool(
-                        "rotate"
-                    )
+                    setTool("rotate")
             );
-
-        // --------------------------------------------------------
-        // Grid
-        // --------------------------------------------------------
 
         $("gridButton")
             ?.addEventListener(
@@ -3477,10 +3897,6 @@
                 }
             );
 
-        // --------------------------------------------------------
-        // Snap
-        // --------------------------------------------------------
-
         $("snapButton")
             ?.addEventListener(
                 "click",
@@ -3497,10 +3913,6 @@
                         );
                 }
             );
-
-        // --------------------------------------------------------
-        // Camera
-        // --------------------------------------------------------
 
         $("cameraPerspectiveButton")
             ?.addEventListener(
@@ -3527,8 +3939,7 @@
 
                     state.camera.distance =
                         clamp(
-                            state.camera.distance -
-                                2,
+                            state.camera.distance - 2,
                             state.camera.minDistance,
                             state.camera.maxDistance
                         );
@@ -3544,8 +3955,7 @@
 
                     state.camera.distance =
                         clamp(
-                            state.camera.distance +
-                                2,
+                            state.camera.distance + 2,
                             state.camera.minDistance,
                             state.camera.maxDistance
                         );
@@ -3553,10 +3963,6 @@
                     updateCamera();
                 }
             );
-
-        // --------------------------------------------------------
-        // Add object
-        // --------------------------------------------------------
 
         $("addObjectButton")
             ?.addEventListener(
@@ -3595,10 +4001,6 @@
                 );
             });
 
-        // --------------------------------------------------------
-        // Refresh explorer
-        // --------------------------------------------------------
-
         $("refreshExplorerButton")
             ?.addEventListener(
                 "click",
@@ -3612,31 +4014,19 @@
                 }
             );
 
-        // --------------------------------------------------------
-        // Welcome button
-        // --------------------------------------------------------
-
         $("welcomeAddPart")
             ?.addEventListener(
                 "click",
                 () =>
-                    insertObject(
-                        "Part"
-                    )
+                    insertObject("Part")
             );
-
-        // --------------------------------------------------------
-        // Output
-        // --------------------------------------------------------
 
         $("clearOutputButton")
             ?.addEventListener(
                 "click",
                 () => {
 
-                    if (
-                        outputConsole
-                    ) {
+                    if (outputConsole) {
                         outputConsole.innerHTML =
                             "";
                     }
@@ -3655,10 +4045,6 @@
                         );
                 }
             );
-
-        // --------------------------------------------------------
-        // Modals
-        // --------------------------------------------------------
 
         document
             .querySelectorAll(
@@ -3688,10 +4074,6 @@
                 publishGame
             );
 
-        // --------------------------------------------------------
-        // Menu actions
-        // --------------------------------------------------------
-
         document
             .querySelectorAll(
                 "[data-action]"
@@ -3703,18 +4085,13 @@
                     () => {
 
                         handleAction(
-                            button.dataset
-                                .action
+                            button.dataset.action
                         );
 
                         closeMenus();
                     }
                 );
             });
-
-        // --------------------------------------------------------
-        // Property search
-        // --------------------------------------------------------
 
         $("propertySearchButton")
             ?.addEventListener(
@@ -3728,10 +4105,6 @@
                         );
                 }
             );
-
-        // --------------------------------------------------------
-        // Property filter
-        // --------------------------------------------------------
 
         $("propertySearchInput")
             ?.addEventListener(
@@ -3753,18 +4126,12 @@
                                 !query ||
                                 section.textContent
                                     .toLowerCase()
-                                    .includes(
-                                        query
-                                    )
+                                    .includes(query)
                                     ? ""
                                     : "none";
                         });
                 }
             );
-
-        // --------------------------------------------------------
-        // Context menu
-        // --------------------------------------------------------
 
         setupContextMenu();
     }
@@ -3789,12 +4156,9 @@
     }
 
 
-    function toggleMenu(
-        id
-    ) {
+    function toggleMenu(id) {
 
-        const menu =
-            $(id);
+        const menu = $(id);
 
         if (!menu) {
             return;
@@ -3808,6 +4172,7 @@
         closeMenus();
 
         if (wasHidden) {
+
             menu.classList.remove(
                 "hidden"
             );
@@ -3816,19 +4181,15 @@
 
 
     // ============================================================
-    // ACTION HANDLER
+    // ACTIONS
     // ============================================================
 
-    function handleAction(
-        action
-    ) {
+    function handleAction(action) {
 
         switch (action) {
 
             case "new":
-                openModal(
-                    "newGameModal"
-                );
+                openModal("newGameModal");
                 break;
 
             case "open":
@@ -3862,43 +4223,39 @@
             case "toggleExplorer":
                 explorerPanel
                     ?.classList
-                    .toggle(
-                        "hidden"
-                    );
+                    .toggle("hidden");
                 break;
 
             case "toggleProperties":
                 propertiesPanel
                     ?.classList
-                    .toggle(
-                        "hidden"
-                    );
+                    .toggle("hidden");
                 break;
 
             case "toggleOutput":
                 $("outputPanel")
                     ?.classList
-                    .toggle(
-                        "collapsed"
-                    );
+                    .toggle("collapsed");
                 break;
 
             case "insertPart":
-                insertObject(
-                    "Part"
-                );
+                insertObject("Part");
                 break;
 
             case "insertSpawn":
-                insertObject(
-                    "SpawnLocation"
-                );
+                insertObject("SpawnLocation");
                 break;
 
             case "insertModel":
-                insertObject(
-                    "Model"
-                );
+                insertObject("Model");
+                break;
+
+            case "insertScript":
+                insertObject("Script");
+                break;
+
+            case "insertFolder":
+                insertObject("Folder");
                 break;
 
             case "play":
@@ -3947,18 +4304,14 @@
                         .objectId;
 
                 if (
-                    !state.objects.has(
-                        id
-                    )
+                    !state.objects.has(id)
                 ) {
                     return;
                 }
 
                 event.preventDefault();
 
-                selectObject(
-                    id
-                );
+                selectObject(id);
 
                 menu.classList.remove(
                     "hidden"
@@ -3998,12 +4351,8 @@
                 }
 
                 switch (
-                    button.dataset
-                        .contextAction
+                    button.dataset.contextAction
                 ) {
-
-                    case "select":
-                        break;
 
                     case "duplicate":
                         duplicateSelected();
@@ -4036,94 +4385,36 @@
             ?.addEventListener(
                 "click",
                 () =>
-                    toggleMenu(
-                        "fileMenu"
-                    )
+                    toggleMenu("fileMenu")
             );
 
         $("editMenuButton")
             ?.addEventListener(
                 "click",
                 () =>
-                    toggleMenu(
-                        "editMenu"
-                    )
+                    toggleMenu("editMenu")
             );
 
         $("viewMenuButton")
             ?.addEventListener(
                 "click",
                 () =>
-                    toggleMenu(
-                        "viewMenu"
-                    )
+                    toggleMenu("viewMenu")
             );
 
         $("modelMenuButton")
             ?.addEventListener(
                 "click",
                 () =>
-                    toggleMenu(
-                        "modelMenu"
-                    )
+                    toggleMenu("modelMenu")
             );
 
         $("testMenuButton")
             ?.addEventListener(
                 "click",
                 () =>
-                    toggleMenu(
-                        "testMenu"
-                    )
+                    toggleMenu("testMenu")
             );
-    }
-
-
-    // ============================================================
-    // HIDE OLD WELCOME / CSS WORLD
-    // ============================================================
-
-    function removeOldViewport() {
-
-        const elements = [
-            $("viewportWelcome"),
-            $("defaultPart"),
-            $("world")
-        ];
-
-        elements.forEach(
-            element => {
-
-                if (!element) {
-                    return;
-                }
-
-                element.style.display =
-                    "none";
-
-                element.style.visibility =
-                    "hidden";
-
-                element.style.pointerEvents =
-                    "none";
-            }
-        );
-
-        if (selectionBox) {
-            selectionBox.style.display =
-                "none";
-        }
-
-        const crosshair =
-            $("viewportCrosshair");
-
-        if (crosshair) {
-            crosshair.style.zIndex =
-                "30";
-
-            crosshair.style.pointerEvents =
-                "none";
-        }
     }
 
 
@@ -4157,9 +4448,8 @@
 
         updateGameStatus();
 
-        if (
-            viewportMode
-        ) {
+        if (viewportMode) {
+
             viewportMode.textContent =
                 "Perspective";
         }
@@ -4176,6 +4466,10 @@
 
         log(
             "WebBlox Studio ready."
+        );
+
+        log(
+            "Stage 3 Player system available."
         );
 
         console.log(
@@ -4253,7 +4547,9 @@
 
         renderWorld,
 
-        publishGame
+        publishGame,
+
+        focusSelected
     };
 
 
