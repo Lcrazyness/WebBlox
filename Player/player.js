@@ -2,15 +2,13 @@
  * WebBlox Player Runtime
  *
  * Stage 3A
- * - Player runtime
- * - Character spawning
- * - SpawnLocation support
- * - R15 character
- * - Bacon hair
- * - Play/Stop integration
  *
- * IMPORTANT:
- * This is separate from Studio's editor objects.
+ * Player
+ * Character
+ * Controller
+ * Physics
+ * Camera
+ * Animations
  */
 
 (() => {
@@ -23,16 +21,14 @@
     let THREE = null;
 
     let playerScene = null;
+    let playerCamera = null;
+    let playerRenderer = null;
 
     let character = null;
 
-    let playerObject = null;
-
     let running = false;
 
-    /*
-     * Runtime player information.
-     */
+    let objects = null;
 
     const player = {
         id: "Player_1",
@@ -58,41 +54,10 @@
         leaderstats: {}
     };
 
-    /*
-     * ============================================================
-     * THREE
-     * ============================================================
-     */
-
-    function getThree() {
-        if (window.THREE) {
-            THREE = window.THREE;
-            return THREE;
-        }
-
-        return null;
-    }
-
-    /*
-     * ============================================================
-     * STUDIO STATE
-     * ============================================================
-     */
-
-    function getStudioState() {
-        return (
-            window.WebBloxStudio &&
-            window.WebBloxStudio.state
-        ) || null;
-    }
-
-    /*
-     * ============================================================
-     * LOGGING
-     * ============================================================
-     */
-
-    function log(message, type = "info") {
+    function log(
+        message,
+        type = "info"
+    ) {
         console.log(
             `[WebBlox Player] ${message}`
         );
@@ -117,23 +82,19 @@
         line.textContent =
             `[Player] ${message}`;
 
-        output.appendChild(line);
+        output.appendChild(
+            line
+        );
 
         output.scrollTop =
             output.scrollHeight;
     }
 
-    /*
-     * ============================================================
-     * SPAWN LOCATION
-     * ============================================================
-     */
-
     function findSpawnLocation() {
-        const studio =
-            getStudioState();
-
-        if (!studio) {
+        if (
+            !objects ||
+            !(objects instanceof Map)
+        ) {
             return {
                 x: 0,
                 y: 2,
@@ -141,14 +102,9 @@
             };
         }
 
-        /*
-         * Find actual SpawnLocation objects
-         * created inside Studio.
-         */
-
         const spawns =
             Array.from(
-                studio.objects.values()
+                objects.values()
             ).filter(
                 object =>
                     object.type ===
@@ -156,11 +112,6 @@
             );
 
         if (!spawns.length) {
-            /*
-             * No spawn exists.
-             * Use the world origin.
-             */
-
             return {
                 x: 0,
                 y: 2,
@@ -168,23 +119,14 @@
             };
         }
 
-        /*
-         * Use the first SpawnLocation
-         * for Stage 3A.
-         */
-
         const spawn =
             spawns[0];
 
         return {
-            x: Number(
-                spawn.position?.x || 0
-            ),
-
-            /*
-             * Put the character above the
-             * spawn pad rather than inside it.
-             */
+            x:
+                Number(
+                    spawn.position?.x || 0
+                ),
 
             y:
                 Number(
@@ -192,28 +134,20 @@
                 ) +
                 Number(
                     spawn.size?.y || 1
-                ) / 2 +
-                2.7,
+                ) /
+                    2,
 
-            z: Number(
-                spawn.position?.z || 0
-            )
+            z:
+                Number(
+                    spawn.position?.z || 0
+                )
         };
     }
 
-    /*
-     * ============================================================
-     * CHARACTER CREATION
-     * ============================================================
-     */
-
     function createPlayerCharacter() {
-        const THREE_LOCAL =
-            getThree();
-
-        if (!THREE_LOCAL) {
+        if (!THREE) {
             log(
-                "Cannot create character because Three.js is unavailable.",
+                "Three.js is unavailable.",
                 "error"
             );
 
@@ -237,7 +171,8 @@
 
         character =
             PlayerSystem.createCharacter({
-                name: "PlayerCharacter",
+                name:
+                    "PlayerCharacter",
 
                 playerId:
                     player.id,
@@ -253,10 +188,6 @@
             return null;
         }
 
-        /*
-         * Character starts at the spawn.
-         */
-
         const spawn =
             findSpawnLocation();
 
@@ -266,17 +197,30 @@
             spawn.z
         );
 
-        character.userData.runtime
-            .spawnPosition = {
-                x: spawn.x,
-                y: spawn.y,
-                z: spawn.z
-            };
+        const runtime =
+            character.userData.runtime;
 
-        /*
-         * Add the character to the
-         * runtime scene.
-         */
+        runtime.spawnPosition = {
+            x: spawn.x,
+            y: spawn.y,
+            z: spawn.z
+        };
+
+        runtime.velocity = {
+            x: 0,
+            y: 0,
+            z: 0
+        };
+
+        runtime.grounded =
+            false;
+
+        runtime.input = {
+            x: 0,
+            z: 0,
+            moving: false,
+            sprint: false
+        };
 
         if (playerScene) {
             playerScene.add(
@@ -291,11 +235,7 @@
             true;
 
         player.health =
-            100;
-
-        /*
-         * Expose references.
-         */
+            player.maxHealth;
 
         PlayerSystem.character =
             character;
@@ -304,17 +244,11 @@
             player;
 
         log(
-            `Character spawned at X:${Math.round(spawn.x)} Y:${Math.round(spawn.y)} Z:${Math.round(spawn.z)}.`
+            `Player spawned at X:${Math.round(spawn.x)} Y:${Math.round(spawn.y)} Z:${Math.round(spawn.z)}.`
         );
 
         return character;
     }
-
-    /*
-     * ============================================================
-     * DESTROY CHARACTER
-     * ============================================================
-     */
 
     function destroyPlayerCharacter() {
         if (!character) {
@@ -335,8 +269,7 @@
             );
         }
 
-        character =
-            null;
+        character = null;
 
         player.character =
             null;
@@ -345,13 +278,101 @@
             null;
     }
 
-    /*
-     * ============================================================
-     * START
-     * ============================================================
-     */
+    function loadDependencies() {
+        return new Promise(
+            (resolve, reject) => {
 
-    function start(scene) {
+                const required = [
+                    "controller",
+                    "physics",
+                    "cameraSystem",
+                    "animations"
+                ];
+
+                const missing =
+                    required.filter(
+                        name =>
+                            !PlayerSystem[name]
+                    );
+
+                if (!missing.length) {
+                    resolve();
+                    return;
+                }
+
+                /*
+                 * Studio normally loads player.js
+                 * first, so load the remaining
+                 * Player files here.
+                 */
+
+                const files = [
+                    "./Player/character.js",
+                    "./Player/controller.js",
+                    "./Player/physics.js",
+                    "./Player/camera.js",
+                    "./Player/animations.js"
+                ];
+
+                let index = 0;
+
+                function next() {
+                    if (
+                        index >=
+                        files.length
+                    ) {
+                        resolve();
+                        return;
+                    }
+
+                    const src =
+                        files[index++];
+
+                    const existing =
+                        document.querySelector(
+                            `script[src="${src}"]`
+                        );
+
+                    if (existing) {
+                        next();
+                        return;
+                    }
+
+                    const script =
+                        document.createElement(
+                            "script"
+                        );
+
+                    script.src =
+                        src;
+
+                    script.dataset
+                        .webbloxPlayerPart =
+                        "true";
+
+                    script.onload =
+                        next;
+
+                    script.onerror =
+                        () => {
+                            reject(
+                                new Error(
+                                    `Unable to load ${src}`
+                                )
+                            );
+                        };
+
+                    document.head.appendChild(
+                        script
+                    );
+                }
+
+                next();
+            }
+        );
+    }
+
+    function start(options = {}) {
         if (running) {
             log(
                 "Player runtime is already running."
@@ -360,10 +381,27 @@
             return;
         }
 
-        const THREE_LOCAL =
-            getThree();
+        THREE =
+            options.THREE ||
+            window.THREE;
 
-        if (!THREE_LOCAL) {
+        playerScene =
+            options.scene ||
+            null;
+
+        playerCamera =
+            options.camera ||
+            null;
+
+        playerRenderer =
+            options.renderer ||
+            null;
+
+        objects =
+            options.objects ||
+            null;
+
+        if (!THREE) {
             log(
                 "Three.js is unavailable.",
                 "error"
@@ -372,86 +410,270 @@
             return;
         }
 
-        playerScene =
-            scene ||
-            window.WebBloxStudio?.scene ||
-            null;
-
         if (!playerScene) {
             log(
-                "No runtime scene was supplied.",
+                "No runtime scene supplied.",
                 "error"
             );
 
             return;
         }
 
-        running = true;
+        loadDependencies()
+            .then(() => {
+                running = true;
 
-        playerObject = {
-            id: player.id,
+                player.alive =
+                    true;
 
-            name: player.name,
+                player.health =
+                    player.maxHealth;
 
-            displayName:
-                player.displayName,
+                createPlayerCharacter();
 
-            userId:
-                player.userId,
+                if (
+                    PlayerSystem.physics
+                ) {
+                    PlayerSystem.physics.setup(
+                        objects
+                    );
+                }
 
-            character: null
-        };
+                if (
+                    PlayerSystem.controller
+                ) {
+                    PlayerSystem.controller
+                        .enable();
+                }
 
-        player.alive =
-            true;
+                if (
+                    PlayerSystem.cameraSystem
+                ) {
+                    PlayerSystem.cameraSystem
+                        .setup({
+                            camera:
+                                playerCamera,
 
-        player.health =
-            player.maxHealth;
+                            renderer:
+                                playerRenderer
+                        });
+                }
 
-        /*
-         * Create the actual character.
-         */
+                if (
+                    PlayerSystem.animations
+                ) {
+                    PlayerSystem.animations
+                        .setup();
+                }
 
-        createPlayerCharacter();
+                log(
+                    "Player runtime started."
+                );
 
-        log(
-            "Player runtime started."
-        );
+                log(
+                    "R15 bacon-hair character loaded."
+                );
 
-        log(
-            "Player character created."
-        );
+                log(
+                    "Physics enabled."
+                );
 
-        log(
-            "R15 character initialized."
-        );
+                log(
+                    "Controller enabled."
+                );
 
-        log(
-            "Bacon hair initialized."
-        );
+                log(
+                    "Third-person camera enabled."
+                );
+
+                log(
+                    "Animations enabled."
+                );
+            })
+            .catch(error => {
+                console.error(
+                    error
+                );
+
+                log(
+                    error.message ||
+                    "Player dependencies failed to load.",
+                    "error"
+                );
+            });
     }
 
-    /*
-     * ============================================================
-     * STOP
-     * ============================================================
-     */
+    function update(delta) {
+        if (!running) {
+            return;
+        }
+
+        if (!character) {
+            return;
+        }
+
+        if (
+            PlayerSystem.controller
+        ) {
+            PlayerSystem.controller
+                .update(delta);
+        }
+
+        if (
+            PlayerSystem.physics
+        ) {
+            PlayerSystem.physics
+                .update(delta);
+        }
+
+        if (
+            PlayerSystem.animations
+        ) {
+            PlayerSystem.animations
+                .update(delta);
+        }
+
+        if (
+            PlayerSystem.cameraSystem
+        ) {
+            PlayerSystem.cameraSystem
+                .update(delta);
+        }
+
+        /*
+         * Rotate character toward
+         * its movement direction.
+         */
+        const runtime =
+            character.userData.runtime;
+
+        if (
+            runtime?.input?.moving
+        ) {
+            const x =
+                runtime.input.x;
+
+            const z =
+                runtime.input.z;
+
+            if (
+                Math.abs(x) +
+                Math.abs(z) >
+                0.001
+            ) {
+                const target =
+                    Math.atan2(
+                        x,
+                        z
+                    );
+
+                let current =
+                    character.rotation.y;
+
+                let difference =
+                    target -
+                    current;
+
+                while (
+                    difference >
+                    Math.PI
+                ) {
+                    difference -=
+                        Math.PI * 2;
+                }
+
+                while (
+                    difference <
+                    -Math.PI
+                ) {
+                    difference +=
+                        Math.PI * 2;
+                }
+
+                const turnSpeed =
+                    12;
+
+                current +=
+                    difference *
+                    Math.min(
+                        1,
+                        turnSpeed *
+                        delta
+                    );
+
+                character.rotation.y =
+                    current;
+            }
+        }
+    }
+
+    function applyMovement(
+        moveX,
+        moveZ,
+        speed,
+        delta
+    ) {
+        if (!character) {
+            return;
+        }
+
+        if (
+            !PlayerSystem.physics
+        ) {
+            return;
+        }
+
+        const distance =
+            speed *
+            delta;
+
+        PlayerSystem.physics
+            .applyHorizontal(
+                character,
+                moveX *
+                    distance,
+                moveZ *
+                    distance
+            );
+    }
+
+    function jump() {
+        if (!character) {
+            return false;
+        }
+
+        if (
+            !PlayerSystem.physics
+        ) {
+            return false;
+        }
+
+        return PlayerSystem.physics
+            .jump(character);
+    }
 
     function stop() {
         if (!running) {
             return;
         }
 
+        if (
+            PlayerSystem.controller
+        ) {
+            PlayerSystem.controller
+                .disable();
+        }
+
+        if (
+            PlayerSystem.cameraSystem
+        ) {
+            PlayerSystem.cameraSystem
+                .disable();
+        }
+
         destroyPlayerCharacter();
 
-        playerScene =
-            null;
-
-        playerObject =
-            null;
-
-        running =
-            false;
+        running = false;
 
         player.alive =
             false;
@@ -460,12 +682,6 @@
             "Player runtime stopped."
         );
     }
-
-    /*
-     * ============================================================
-     * RESPAWN
-     * ============================================================
-     */
 
     function respawn() {
         if (!running) {
@@ -485,56 +701,30 @@
             player.maxHealth;
 
         createPlayerCharacter();
-
-        log(
-            "Player respawned."
-        );
     }
-
-    /*
-     * ============================================================
-     * GET PLAYER
-     * ============================================================
-     */
 
     function getPlayer() {
         return player;
     }
 
-    /*
-     * ============================================================
-     * GET CHARACTER
-     * ============================================================
-     */
-
     function getCharacter() {
         return character;
     }
 
-    /*
-     * ============================================================
-     * IS RUNNING
-     * ============================================================
-     */
-
     function isRunning() {
         return running;
     }
-
-    /*
-     * ============================================================
-     * DEBUG INFORMATION
-     * ============================================================
-     */
 
     function getRuntimeInfo() {
         return {
             running,
 
             player: {
-                id: player.id,
+                id:
+                    player.id,
 
-                name: player.name,
+                name:
+                    player.name,
 
                 displayName:
                     player.displayName,
@@ -555,42 +745,39 @@
             character:
                 character
                     ? {
-                          name:
-                              character.name,
+                        name:
+                            character.name,
 
-                          rigType:
-                              character.userData
-                                  .characterType,
+                        rigType:
+                            character.userData
+                                .characterType,
 
-                          position: {
-                              x:
-                                  character
-                                      .position
-                                      .x,
+                        position: {
+                            x:
+                                character
+                                    .position
+                                    .x,
 
-                              y:
-                                  character
-                                      .position
-                                      .y,
+                            y:
+                                character
+                                    .position
+                                    .y,
 
-                              z:
-                                  character
-                                      .position
-                                      .z
-                          }
-                      }
+                            z:
+                                character
+                                    .position
+                                    .z
+                        }
+                    }
                     : null
         };
     }
 
-    /*
-     * ============================================================
-     * PUBLIC API
-     * ============================================================
-     */
-
     PlayerSystem.start =
         start;
+
+    PlayerSystem.update =
+        update;
 
     PlayerSystem.stop =
         stop;
@@ -609,6 +796,12 @@
 
     PlayerSystem.getRuntimeInfo =
         getRuntimeInfo;
+
+    PlayerSystem.applyMovement =
+        applyMovement;
+
+    PlayerSystem.jump =
+        jump;
 
     PlayerSystem.player =
         player;
