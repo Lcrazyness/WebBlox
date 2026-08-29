@@ -11,178 +11,246 @@
 
 <body>
 
+<!-- ============================================================
+     TOP BAR
+     ============================================================ -->
+
 <header class="topbar">
 
-    <div class="brand">
-        <div class="brand-icon">W</div>
-        <span>WebBlox</span>
-    </div>
+    <div class="topbar-inner">
 
-    <nav class="nav">
-        <button class="nav-btn active" type="button">
-            Discover
-        </button>
+        <a class="brand" href="#" id="homeButton">
+            <div class="brand-icon">W</div>
+            <span>WebBlox</span>
+        </a>
 
-        <button class="nav-btn" type="button">
-            Favorites
-        </button>
-    </nav>
+        <nav class="nav">
 
-    <div class="search-box">
+            <button
+                class="nav-btn active"
+                id="discoverButton"
+                type="button"
+            >
+                Discover
+            </button>
 
-        <span class="search-icon">⌕</span>
+            <button
+                class="nav-btn"
+                id="favoritesButton"
+                type="button"
+            >
+                Favorites
+            </button>
 
-        <input
-            id="searchInput"
-            type="text"
-            placeholder="Search Roblox games"
-            autocomplete="off"
-        >
+        </nav>
 
-        <button id="searchButton" type="button">
-            Search
-        </button>
+        <div class="search-box">
+
+            <span class="search-icon">⌕</span>
+
+            <input
+                id="searchInput"
+                type="text"
+                placeholder="Search Roblox games"
+                autocomplete="off"
+            >
+
+            <button
+                id="searchButton"
+                type="button"
+            >
+                Search
+            </button>
+
+        </div>
 
     </div>
 
 </header>
 
 
+<!-- ============================================================
+     MAIN
+     ============================================================ -->
+
 <main>
 
-    <!-- HERO -->
+    <!-- ========================================================
+         DISCOVER PAGE
+         ======================================================== -->
 
-    <section class="hero">
+    <div id="discoverPage">
 
-        <div class="hero-content">
+        <!-- HERO -->
 
-            <div class="hero-label">
-                WEBBLOX
+        <section class="hero">
+
+            <div class="hero-content">
+
+                <div class="hero-label">
+                    WEBBLOX
+                </div>
+
+                <h1>
+                    Discover your<br>
+                    next favorite game.
+                </h1>
+
+                <p>
+                    Explore real Roblox experiences,
+                    find new games, and jump in.
+                </p>
+
+                <button
+                    class="hero-button"
+                    id="exploreButton"
+                    type="button"
+                >
+                    Explore Games
+                </button>
+
             </div>
 
-            <h1>
-                Discover your<br>
-                next favorite game.
-            </h1>
-
-            <p>
-                Explore real Roblox experiences,
-                find new games, and jump in.
-            </p>
-
-            <button
-                class="hero-button"
-                type="button"
-                onclick="scrollToGames()"
-            >
-                Explore Games
-            </button>
-
-        </div>
-
-    </section>
+        </section>
 
 
-    <!-- SEARCH RESULTS -->
+        <!-- SEARCH RESULTS -->
 
-    <section
-        id="searchSection"
-        class="game-section hidden"
-    >
-
-        <div class="section-header">
-
-            <div>
-                <h2>Search Results</h2>
-                <p id="searchStatus"></p>
-            </div>
-
-            <button
-                class="clear-button"
-                type="button"
-                onclick="clearSearch()"
-            >
-                Clear
-            </button>
-
-        </div>
-
-        <div
-            id="searchGames"
-            class="game-grid"
-        ></div>
-
-    </section>
-
-
-    <!-- RECOMMENDED -->
-
-    <section class="game-section">
-
-        <div class="section-header">
-
-            <div>
-                <h2>Recommended For You</h2>
-                <p>Roblox experiences you might enjoy</p>
-            </div>
-
-            <button
-                class="see-all"
-                type="button"
-                onclick="scrollToPopular()"
-            >
-                See All →
-            </button>
-
-        </div>
-
-        <div
-            id="recommendedGames"
-            class="game-grid"
+        <section
+            id="searchSection"
+            class="game-section hidden"
         >
 
-            <div class="loading-card">
-                <div class="spinner"></div>
-                <span>Loading Roblox games...</span>
+            <div class="section-header">
+
+                <div>
+                    <h2>Search Results</h2>
+                    <p id="searchStatus"></p>
+                </div>
+
+                <button
+                    class="clear-button"
+                    id="clearSearchButton"
+                    type="button"
+                >
+                    Clear
+                </button>
+
             </div>
 
-        </div>
+            <div
+                id="searchGames"
+                class="game-grid"
+            ></div>
 
-    </section>
+        </section>
 
 
-    <!-- POPULAR -->
+        <!-- RECOMMENDED -->
 
-    <section
-        id="popularSection"
-        class="game-section"
-    >
-
-        <div class="section-header">
-
-            <div>
-                <h2>Popular Right Now</h2>
-                <p>Roblox experiences players are playing</p>
-            </div>
-
-        </div>
-
-        <div
-            id="popularGames"
-            class="game-grid"
+        <section
+            id="recommendedSection"
+            class="game-section"
         >
 
-            <div class="loading-card">
-                <div class="spinner"></div>
-                <span>Loading Roblox games...</span>
+            <div class="section-header">
+
+                <div>
+                    <h2>Recommended For You</h2>
+                    <p>Roblox experiences you might enjoy</p>
+                </div>
+
+                <button
+                    class="see-all"
+                    id="seeAllButton"
+                    type="button"
+                >
+                    See All →
+                </button>
+
             </div>
 
-        </div>
+            <div
+                id="recommendedGames"
+                class="game-grid"
+            >
 
-    </section>
+                <div class="loading-card">
+                    <div class="spinner"></div>
+                    <span>Loading Roblox games...</span>
+                </div>
+
+            </div>
+
+        </section>
 
 
-    <!-- ERROR -->
+        <!-- POPULAR -->
+
+        <section
+            id="popularSection"
+            class="game-section"
+        >
+
+            <div class="section-header">
+
+                <div>
+                    <h2>Popular Right Now</h2>
+                    <p>Roblox experiences players are playing</p>
+                </div>
+
+            </div>
+
+            <div
+                id="popularGames"
+                class="game-grid"
+            >
+
+                <div class="loading-card">
+                    <div class="spinner"></div>
+                    <span>Loading Roblox games...</span>
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <!-- ========================================================
+         FAVORITES PAGE
+         ======================================================== -->
+
+    <div
+        id="favoritesPage"
+        class="hidden"
+    >
+
+        <section class="game-section favorites-page">
+
+            <div class="section-header">
+
+                <div>
+                    <h2>Your Favorites</h2>
+                    <p>Roblox experiences you saved</p>
+                </div>
+
+            </div>
+
+            <div
+                id="favoritesGames"
+                class="game-grid"
+            ></div>
+
+        </section>
+
+    </div>
+
+
+    <!-- ========================================================
+         ERROR
+         ======================================================== -->
 
     <section
         id="errorSection"
@@ -202,7 +270,7 @@
         </p>
 
         <button
-            onclick="loadHome()"
+            id="retryButton"
             class="retry-button"
             type="button"
         >
@@ -214,7 +282,9 @@
 </main>
 
 
-<!-- GAME MODAL -->
+<!-- ============================================================
+     GAME MODAL
+     ============================================================ -->
 
 <div
     id="gameModal"
@@ -223,45 +293,55 @@
 
     <div
         class="modal-backdrop"
-        onclick="closeGame()"
+        id="modalBackdrop"
     ></div>
 
     <div class="modal-card">
 
         <button
             class="modal-close"
-            onclick="closeGame()"
+            id="modalClose"
             type="button"
+            aria-label="Close"
         >
             ×
         </button>
 
-        <img
-            id="modalImage"
-            class="modal-image"
-            src=""
-            alt=""
-        >
+        <div class="modal-image-wrap">
+
+            <img
+                id="modalImage"
+                class="modal-image"
+                src=""
+                alt=""
+            >
+
+        </div>
 
         <div class="modal-content">
 
             <h2 id="modalTitle">
-                Game
+                Roblox Experience
             </h2>
 
             <p
                 id="modalCreator"
                 class="modal-creator"
-            ></p>
+            >
+                By Roblox
+            </p>
 
             <p
                 id="modalDescription"
                 class="modal-description"
-            ></p>
+            >
+                No description available.
+            </p>
 
             <div class="stats">
 
                 <div class="stat">
+
                     <strong id="modalPlayers">
                         0
                     </strong>
@@ -269,9 +349,11 @@
                     <span>
                         Playing
                     </span>
+
                 </div>
 
                 <div class="stat">
+
                     <strong id="modalVisits">
                         0
                     </strong>
@@ -279,17 +361,30 @@
                     <span>
                         Visits
                     </span>
+
                 </div>
 
             </div>
 
-            <button
-                id="playButton"
-                class="play-button"
-                type="button"
-            >
-                Play
-            </button>
+            <div class="modal-actions">
+
+                <button
+                    id="favoriteModalButton"
+                    class="favorite-modal-button"
+                    type="button"
+                >
+                    ♡ Favorite
+                </button>
+
+                <button
+                    id="playButton"
+                    class="play-button"
+                    type="button"
+                >
+                    ▶ Play
+                </button>
+
+            </div>
 
         </div>
 
@@ -298,9 +393,9 @@
 </div>
 
 
-<!-- =====================================================
-     WEBBLOX JAVASCRIPT
-     ===================================================== -->
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
 
 <script src="script.js"></script>
 
