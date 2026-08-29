@@ -9,6 +9,10 @@ const API_BASE =
     "https://webblox-backend.onrender.com";
 
 
+const STUDIO_URL =
+    "studio/";
+
+
 const API = {
 
     home:
@@ -41,6 +45,12 @@ const discoverButton =
 
 const favoritesButton =
     document.getElementById("favoritesButton");
+
+const studioButton =
+    document.getElementById("studioButton");
+
+const heroStudioButton =
+    document.getElementById("heroStudioButton");
 
 const homeButton =
     document.getElementById("homeButton");
@@ -132,6 +142,18 @@ const favoriteModalButton =
 
 
 let currentGame = null;
+
+
+/* ============================================================
+   STUDIO
+   ============================================================ */
+
+function openStudio() {
+
+    window.location.href =
+        STUDIO_URL;
+
+}
 
 
 /* ============================================================
@@ -598,11 +620,6 @@ async function loadHome() {
                 API.home
             );
 
-        console.log(
-            "[WebBlox] Home data:",
-            data
-        );
-
         const recommended =
             Array.isArray(
                 data.recommended
@@ -729,6 +746,10 @@ function createGameCard(game) {
     card.className =
         "game-card";
 
+    card.dataset.gameId =
+        getGameId(game) || "";
+
+
     const imageWrap =
         document.createElement(
             "div"
@@ -737,8 +758,6 @@ function createGameCard(game) {
     imageWrap.className =
         "game-image-wrap";
 
-
-    /* IMAGE */
 
     const image =
         document.createElement(
@@ -783,8 +802,6 @@ function createGameCard(game) {
 
         };
 
-
-    /* FAVORITE */
 
     const favoriteButton =
         document.createElement(
@@ -840,8 +857,6 @@ function createGameCard(game) {
     );
 
 
-    /* BODY */
-
     const body =
         document.createElement(
             "div"
@@ -850,8 +865,6 @@ function createGameCard(game) {
     body.className =
         "game-card-body";
 
-
-    /* TITLE */
 
     const title =
         document.createElement(
@@ -865,8 +878,6 @@ function createGameCard(game) {
         game.name;
 
 
-    /* CREATOR */
-
     const creator =
         document.createElement(
             "p"
@@ -879,8 +890,6 @@ function createGameCard(game) {
         "By " +
         game.creator;
 
-
-    /* STATS */
 
     const stats =
         document.createElement(
@@ -1423,9 +1432,7 @@ function playGame(game) {
     }
 
 
-    if (
-        !placeId
-    ) {
+    if (!placeId) {
 
         if (
             game.robloxUrl
@@ -1550,44 +1557,6 @@ function updateFavoriteButtons() {
         );
 
     updateModalFavoriteButton();
-
-}
-
-
-/* ============================================================
-   FIX CARD IDs
-   ============================================================ */
-
-const originalCreateGameCard =
-    createGameCard;
-
-
-/*
-   Add IDs after cards are created.
-*/
-
-function addGameIdsToCards() {
-
-    document
-        .querySelectorAll(
-            ".game-card"
-        )
-        .forEach(
-            card => {
-
-                const favorite =
-                    card.querySelector(
-                        ".favorite-button"
-                    );
-
-                if (
-                    !favorite
-                ) {
-                    return;
-                }
-
-            }
-        );
 
 }
 
@@ -1801,8 +1770,6 @@ function escapeHTML(value) {
 
 function setupEvents() {
 
-    /* HOME */
-
     homeButton.addEventListener(
         "click",
         function(event) {
@@ -1814,8 +1781,6 @@ function setupEvents() {
         }
     );
 
-
-    /* DISCOVER */
 
     discoverButton.addEventListener(
         "click",
@@ -1832,8 +1797,6 @@ function setupEvents() {
     );
 
 
-    /* FAVORITES */
-
     favoritesButton.addEventListener(
         "click",
         function() {
@@ -1844,7 +1807,25 @@ function setupEvents() {
     );
 
 
-    /* SEARCH */
+    studioButton.addEventListener(
+        "click",
+        function() {
+
+            openStudio();
+
+        }
+    );
+
+
+    heroStudioButton.addEventListener(
+        "click",
+        function() {
+
+            openStudio();
+
+        }
+    );
+
 
     searchButton.addEventListener(
         "click",
@@ -1874,8 +1855,6 @@ function setupEvents() {
     );
 
 
-    /* CLEAR */
-
     clearSearchButton.addEventListener(
         "click",
         function() {
@@ -1885,8 +1864,6 @@ function setupEvents() {
         }
     );
 
-
-    /* EXPLORE */
 
     exploreButton.addEventListener(
         "click",
@@ -1898,8 +1875,6 @@ function setupEvents() {
     );
 
 
-    /* SEE ALL */
-
     seeAllButton.addEventListener(
         "click",
         function() {
@@ -1910,8 +1885,6 @@ function setupEvents() {
     );
 
 
-    /* RETRY */
-
     retryButton.addEventListener(
         "click",
         function() {
@@ -1921,8 +1894,6 @@ function setupEvents() {
         }
     );
 
-
-    /* MODAL */
 
     modalClose.addEventListener(
         "click",
@@ -1944,8 +1915,6 @@ function setupEvents() {
     );
 
 
-    /* FAVORITE MODAL */
-
     favoriteModalButton.addEventListener(
         "click",
         function() {
@@ -1963,8 +1932,6 @@ function setupEvents() {
         }
     );
 
-
-    /* ESC */
 
     document.addEventListener(
         "keydown",
@@ -2007,13 +1974,8 @@ console.log(
 );
 
 console.log(
-    "[WebBlox] Home API:",
-    API.home
-);
-
-console.log(
-    "[WebBlox] Search API:",
-    API.search
+    "[WebBlox] Studio:",
+    STUDIO_URL
 );
 
 console.log(
