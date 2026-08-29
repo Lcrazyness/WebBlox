@@ -1,1 +1,1504 @@
+/* ============================================================
+   WebBlox Studio
+   studio.css
+   First complete Studio interface
+   ============================================================ */
 
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family:
+        Inter,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+
+    background: #111214;
+    color: #e8e8e8;
+
+    overflow: hidden;
+}
+
+/* ============================================================
+   ROOT
+   ============================================================ */
+
+.studio {
+    width: 100vw;
+    height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #111214;
+}
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+
+.studio-topbar {
+    height: 46px;
+    min-height: 46px;
+
+    display: flex;
+    align-items: center;
+
+    background: #18191c;
+    border-bottom: 1px solid #292b30;
+
+    user-select: none;
+}
+
+/* Brand */
+
+.studio-brand {
+    width: 190px;
+    height: 100%;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 14px;
+
+    border-right: 1px solid #292b30;
+}
+
+.studio-brand-icon {
+    width: 27px;
+    height: 27px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-right: 9px;
+
+    border-radius: 6px;
+
+    background: #00a2ff;
+
+    color: white;
+
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.studio-brand-name {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.studio-brand-subtitle {
+    margin-left: 6px;
+
+    color: #85878d;
+
+    font-size: 12px;
+}
+
+/* Top navigation */
+
+.studio-menu {
+    display: flex;
+    align-items: center;
+
+    height: 100%;
+}
+
+.studio-menu button {
+    height: 100%;
+
+    padding: 0 15px;
+
+    border: 0;
+    outline: none;
+
+    background: transparent;
+    color: #bfc1c7;
+
+    font-size: 13px;
+
+    cursor: pointer;
+}
+
+.studio-menu button:hover {
+    background: #25272c;
+    color: white;
+}
+
+.studio-menu button.active {
+    color: white;
+    background: #292b30;
+}
+
+/* Top actions */
+
+.studio-top-actions {
+    margin-left: auto;
+
+    height: 100%;
+
+    display: flex;
+    align-items: center;
+
+    gap: 5px;
+
+    padding-right: 10px;
+}
+
+.studio-top-button {
+    height: 30px;
+    min-width: 30px;
+
+    padding: 0 10px;
+
+    border: 1px solid transparent;
+    border-radius: 5px;
+
+    background: transparent;
+    color: #c7c8cc;
+
+    font-size: 12px;
+
+    cursor: pointer;
+}
+
+.studio-top-button:hover {
+    background: #292b30;
+    border-color: #373940;
+    color: white;
+}
+
+.studio-top-button.primary {
+    background: #00a2ff;
+    color: white;
+}
+
+.studio-top-button.primary:hover {
+    background: #159fe8;
+}
+
+/* ============================================================
+   TOOLBAR
+   ============================================================ */
+
+.studio-toolbar {
+    height: 74px;
+    min-height: 74px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 7px 12px;
+
+    background: #202125;
+    border-bottom: 1px solid #303238;
+
+    gap: 14px;
+}
+
+.toolbar-group {
+    height: 100%;
+
+    display: flex;
+    align-items: center;
+
+    gap: 5px;
+
+    padding-right: 13px;
+
+    border-right: 1px solid #35373d;
+}
+
+.toolbar-group:last-child {
+    border-right: 0;
+}
+
+.toolbar-button {
+    min-width: 54px;
+    height: 56px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 5px;
+
+    padding: 4px 8px;
+
+    border: 1px solid transparent;
+    border-radius: 5px;
+
+    background: transparent;
+    color: #c7c8cc;
+
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+.toolbar-button:hover {
+    background: #2b2d32;
+    border-color: #3a3c42;
+    color: white;
+}
+
+.toolbar-button.active {
+    background: #303238;
+    border-color: #44464d;
+    color: white;
+}
+
+.toolbar-icon {
+    width: 24px;
+    height: 24px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #e4e5e8;
+
+    font-size: 19px;
+}
+
+.toolbar-label {
+    white-space: nowrap;
+}
+
+/* Play controls */
+
+.play-controls {
+    display: flex;
+    align-items: center;
+
+    gap: 4px;
+}
+
+.play-button {
+    width: 42px;
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 0;
+    border-radius: 6px;
+
+    background: #303238;
+    color: #e8e8e8;
+
+    font-size: 17px;
+
+    cursor: pointer;
+}
+
+.play-button:hover {
+    background: #3b3d44;
+}
+
+.play-button.play {
+    background: #22a447;
+    color: white;
+}
+
+.play-button.play:hover {
+    background: #2bb653;
+}
+
+.play-button.stop {
+    color: #ff6565;
+}
+
+/* ============================================================
+   MAIN WORKSPACE
+   ============================================================ */
+
+.studio-workspace {
+    flex: 1;
+
+    min-height: 0;
+
+    display: flex;
+
+    background: #101113;
+}
+
+/* ============================================================
+   LEFT PANEL
+   ============================================================ */
+
+.studio-left-panel {
+    width: 250px;
+    min-width: 250px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #1a1b1e;
+
+    border-right: 1px solid #2d2f34;
+}
+
+/* Panel */
+
+.studio-panel {
+    display: flex;
+    flex-direction: column;
+
+    min-height: 0;
+
+    background: #1a1b1e;
+}
+
+.studio-panel.explorer {
+    flex: 1;
+}
+
+.studio-panel.properties {
+    height: 43%;
+    min-height: 210px;
+
+    border-top: 1px solid #2d2f34;
+}
+
+/* Panel header */
+
+.studio-panel-header {
+    height: 34px;
+    min-height: 34px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 10px;
+
+    background: #202125;
+    border-bottom: 1px solid #2d2f34;
+
+    color: #dedfe2;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.studio-panel-header-title {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+}
+
+.studio-panel-header-icon {
+    color: #96989f;
+
+    font-size: 13px;
+}
+
+.studio-panel-header-actions {
+    margin-left: auto;
+
+    display: flex;
+
+    gap: 3px;
+}
+
+.panel-action {
+    width: 24px;
+    height: 24px;
+
+    border: 0;
+    border-radius: 4px;
+
+    background: transparent;
+    color: #999ba1;
+
+    cursor: pointer;
+}
+
+.panel-action:hover {
+    background: #303238;
+    color: white;
+}
+
+/* ============================================================
+   EXPLORER
+   ============================================================ */
+
+.explorer-search {
+    height: 34px;
+
+    padding: 6px 8px;
+
+    border-bottom: 1px solid #2b2d31;
+}
+
+.explorer-search input {
+    width: 100%;
+    height: 23px;
+
+    padding: 0 8px;
+
+    border: 1px solid #373940;
+    border-radius: 4px;
+
+    outline: none;
+
+    background: #111214;
+    color: #ddd;
+
+    font-size: 11px;
+}
+
+.explorer-search input:focus {
+    border-color: #00a2ff;
+}
+
+.explorer-tree {
+    flex: 1;
+
+    min-height: 0;
+
+    padding: 6px 4px;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Tree items */
+
+.tree-item {
+    min-height: 26px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 6px;
+
+    border-radius: 4px;
+
+    color: #c9cacf;
+
+    font-size: 12px;
+
+    cursor: pointer;
+}
+
+.tree-item:hover {
+    background: #27292e;
+}
+
+.tree-item.selected {
+    background: #0b72ad;
+    color: white;
+}
+
+.tree-arrow {
+    width: 17px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #8b8d93;
+
+    font-size: 10px;
+}
+
+.tree-icon {
+    width: 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-right: 4px;
+
+    color: #aeb0b7;
+
+    font-size: 13px;
+}
+
+.tree-name {
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tree-indent-1 {
+    padding-left: 22px;
+}
+
+.tree-indent-2 {
+    padding-left: 44px;
+}
+
+.tree-indent-3 {
+    padding-left: 66px;
+}
+
+/* ============================================================
+   PROPERTIES
+   ============================================================ */
+
+.properties-content {
+    flex: 1;
+
+    min-height: 0;
+
+    overflow-y: auto;
+}
+
+.properties-empty {
+    padding: 25px 15px;
+
+    color: #777980;
+
+    text-align: center;
+
+    font-size: 11px;
+}
+
+.property-section {
+    border-bottom: 1px solid #2c2e33;
+}
+
+.property-section-title {
+    height: 29px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 10px;
+
+    background: #202125;
+
+    color: #aaaab0;
+
+    font-size: 10px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+}
+
+.property-row {
+    min-height: 28px;
+
+    display: flex;
+    align-items: center;
+
+    border-bottom: 1px solid #25272b;
+
+    font-size: 11px;
+}
+
+.property-name {
+    width: 48%;
+
+    padding: 6px 8px;
+
+    color: #aaaab0;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.property-value {
+    flex: 1;
+
+    min-width: 0;
+
+    padding: 5px 7px;
+
+    color: #dedfe2;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.property-input {
+    width: 100%;
+    height: 23px;
+
+    padding: 0 6px;
+
+    border: 1px solid #373940;
+    border-radius: 3px;
+
+    outline: none;
+
+    background: #111214;
+    color: #ddd;
+
+    font-size: 11px;
+}
+
+.property-input:focus {
+    border-color: #00a2ff;
+}
+
+/* ============================================================
+   CENTER
+   ============================================================ */
+
+.studio-center {
+    flex: 1;
+
+    min-width: 0;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #0f1012;
+}
+
+/* Tabs */
+
+.studio-tabs {
+    height: 34px;
+    min-height: 34px;
+
+    display: flex;
+    align-items: center;
+
+    background: #1a1b1e;
+    border-bottom: 1px solid #2d2f34;
+}
+
+.studio-tab {
+    height: 100%;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 15px;
+
+    border-right: 1px solid #292b30;
+
+    background: transparent;
+    color: #92949a;
+
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+.studio-tab:hover {
+    color: #ddd;
+    background: #222429;
+}
+
+.studio-tab.active {
+    background: #101113;
+    color: white;
+
+    border-top: 2px solid #00a2ff;
+}
+
+/* ============================================================
+   VIEWPORT
+   ============================================================ */
+
+.studio-viewport {
+    flex: 1;
+
+    min-height: 0;
+
+    position: relative;
+
+    overflow: hidden;
+
+    background:
+        linear-gradient(
+            rgba(255,255,255,0.025) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(255,255,255,0.025) 1px,
+            transparent 1px
+        ),
+        #101113;
+
+    background-size: 40px 40px;
+}
+
+/* Viewport toolbar */
+
+.viewport-toolbar {
+    position: absolute;
+
+    top: 10px;
+    left: 10px;
+
+    z-index: 10;
+
+    display: flex;
+    align-items: center;
+
+    gap: 5px;
+
+    padding: 5px;
+
+    border: 1px solid #36383e;
+    border-radius: 5px;
+
+    background: rgba(25, 26, 29, 0.94);
+
+    box-shadow:
+        0 4px 15px rgba(0, 0, 0, 0.25);
+}
+
+.viewport-tool {
+    width: 31px;
+    height: 27px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 0;
+    border-radius: 4px;
+
+    background: transparent;
+    color: #aaa;
+
+    cursor: pointer;
+}
+
+.viewport-tool:hover {
+    background: #303238;
+    color: white;
+}
+
+.viewport-tool.active {
+    background: #0b72ad;
+    color: white;
+}
+
+/* Viewport placeholder */
+
+.viewport-empty {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    pointer-events: none;
+
+    color: #686a71;
+}
+
+.viewport-empty-icon {
+    width: 72px;
+    height: 72px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 12px;
+
+    border: 2px solid #36383e;
+    border-radius: 12px;
+
+    color: #56585e;
+
+    font-size: 31px;
+}
+
+.viewport-empty-title {
+    color: #999ba1;
+
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.viewport-empty-text {
+    margin-top: 6px;
+
+    color: #65676d;
+
+    font-size: 11px;
+}
+
+/* Viewport status */
+
+.viewport-status {
+    position: absolute;
+
+    right: 10px;
+    bottom: 9px;
+
+    z-index: 10;
+
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    padding: 5px 8px;
+
+    border: 1px solid #303238;
+    border-radius: 4px;
+
+    background: rgba(24, 25, 28, 0.9);
+
+    color: #85878d;
+
+    font-size: 10px;
+}
+
+/* ============================================================
+   RIGHT PANEL
+   ============================================================ */
+
+.studio-right-panel {
+    width: 260px;
+    min-width: 260px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #1a1b1e;
+
+    border-left: 1px solid #2d2f34;
+}
+
+.right-panel-section {
+    display: flex;
+    flex-direction: column;
+
+    min-height: 0;
+
+    border-bottom: 1px solid #2d2f34;
+}
+
+.right-panel-section.assets {
+    flex: 1;
+}
+
+.right-panel-section.settings {
+    height: 42%;
+    min-height: 210px;
+}
+
+/* ============================================================
+   ASSET PANEL
+   ============================================================ */
+
+.asset-search {
+    padding: 7px;
+}
+
+.asset-search input {
+    width: 100%;
+    height: 26px;
+
+    padding: 0 8px;
+
+    border: 1px solid #373940;
+    border-radius: 4px;
+
+    outline: none;
+
+    background: #111214;
+    color: white;
+
+    font-size: 11px;
+}
+
+.asset-search input:focus {
+    border-color: #00a2ff;
+}
+
+.asset-tabs {
+    display: flex;
+
+    padding: 0 7px;
+
+    border-bottom: 1px solid #2d2f34;
+}
+
+.asset-tab {
+    flex: 1;
+
+    height: 28px;
+
+    border: 0;
+
+    background: transparent;
+    color: #81838a;
+
+    font-size: 10px;
+
+    cursor: pointer;
+}
+
+.asset-tab:hover {
+    color: white;
+}
+
+.asset-tab.active {
+    color: white;
+
+    border-bottom: 2px solid #00a2ff;
+}
+
+.asset-grid {
+    flex: 1;
+
+    min-height: 0;
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 7px;
+
+    padding: 9px;
+
+    overflow-y: auto;
+}
+
+.asset-card {
+    aspect-ratio: 1;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 5px;
+
+    border: 1px solid #303238;
+    border-radius: 5px;
+
+    background: #222328;
+
+    color: #aaa;
+
+    cursor: pointer;
+}
+
+.asset-card:hover {
+    border-color: #4b4d54;
+    background: #2a2c31;
+    color: white;
+}
+
+.asset-card-icon {
+    font-size: 21px;
+}
+
+.asset-card-name {
+    max-width: 90%;
+
+    font-size: 9px;
+
+    text-align: center;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+
+.settings-content {
+    flex: 1;
+
+    overflow-y: auto;
+
+    padding: 8px;
+}
+
+.setting-group {
+    margin-bottom: 13px;
+}
+
+.setting-title {
+    margin-bottom: 6px;
+
+    color: #8e9097;
+
+    font-size: 10px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+}
+
+.setting-row {
+    min-height: 29px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 5px;
+
+    color: #bfc0c5;
+
+    font-size: 11px;
+}
+
+.setting-select,
+.setting-input {
+    width: 105px;
+    height: 23px;
+
+    padding: 0 6px;
+
+    border: 1px solid #373940;
+    border-radius: 3px;
+
+    outline: none;
+
+    background: #111214;
+    color: #ddd;
+
+    font-size: 10px;
+}
+
+.setting-select:focus,
+.setting-input:focus {
+    border-color: #00a2ff;
+}
+
+/* ============================================================
+   BOTTOM OUTPUT
+   ============================================================ */
+
+.studio-bottom {
+    height: 170px;
+    min-height: 170px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #18191c;
+
+    border-top: 1px solid #2d2f34;
+}
+
+.output-tabs {
+    height: 33px;
+    min-height: 33px;
+
+    display: flex;
+    align-items: center;
+
+    background: #202125;
+
+    border-bottom: 1px solid #2d2f34;
+}
+
+.output-tab {
+    height: 100%;
+
+    padding: 0 14px;
+
+    border: 0;
+
+    background: transparent;
+    color: #85878d;
+
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+.output-tab:hover {
+    color: white;
+}
+
+.output-tab.active {
+    color: white;
+
+    border-bottom: 2px solid #00a2ff;
+}
+
+.output-clear {
+    margin-left: auto;
+
+    margin-right: 8px;
+
+    padding: 4px 8px;
+
+    border: 0;
+    border-radius: 3px;
+
+    background: transparent;
+    color: #777980;
+
+    font-size: 10px;
+
+    cursor: pointer;
+}
+
+.output-clear:hover {
+    background: #303238;
+    color: white;
+}
+
+.output-content {
+    flex: 1;
+
+    min-height: 0;
+
+    padding: 8px 10px;
+
+    overflow-y: auto;
+
+    font-family:
+        Consolas,
+        "Courier New",
+        monospace;
+
+    font-size: 11px;
+
+    line-height: 1.55;
+
+    background: #111214;
+}
+
+.output-line {
+    display: flex;
+
+    gap: 8px;
+
+    color: #a7a9ae;
+}
+
+.output-time {
+    color: #5f6168;
+}
+
+.output-info {
+    color: #aaa;
+}
+
+.output-success {
+    color: #6dd58c;
+}
+
+.output-warning {
+    color: #e0ba62;
+}
+
+.output-error {
+    color: #ef6b6b;
+}
+
+/* ============================================================
+   STATUS BAR
+   ============================================================ */
+
+.studio-statusbar {
+    height: 25px;
+    min-height: 25px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 9px;
+
+    background: #17181b;
+
+    border-top: 1px solid #292b30;
+
+    color: #777980;
+
+    font-size: 10px;
+}
+
+.status-left,
+.status-right {
+    display: flex;
+    align-items: center;
+
+    gap: 13px;
+}
+
+.status-right {
+    margin-left: auto;
+}
+
+.status-online {
+    display: flex;
+    align-items: center;
+
+    gap: 5px;
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+
+    border-radius: 50%;
+
+    background: #32c766;
+}
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+
+.studio-modal {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 1000;
+
+    display: none;
+
+    align-items: center;
+    justify-content: center;
+
+    background: rgba(0, 0, 0, 0.62);
+}
+
+.studio-modal.visible {
+    display: flex;
+}
+
+.studio-modal-card {
+    width: min(620px, calc(100vw - 40px));
+    max-height: calc(100vh - 60px);
+
+    display: flex;
+    flex-direction: column;
+
+    border: 1px solid #383a41;
+    border-radius: 8px;
+
+    background: #202125;
+
+    box-shadow:
+        0 20px 70px rgba(0, 0, 0, 0.5);
+}
+
+.studio-modal-header {
+    height: 44px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 14px;
+
+    border-bottom: 1px solid #303238;
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.studio-modal-close {
+    margin-left: auto;
+
+    width: 28px;
+    height: 28px;
+
+    border: 0;
+    border-radius: 4px;
+
+    background: transparent;
+    color: #999ba1;
+
+    font-size: 19px;
+
+    cursor: pointer;
+}
+
+.studio-modal-close:hover {
+    background: #303238;
+    color: white;
+}
+
+.studio-modal-body {
+    flex: 1;
+
+    overflow-y: auto;
+
+    padding: 15px;
+}
+
+.studio-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+
+    gap: 7px;
+
+    padding: 10px 14px;
+
+    border-top: 1px solid #303238;
+}
+
+.modal-button {
+    height: 30px;
+
+    padding: 0 14px;
+
+    border: 1px solid #3b3d43;
+    border-radius: 4px;
+
+    background: #292b30;
+    color: #ddd;
+
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+.modal-button:hover {
+    background: #35373d;
+}
+
+.modal-button.primary {
+    border-color: #00a2ff;
+    background: #00a2ff;
+    color: white;
+}
+
+/* ============================================================
+   SCROLLBARS
+   ============================================================ */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #17181b;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #383a40;
+
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #4a4c53;
+}
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+
+::selection {
+    background: #087dbd;
+    color: white;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 1100px) {
+
+    .studio-right-panel {
+        width: 220px;
+        min-width: 220px;
+    }
+
+    .studio-left-panel {
+        width: 220px;
+        min-width: 220px;
+    }
+
+}
+
+@media (max-width: 850px) {
+
+    .studio-left-panel {
+        width: 190px;
+        min-width: 190px;
+    }
+
+    .studio-right-panel {
+        display: none;
+    }
+
+    .studio-brand {
+        width: 150px;
+    }
+
+    .studio-menu button {
+        padding: 0 9px;
+    }
+
+}
+
+@media (max-width: 650px) {
+
+    .studio-left-panel {
+        display: none;
+    }
+
+    .studio-brand-subtitle {
+        display: none;
+    }
+
+    .studio-toolbar {
+        overflow-x: auto;
+    }
+
+    .studio-bottom {
+        height: 130px;
+        min-height: 130px;
+    }
+
+}
+
+/* ============================================================
+   DISABLED
+   ============================================================ */
+
+button:disabled,
+input:disabled,
+select:disabled {
+    opacity: 0.45;
+
+    cursor: not-allowed;
+}
+
+/* ============================================================
+   FOCUS
+   ============================================================ */
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 1px solid #00a2ff;
+    outline-offset: 1px;
+}
