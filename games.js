@@ -3,39 +3,68 @@
  * WebBlox - games.js
  * Real Roblox experience loader
  *
- * Uses the WebBlox backend instead of putting Roblox API requests
- * directly in the browser.
+ * Frontend:
+ * https://lcrazyness.github.io/WebBlox/
+ *
+ * Backend:
+ * https://webblox-backend.onrender.com/
+ *
+ * This file:
+ * - Loads real Roblox experiences
+ * - Loads recommended/trending/popular experiences
+ * - Searches real Roblox experiences through the WebBlox backend
+ * - Displays Roblox thumbnails/icons
+ * - Displays players, visits and creators
+ * - Opens the actual Roblox experience
+ *
+ * IMPORTANT:
+ * All Roblox API requests go through the WebBlox backend.
  */
 
 (() => {
     "use strict";
 
-    // ------------------------------------------------------------
-    // CONFIG
-    // ------------------------------------------------------------
+    // ============================================================
+    // CONFIGURATION
+    // ============================================================
 
-    // Change this to your deployed WebBlox backend URL.
-    // Do NOT put /api/home at the end.
-    const API_BASE = "https://YOUR-WEBBLOX-BACKEND.onrender.com";
+    const API_BASE = "https://webblox-backend.onrender.com";
 
+    /*
+     * The backend may expose multiple discovery/search routes.
+     * We try the preferred route first and gracefully fall back
+     * to the other WebBlox Roblox endpoints.
+     */
     const ENDPOINTS = {
-        home: `${API_BASE}/api/home`,
-        search: `${API_BASE}/api/search`
+        home: [
+            "/api/home",
+            "/api/explore",
+            "/api/roblox/explore"
+        ],
+
+        search: [
+            "/api/search",
+            "/api/roblox/search"
+        ]
     };
 
-    // ------------------------------------------------------------
+    // ============================================================
     // STATE
-    // ------------------------------------------------------------
+    // ============================================================
 
     let currentGames = [];
     let searchTimeout = null;
+    let searchController = null;
+    let homeLoading = false;
 
-    // ------------------------------------------------------------
-    // HELPERS
-    // ------------------------------------------------------------
+    // ============================================================
+    // GENERIC HELPERS
+    // ============================================================
 
     function escapeHTML(value) {
-        if (value === null || value === undefined) return "";
+        if (value === null || value === undefined) {
+            return "";
+        }
 
         return String(value)
             .replace(/&/g, "&amp;")
@@ -45,81 +74,590 @@
             .replace(/'/g, "&#039;");
     }
 
-    function formatNumber(number) {
-        number = Number(number) || 0;
+    function safeNumber(value) {
+        const number = Number(value);
+
+        return Number.isFinite(number)
+            ? number
+            : 0;
+    }
+
+    function formatNumber(value) {
+        const number = safeNumber(value);
 
         if (number >= 1_000_000_000) {
-            return (number / 1_000_000_000).toFixed(1).replace(".0", "") + "B";
+            return (
+                (number / 1_000_000_000)
+                    .toFixed(1)
+                    .replace(".0", "") +
+                "B"
+            );
         }
 
         if (number >= 1_000_000) {
-            return (number / 1_000_000).toFixed(1).replace(".0", "") + "M";
+            return (
+                (number / 1_000_000)
+                    .toFixed(1)
+                    .replace(".0", "") +
+                "M"
+            );
         }
 
         if (number >= 1_000) {
-            return (number / 1_000).toFixed(1).replace(".0", "") + "K";
+            return (
+                (number / 1_000)
+                    .toFixed(1)
+                    .replace(".0", "") +
+                "K"
+            );
         }
 
         return number.toLocaleString();
     }
 
-    function getGameURL(game) {
-        if (game.robloxUrl) {
-            return game.robloxUrl;
+    function firstValue(...values) {
+        for (const value of values) {
+            if (
+                value !== undefined &&
+                value !== null &&
+                value !== ""
+            ) {
+                return value;
+            }
         }
 
-        if (game.placeId) {
-            return `https://www.roblox.com/games/${game.placeId}`;
-        }
-
-        if (game.id) {
-            return `https://www.roblox.com/games/${game.id}`;
-        }
-
-        return "#";
+        return null;
     }
+
+    // ============================================================
+    // API HELPERS
+    // ============================================================
+
+    async function requestJSON(path, options = {}) {
+        const url = path.startsWith("http")
+            ? path
+            : `${API_BASE}${path}`;
+
+        const response = await fetch(url, {
+            method: options.method || "GET",
+            headers: {
+                "Accept": "application/json",
+                ...(options.headers || {})
+            },
+            signal: options.signal
+        });
+
+        const text = await response.text();
+
+        let data = {};
+
+        if (text) {
+            try {
+                data = JSON.parse(text);
+            } catch {
+                throw new Error(
+                    `Backend returned invalid JSON (${response.status}).`
+                );
+            }
+        }
+
+        if (!response.ok) {
+            const message =
+                data?.error ||
+                data?.message ||
+                data?.errors?.[0]?.message ||
+                `Backend returned HTTP ${response.status}.`;
+
+            throw new Error(message);
+        }
+
+        return data;
+    }
+
+    async function tryEndpoints(paths, query = null, options = {}) {
+        let lastError = null;
+
+        for (const path of paths) {
+            try {
+                let finalPath = path;
+
+                if (query) {
+                    finalPath += `?${query}`;
+                }
+
+                return await requestJSON(
+                    finalPath,
+                    options
+                );
+            } catch (error) {
+                lastError = error;
+
+                console.warn(
+                    `[WebBlox] Endpoint failed: ${path}`,
+                    error.message
+                );
+            }
+        }
+
+        throw (
+            lastError ||
+            new Error("No WebBlox API endpoint succeeded.")
+        );
+    }
+
+    // ============================================================
+    // GAME NORMALIZATION
+    // ============================================================
+
+    /*
+     * Roblox data can arrive in slightly different shapes
+     * depending on which backend endpoint produced it.
+     *
+     * Normalize everything into one format for the UI.
+     */
+
+    function normalizeGame(game) {
+        if (!game || typeof game !== "object") {
+            return null;
+        }
+
+        const universeId = firstValue(
+            game.universeId,
+            game.UniverseId,
+            game.universeID,
+            game.id,
+            game.Id
+        );
+
+        const placeId = firstValue(
+            game.placeId,
+            game.PlaceId,
+            game.rootPlaceId,
+            game.RootPlaceId
+        );
+
+        const name = firstValue(
+            game.name,
+            game.Name,
+            game.title,
+            game.Title
+        );
+
+        const description = firstValue(
+            game.description,
+            game.Description,
+            game.gameDescription,
+            game.GameDescription
+        );
+
+        const creator =
+            typeof game.creator === "object"
+                ? firstValue(
+                      game.creator?.name,
+                      game.creator?.Name,
+                      game.creator?.displayName
+                  )
+                : firstValue(
+                      game.creator,
+                      game.Creator,
+                      game.creatorName,
+                      game.CreatorName
+                  );
+
+        const creatorId =
+            typeof game.creator === "object"
+                ? firstValue(
+                      game.creator?.id,
+                      game.creator?.Id
+                  )
+                : firstValue(
+                      game.creatorId,
+                      game.CreatorId
+                  );
+
+        const playing = firstValue(
+            game.playing,
+            game.Playing,
+            game.playerCount,
+            game.PlayerCount,
+            game.visitsPerMinute
+        );
+
+        const visits = firstValue(
+            game.visits,
+            game.Visits,
+            game.totalVisits,
+            game.TotalVisits
+        );
+
+        const favorites = firstValue(
+            game.favorites,
+            game.Favorites,
+            game.favoriteCount,
+            game.FavoriteCount
+        );
+
+        const thumbnail = firstValue(
+            game.thumbnail,
+            game.Thumbnail,
+            game.thumbnailUrl,
+            game.ThumbnailUrl,
+            game.imageUrl,
+            game.ImageUrl,
+            game.icon
+        );
+
+        const icon = firstValue(
+            game.icon,
+            game.Icon,
+            game.iconUrl,
+            game.IconUrl,
+            thumbnail
+        );
+
+        const robloxUrl = firstValue(
+            game.robloxUrl,
+            game.RobloxUrl,
+            game.url,
+            game.Url
+        );
+
+        const genre = firstValue(
+            game.genre,
+            game.Genre,
+            game.genreName,
+            game.GenreName
+        );
+
+        const maxPlayers = firstValue(
+            game.maxPlayers,
+            game.MaxPlayers,
+            game.maxPlayerCount,
+            game.MaxPlayerCount
+        );
+
+        return {
+            ...game,
+
+            universeId,
+            placeId,
+
+            name: name || "Unknown Experience",
+            description:
+                description ||
+                "No description available.",
+
+            creator:
+                creator ||
+                "Roblox",
+
+            creatorId,
+
+            playing:
+                safeNumber(playing),
+
+            visits:
+                safeNumber(visits),
+
+            favorites:
+                safeNumber(favorites),
+
+            thumbnail:
+                thumbnail || null,
+
+            icon:
+                icon || null,
+
+            robloxUrl:
+                robloxUrl || null,
+
+            genre:
+                genre || null,
+
+            maxPlayers:
+                maxPlayers !== null
+                    ? safeNumber(maxPlayers)
+                    : null
+        };
+    }
+
+    function normalizeGames(games) {
+        if (!Array.isArray(games)) {
+            return [];
+        }
+
+        return games
+            .map(normalizeGame)
+            .filter(Boolean);
+    }
+
+    // ============================================================
+    // EXTRACT GAME ARRAYS
+    // ============================================================
+
+    function extractGames(data) {
+        if (!data) {
+            return [];
+        }
+
+        if (Array.isArray(data)) {
+            return normalizeGames(data);
+        }
+
+        const possibleArrays = [
+            data.games,
+            data.results,
+            data.experiences,
+            data.recommended,
+            data.popular,
+            data.trending,
+            data.items,
+            data.data,
+            data.data?.games,
+            data.data?.results,
+            data.data?.experiences,
+            data.data?.items
+        ];
+
+        for (const value of possibleArrays) {
+            if (Array.isArray(value)) {
+                return normalizeGames(value);
+            }
+        }
+
+        /*
+         * Roblox Explore responses sometimes contain nested
+         * sort/content structures.
+         */
+        const nested = [];
+
+        function walk(value, depth = 0) {
+            if (!value || depth > 6) {
+                return;
+            }
+
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    if (
+                        item &&
+                        typeof item === "object"
+                    ) {
+                        if (
+                            item.placeId ||
+                            item.PlaceId ||
+                            item.universeId ||
+                            item.UniverseId ||
+                            item.rootPlaceId ||
+                            item.RootPlaceId
+                        ) {
+                            nested.push(item);
+                        } else {
+                            walk(item, depth + 1);
+                        }
+                    }
+                }
+
+                return;
+            }
+
+            if (typeof value === "object") {
+                for (const child of Object.values(value)) {
+                    walk(child, depth + 1);
+                }
+            }
+        }
+
+        walk(data);
+
+        return normalizeGames(nested);
+    }
+
+    function extractSections(data) {
+        const recommended =
+            Array.isArray(data?.recommended)
+                ? normalizeGames(data.recommended)
+                : [];
+
+        const popular =
+            Array.isArray(data?.popular)
+                ? normalizeGames(data.popular)
+                : [];
+
+        const trending =
+            Array.isArray(data?.trending)
+                ? normalizeGames(data.trending)
+                : [];
+
+        return {
+            recommended,
+            popular,
+            trending
+        };
+    }
+
+    // ============================================================
+    // ROBLOX URL
+    // ============================================================
+
+    function getGameURL(game) {
+        const directURL = firstValue(
+            game?.robloxUrl,
+            game?.RobloxUrl,
+            game?.url,
+            game?.Url
+        );
+
+        if (
+            directURL &&
+            /^https?:\/\//i.test(String(directURL))
+        ) {
+            return String(directURL);
+        }
+
+        const placeId = firstValue(
+            game?.placeId,
+            game?.PlaceId,
+            game?.rootPlaceId,
+            game?.RootPlaceId
+        );
+
+        if (placeId) {
+            return `https://www.roblox.com/games/${encodeURIComponent(placeId)}`;
+        }
+
+        const universeId = firstValue(
+            game?.universeId,
+            game?.UniverseId,
+            game?.id,
+            game?.Id
+        );
+
+        if (universeId) {
+            return `https://www.roblox.com/games/${encodeURIComponent(universeId)}`;
+        }
+
+        return "https://www.roblox.com/games";
+    }
+
+    // ============================================================
+    // THUMBNAILS
+    // ============================================================
 
     function getThumbnail(game) {
-        return (
-            game.thumbnail ||
-            game.icon ||
-            "https://tr.rbxcdn.com/180DAY-00000000000000000000000000000000/420/420/Image/Webp/noFilter"
+        const thumbnail = firstValue(
+            game?.thumbnail,
+            game?.Thumbnail,
+            game?.thumbnailUrl,
+            game?.ThumbnailUrl,
+            game?.imageUrl,
+            game?.ImageUrl,
+            game?.icon,
+            game?.Icon
         );
+
+        if (thumbnail) {
+            return thumbnail;
+        }
+
+        /*
+         * If the backend gives us a universe ID but no thumbnail,
+         * use the Roblox thumbnail API through the backend when
+         * available. The direct fallback below prevents broken
+         * cards when an image cannot be obtained.
+         */
+        const universeId = firstValue(
+            game?.universeId,
+            game?.UniverseId
+        );
+
+        if (universeId) {
+            return `${API_BASE}/api/thumbnail/${encodeURIComponent(universeId)}`;
+        }
+
+        return "";
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // GAME CARD
-    // ------------------------------------------------------------
+    // ============================================================
 
     function createGameCard(game) {
-        const name = escapeHTML(game.name || "Unknown Experience");
-        const creator = escapeHTML(game.creator || "Roblox");
-        const description = escapeHTML(
-            game.description || "No description available."
-        );
+        const normalized = normalizeGame(game);
 
-        const thumbnail = escapeHTML(getThumbnail(game));
-        const url = escapeHTML(getGameURL(game));
+        if (!normalized) {
+            return "";
+        }
 
-        const playing = formatNumber(game.playing);
-        const visits = formatNumber(game.visits);
+        const name =
+            escapeHTML(normalized.name);
+
+        const creator =
+            escapeHTML(normalized.creator);
+
+        const description =
+            escapeHTML(normalized.description);
+
+        const thumbnail =
+            escapeHTML(getThumbnail(normalized));
+
+        const url =
+            escapeHTML(getGameURL(normalized));
+
+        const playing =
+            formatNumber(normalized.playing);
+
+        const visits =
+            formatNumber(normalized.visits);
+
+        const favorites =
+            formatNumber(normalized.favorites);
+
+        const id =
+            escapeHTML(
+                normalized.universeId ||
+                normalized.placeId ||
+                normalized.id ||
+                ""
+            );
+
+        const genre =
+            normalized.genre
+                ? escapeHTML(normalized.genre)
+                : "";
 
         return `
-            <div class="game-card" data-game-id="${escapeHTML(game.id || game.universeId || "")}">
-                
+            <article
+                class="game-card"
+                data-game-id="${id}"
+                data-universe-id="${escapeHTML(normalized.universeId || "")}"
+                data-place-id="${escapeHTML(normalized.placeId || "")}"
+            >
+
                 <a
                     class="game-thumbnail-link"
                     href="${url}"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="Play ${name}"
                 >
-                    <img
-                        class="game-thumbnail"
-                        src="${thumbnail}"
-                        alt="${name}"
-                        loading="lazy"
-                        onerror="this.style.display='none';"
-                    >
+                    ${
+                        thumbnail
+                            ? `
+                                <img
+                                    class="game-thumbnail"
+                                    src="${thumbnail}"
+                                    alt="${name}"
+                                    loading="lazy"
+                                    decoding="async"
+                                    onerror="this.classList.add('image-error');"
+                                >
+                              `
+                            : `
+                                <div class="game-thumbnail game-thumbnail-placeholder">
+                                    <span>🎮</span>
+                                </div>
+                              `
+                    }
                 </a>
 
                 <div class="game-card-info">
@@ -129,6 +667,7 @@
                         href="${url}"
                         target="_blank"
                         rel="noopener noreferrer"
+                        title="${name}"
                     >
                         ${name}
                     </a>
@@ -141,44 +680,103 @@
                         ${description}
                     </div>
 
+                    ${
+                        genre
+                            ? `
+                                <div class="game-genre">
+                                    ${genre}
+                                </div>
+                              `
+                            : ""
+                    }
+
                     <div class="game-stats">
-                        <span>👥 ${playing} playing</span>
-                        <span>▶ ${visits} visits</span>
+
+                        <span
+                            class="game-stat game-stat-playing"
+                            title="${playing} players"
+                        >
+                            👥 ${playing}
+                        </span>
+
+                        <span
+                            class="game-stat game-stat-visits"
+                            title="${visits} visits"
+                        >
+                            ▶ ${visits}
+                        </span>
+
+                        ${
+                            normalized.favorites
+                                ? `
+                                    <span
+                                        class="game-stat game-stat-favorites"
+                                        title="${favorites} favorites"
+                                    >
+                                        ★ ${favorites}
+                                    </span>
+                                  `
+                                : ""
+                        }
+
                     </div>
 
                 </div>
-            </div>
+
+            </article>
         `;
     }
 
-    // ------------------------------------------------------------
-    // RENDER GAMES
-    // ------------------------------------------------------------
+    // ============================================================
+    // RENDER
+    // ============================================================
 
     function renderGames(games, container) {
-        if (!container) return;
-
-        if (!Array.isArray(games) || games.length === 0) {
-            container.innerHTML = `
-                <div class="games-empty">
-                    No experiences found.
-                </div>
-            `;
+        if (!container) {
             return;
         }
 
-        container.innerHTML = games
-            .map(createGameCard)
-            .join("");
+        const normalized =
+            normalizeGames(games);
+
+        if (!normalized.length) {
+            container.innerHTML = `
+                <div class="games-empty">
+                    <div class="games-empty-icon">🎮</div>
+                    <div class="games-empty-title">
+                        No experiences found
+                    </div>
+                </div>
+            `;
+
+            return;
+        }
+
+        container.innerHTML =
+            normalized
+                .map(createGameCard)
+                .join("");
+
+        container.dispatchEvent(
+            new CustomEvent(
+                "webblox:games-rendered",
+                {
+                    detail: {
+                        games: normalized
+                    }
+                }
+            )
+        );
     }
 
-    // ------------------------------------------------------------
-    // FIND CONTAINERS
-    // ------------------------------------------------------------
+    // ============================================================
+    // CONTAINER FINDER
+    // ============================================================
 
     function findContainer(...selectors) {
         for (const selector of selectors) {
-            const element = document.querySelector(selector);
+            const element =
+                document.querySelector(selector);
 
             if (element) {
                 return element;
@@ -188,325 +786,583 @@
         return null;
     }
 
-    // ------------------------------------------------------------
-    // HOME
-    // ------------------------------------------------------------
-
-    async function loadHome() {
-        try {
-            const response = await fetch(ENDPOINTS.home, {
-                method: "GET",
-                headers: {
-                    "Accept": "application/json"
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`Home API returned ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (!data.success) {
-                throw new Error(data.error || "Home API failed");
-            }
-
-            const recommended = Array.isArray(data.recommended)
-                ? data.recommended
-                : [];
-
-            const popular = Array.isArray(data.popular)
-                ? data.popular
-                : [];
-
-            currentGames = [
-                ...recommended,
-                ...popular
-            ];
-
-            // Remove duplicate games.
-            currentGames = currentGames.filter(
-                (game, index, array) => {
-                    const id =
-                        game.universeId ||
-                        game.id ||
-                        game.placeId ||
-                        game.name;
-
-                    return (
-                        index ===
-                        array.findIndex(other => {
-                            const otherId =
-                                other.universeId ||
-                                other.id ||
-                                other.placeId ||
-                                other.name;
-
-                            return otherId === id;
-                        })
-                    );
-                }
-            );
-
-            const recommendedContainer = findContainer(
-                "#recommended-games",
-                "#recommendedGames",
-                ".recommended-games",
-                "[data-games='recommended']"
-            );
-
-            const popularContainer = findContainer(
-                "#popular-games",
-                "#popularGames",
-                ".popular-games",
-                "[data-games='popular']"
-            );
-
-            renderGames(recommended, recommendedContainer);
-            renderGames(popular, popularContainer);
-
-            // If there is only one general games container,
-            // put all loaded games there.
-            if (!recommendedContainer && !popularContainer) {
-                const generalContainer = findContainer(
-                    "#games",
-                    "#game-list",
-                    "#gameList",
-                    ".games-grid",
-                    ".game-grid",
-                    "[data-games]"
-                );
-
-                renderGames(currentGames, generalContainer);
-            }
-
-            console.log(
-                `[WebBlox] Loaded ${currentGames.length} Roblox experiences`
-            );
-
-        } catch (error) {
-            console.error("[WebBlox] Failed to load games:", error);
-
-            const containers = [
-                "#recommended-games",
-                "#recommendedGames",
-                ".recommended-games",
-                "#popular-games",
-                "#popularGames",
-                ".popular-games",
-                "#games",
-                "#game-list",
-                "#gameList"
-            ];
-
-            containers.forEach(selector => {
-                const element = document.querySelector(selector);
-
-                if (element) {
-                    element.innerHTML = `
-                        <div class="games-error">
-                            Unable to load Roblox experiences.
-                            <button onclick="window.WebBloxGames.loadHome()">
-                                Retry
-                            </button>
-                        </div>
-                    `;
-                }
-            });
-        }
+    function findRecommendedContainer() {
+        return findContainer(
+            "#recommended-games",
+            "#recommendedGames",
+            ".recommended-games",
+            "[data-games='recommended']"
+        );
     }
 
-    // ------------------------------------------------------------
-    // SEARCH
-    // ------------------------------------------------------------
+    function findPopularContainer() {
+        return findContainer(
+            "#popular-games",
+            "#popularGames",
+            ".popular-games",
+            "[data-games='popular']"
+        );
+    }
 
-    async function searchGames(query) {
-        query = String(query || "").trim();
+    function findTrendingContainer() {
+        return findContainer(
+            "#trending-games",
+            "#trendingGames",
+            ".trending-games",
+            "[data-games='trending']"
+        );
+    }
 
-        if (!query) {
-            await loadHome();
-            return;
+    function findSearchContainer() {
+        return findContainer(
+            "#search-results",
+            "#searchResults",
+            ".search-results"
+        );
+    }
+
+    function findGeneralContainer() {
+        return findContainer(
+            "#games",
+            "#game-list",
+            "#gameList",
+            ".games-grid",
+            ".game-grid",
+            "[data-games]"
+        );
+    }
+
+    // ============================================================
+    // HOME LOADING
+    // ============================================================
+
+    async function loadHome() {
+        if (homeLoading) {
+            return currentGames;
         }
 
+        homeLoading = true;
+
         try {
-            const url =
-                `${ENDPOINTS.search}?q=${encodeURIComponent(query)}`;
+            const data =
+                await tryEndpoints(
+                    ENDPOINTS.home
+                );
 
-            const response = await fetch(url, {
-                method: "GET",
-                headers: {
-                    "Accept": "application/json"
-                }
-            });
+            const sections =
+                extractSections(data);
 
-            if (!response.ok) {
-                throw new Error(`Search API returned ${response.status}`);
-            }
+            let recommended =
+                sections.recommended;
 
-            const data = await response.json();
+            let popular =
+                sections.popular;
 
-            if (!data.success) {
-                throw new Error(data.error || "Search failed");
+            let trending =
+                sections.trending;
+
+            /*
+             * If the backend returns one generic game array
+             * rather than separate sections, use it as the
+             * primary list.
+             */
+            if (
+                !recommended.length &&
+                !popular.length &&
+                !trending.length
+            ) {
+                const generic =
+                    extractGames(data);
+
+                popular =
+                    generic.slice(0, 50);
             }
 
             /*
-             * Supports several possible backend response names.
+             * Combine everything while removing duplicates.
              */
-            const results =
-                Array.isArray(data.results) ? data.results :
-                Array.isArray(data.games) ? data.games :
-                Array.isArray(data.experiences) ? data.experiences :
-                [];
+            currentGames =
+                uniqueGames([
+                    ...recommended,
+                    ...popular,
+                    ...trending
+                ]);
 
-            currentGames = results;
+            const recommendedContainer =
+                findRecommendedContainer();
 
-            const container = findContainer(
-                "#search-results",
-                "#searchResults",
-                "#games",
-                "#game-list",
-                "#gameList",
-                ".games-grid",
-                ".game-grid",
-                "[data-games]"
-            );
+            const popularContainer =
+                findPopularContainer();
 
-            renderGames(results, container);
+            const trendingContainer =
+                findTrendingContainer();
 
-            // Hide normal sections while searching.
-            document
-                .querySelectorAll(
-                    "#recommended-section, " +
-                    "#recommendedGamesSection, " +
-                    ".recommended-section, " +
-                    "#popular-section, " +
-                    "#popularGamesSection, " +
-                    ".popular-section"
-                )
-                .forEach(element => {
-                    element.style.display = "none";
-                });
-
-            console.log(
-                `[WebBlox] Search "${query}" → ${results.length} results`
-            );
-
-            return results;
-
-        } catch (error) {
-            console.error("[WebBlox] Search failed:", error);
-
-            const container = findContainer(
-                "#search-results",
-                "#searchResults",
-                "#games",
-                "#game-list",
-                "#gameList",
-                ".games-grid",
-                ".game-grid"
-            );
-
-            if (container) {
-                container.innerHTML = `
-                    <div class="games-error">
-                        Search failed.
-                        <button onclick="window.WebBloxGames.searchGames(${JSON.stringify(query)})">
-                            Retry
-                        </button>
-                    </div>
-                `;
+            if (recommendedContainer) {
+                renderGames(
+                    recommended,
+                    recommendedContainer
+                );
             }
 
+            if (popularContainer) {
+                renderGames(
+                    popular,
+                    popularContainer
+                );
+            }
+
+            if (trendingContainer) {
+                renderGames(
+                    trending,
+                    trendingContainer
+                );
+            }
+
+            /*
+             * If the HTML only has one game container,
+             * display the complete discovery feed there.
+             */
+            if (
+                !recommendedContainer &&
+                !popularContainer &&
+                !trendingContainer
+            ) {
+                renderGames(
+                    currentGames,
+                    findGeneralContainer()
+                );
+            }
+
+            showHomeSections();
+
+            console.log(
+                `[WebBlox] Loaded ${currentGames.length} Roblox experiences.`
+            );
+
+            return currentGames;
+
+        } catch (error) {
+            console.error(
+                "[WebBlox] Home loading failed:",
+                error
+            );
+
+            renderError(
+                [
+                    findRecommendedContainer(),
+                    findPopularContainer(),
+                    findTrendingContainer(),
+                    findGeneralContainer()
+                ],
+                "Unable to load Roblox experiences."
+            );
+
             return [];
+
+        } finally {
+            homeLoading = false;
         }
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
+    // SEARCH
+    // ============================================================
+
+    async function searchGames(query) {
+        query =
+            String(query || "")
+                .trim();
+
+        if (!query) {
+            showHomeSections();
+
+            return loadHome();
+        }
+
+        if (searchController) {
+            searchController.abort();
+        }
+
+        searchController =
+            new AbortController();
+
+        const searchContainer =
+            findSearchContainer() ||
+            findGeneralContainer();
+
+        if (searchContainer) {
+            searchContainer.innerHTML = `
+                <div class="games-loading">
+                    <div class="games-loading-spinner"></div>
+                    <div>Searching Roblox...</div>
+                </div>
+            `;
+        }
+
+        try {
+            const encodedQuery =
+                `q=${encodeURIComponent(query)}`;
+
+            const data =
+                await tryEndpoints(
+                    ENDPOINTS.search,
+                    encodedQuery,
+                    {
+                        signal:
+                            searchController.signal
+                    }
+                );
+
+            const results =
+                extractGames(data);
+
+            currentGames =
+                uniqueGames(results);
+
+            /*
+             * Make sure the search area is visible.
+             */
+            if (searchContainer) {
+                renderGames(
+                    currentGames,
+                    searchContainer
+                );
+            }
+
+            hideHomeSections();
+
+            console.log(
+                `[WebBlox] Roblox search "${query}" returned ${currentGames.length} results.`
+            );
+
+            return currentGames;
+
+        } catch (error) {
+            if (
+                error?.name === "AbortError"
+            ) {
+                return [];
+            }
+
+            console.error(
+                "[WebBlox] Search failed:",
+                error
+            );
+
+            renderError(
+                [searchContainer],
+                "Roblox search failed. Please try again."
+            );
+
+            return [];
+
+        } finally {
+            searchController = null;
+        }
+    }
+
+    // ============================================================
+    // DUPLICATE REMOVAL
+    // ============================================================
+
+    function uniqueGames(games) {
+        const seen = new Set();
+        const output = [];
+
+        for (const rawGame of games) {
+            const game =
+                normalizeGame(rawGame);
+
+            if (!game) {
+                continue;
+            }
+
+            const key =
+                firstValue(
+                    game.universeId,
+                    game.placeId,
+                    game.id,
+                    game.name
+                );
+
+            const normalizedKey =
+                String(
+                    key || game.name
+                )
+                    .trim()
+                    .toLowerCase();
+
+            if (
+                seen.has(normalizedKey)
+            ) {
+                continue;
+            }
+
+            seen.add(normalizedKey);
+            output.push(game);
+        }
+
+        return output;
+    }
+
+    // ============================================================
     // SEARCH BAR
-    // ------------------------------------------------------------
+    // ============================================================
+
+    function getSearchInput() {
+        return document.querySelector(
+            [
+                "#search",
+                "#searchInput",
+                "#search-input",
+                "input[name='search']",
+                "input[type='search']"
+            ].join(",")
+        );
+    }
 
     function setupSearch() {
-        const searchInput = document.querySelector(
-            "#search, #searchInput, #search-input, input[name='search']"
-        );
+        const input =
+            getSearchInput();
 
-        if (!searchInput) {
-            console.warn("[WebBlox] Search input not found.");
+        if (!input) {
+            console.warn(
+                "[WebBlox] Search input not found."
+            );
+
             return;
         }
 
-        searchInput.addEventListener("input", () => {
-            clearTimeout(searchTimeout);
+        input.addEventListener(
+            "input",
+            () => {
+                clearTimeout(
+                    searchTimeout
+                );
 
-            const query = searchInput.value.trim();
+                const query =
+                    input.value.trim();
 
-            searchTimeout = setTimeout(() => {
-                if (query.length >= 2) {
-                    searchGames(query);
-                } else if (query.length === 0) {
+                if (!query) {
                     showHomeSections();
-                    loadHome();
-                }
-            }, 350);
-        });
 
-        searchInput.addEventListener("keydown", event => {
-            if (event.key === "Enter") {
+                    searchTimeout =
+                        setTimeout(
+                            loadHome,
+                            150
+                        );
+
+                    return;
+                }
+
+                if (query.length < 2) {
+                    return;
+                }
+
+                searchTimeout =
+                    setTimeout(
+                        () => {
+                            searchGames(
+                                query
+                            );
+                        },
+                        350
+                    );
+            }
+        );
+
+        input.addEventListener(
+            "keydown",
+            event => {
+                if (
+                    event.key !==
+                    "Enter"
+                ) {
+                    return;
+                }
+
                 event.preventDefault();
 
-                clearTimeout(searchTimeout);
+                clearTimeout(
+                    searchTimeout
+                );
 
-                searchGames(searchInput.value);
+                searchGames(
+                    input.value
+                );
             }
-        });
+        );
     }
 
-    // ------------------------------------------------------------
-    // SHOW HOME
-    // ------------------------------------------------------------
+    // ============================================================
+    // HOME VISIBILITY
+    // ============================================================
+
+    function hideHomeSections() {
+        document
+            .querySelectorAll(
+                [
+                    "#recommended-section",
+                    "#recommendedGamesSection",
+                    ".recommended-section",
+                    "#popular-section",
+                    "#popularGamesSection",
+                    ".popular-section",
+                    "#trending-section",
+                    "#trendingGamesSection",
+                    ".trending-section"
+                ].join(",")
+            )
+            .forEach(
+                element => {
+                    element.style.display =
+                        "none";
+                }
+            );
+    }
 
     function showHomeSections() {
         document
             .querySelectorAll(
-                "#recommended-section, " +
-                "#recommendedGamesSection, " +
-                ".recommended-section, " +
-                "#popular-section, " +
-                "#popularGamesSection, " +
-                ".popular-section"
+                [
+                    "#recommended-section",
+                    "#recommendedGamesSection",
+                    ".recommended-section",
+                    "#popular-section",
+                    "#popularGamesSection",
+                    ".popular-section",
+                    "#trending-section",
+                    "#trendingGamesSection",
+                    ".trending-section"
+                ].join(",")
             )
-            .forEach(element => {
-                element.style.display = "";
-            });
+            .forEach(
+                element => {
+                    element.style.display =
+                        "";
+                }
+            );
     }
 
-    // ------------------------------------------------------------
-    // INITIALIZE
-    // ------------------------------------------------------------
+    // ============================================================
+    // ERROR UI
+    // ============================================================
 
-    async function init() {
-        console.log("[WebBlox] Initializing games system...");
+    function renderError(
+        containers,
+        message
+    ) {
+        const uniqueContainers =
+            [...new Set(
+                containers.filter(Boolean)
+            )];
 
-        setupSearch();
-        await loadHome();
+        for (
+            const container
+            of uniqueContainers
+        ) {
+            container.innerHTML = `
+                <div class="games-error">
+                    <div class="games-error-icon">
+                        ⚠️
+                    </div>
 
-        console.log("[WebBlox] Games system ready.");
+                    <div class="games-error-message">
+                        ${escapeHTML(message)}
+                    </div>
+
+                    <button
+                        type="button"
+                        class="games-retry"
+                        data-webblox-retry
+                    >
+                        Retry
+                    </button>
+                </div>
+            `;
+
+            const retry =
+                container.querySelector(
+                    "[data-webblox-retry]"
+                );
+
+            if (retry) {
+                retry.addEventListener(
+                    "click",
+                    () => {
+                        loadHome();
+                    }
+                );
+            }
+        }
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
+    // RETRY BUTTONS
+    // ============================================================
+
+    document.addEventListener(
+        "click",
+        event => {
+            const retry =
+                event.target.closest(
+                    "[data-webblox-retry]"
+                );
+
+            if (!retry) {
+                return;
+            }
+
+            loadHome();
+        }
+    );
+
+    // ============================================================
     // PUBLIC API
-    // ------------------------------------------------------------
+    // ============================================================
 
     window.WebBloxGames = {
         loadHome,
         searchGames,
         renderGames,
-        getGameURL
+        createGameCard,
+        normalizeGame,
+        normalizeGames,
+        getGameURL,
+        getThumbnail,
+        formatNumber,
+        uniqueGames
     };
 
-    // Start once DOM is ready.
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", init);
+    // ============================================================
+    // INITIALIZATION
+    // ============================================================
+
+    async function init() {
+        console.log(
+            "[WebBlox] Initializing Roblox game system..."
+        );
+
+        setupSearch();
+
+        await loadHome();
+
+        console.log(
+            "[WebBlox] Roblox game system ready."
+        );
+    }
+
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+        document.addEventListener(
+            "DOMContentLoaded",
+            init,
+            {
+                once: true
+            }
+        );
     } else {
         init();
     }
