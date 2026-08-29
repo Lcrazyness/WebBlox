@@ -1,37 +1,34 @@
-```javascript
 /*
  * WebBlox Studio
  * Stage 3A
  *
  * COMPLETE STUDIO CONTROLLER
  *
- * Includes:
- * - Real Three.js viewport
- * - Real WebBlox Player runtime integration
- * - Player dependency loading
- * - Player start/stop
- * - Correct WASD camera movement
- * - RMB camera rotation
- * - Mouse-wheel zoom
+ * Features:
+ * - Real Three.js 3D viewport
+ * - Player runtime loading
+ * - Player Play / Stop integration
+ * - Correct WASD camera controls
+ * - RMB camera navigation
  * - Q = Select
  * - W = Move
  * - E = Rotate
  * - R = Scale
- * - F = Focus
+ * - F = Focus selected object
  * - Ctrl+D = Duplicate
  * - Delete = Delete
  * - Ctrl+Z = Undo
- * - Ctrl+Y = Redo
- * - Ctrl+Shift+Z = Redo
+ * - Ctrl+Y / Ctrl+Shift+Z = Redo
  * - Escape = Clear selection
- * - Grid
- * - Snap
- * - Explorer
- * - Properties
- * - Object insertion
- * - Save/load
- * - New game
- * - Publish validation
+ * - Viewport dragging
+ * - Move tool
+ * - Scale tool
+ * - Rotate tool
+ * - Smooth camera
+ * - Player runtime collision support
+ * - Fail-safe loading screen
+ * - Three.js loading timeout
+ * - Player loading timeout
  *
  * FILE:
  * studio/studio.js
@@ -39,6 +36,28 @@
 
 (() => {
     "use strict";
+
+    // ============================================================
+    // CONFIG
+    // ============================================================
+
+    const CONFIG = {
+        THREE_URL:
+            "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js",
+
+        PLAYER_URL:
+            "../Player/player.js",
+
+        THREE_TIMEOUT:
+            12000,
+
+        PLAYER_TIMEOUT:
+            12000,
+
+        MAX_HISTORY:
+            50
+    };
+
 
     // ============================================================
     // STATE
@@ -52,6 +71,7 @@
         tool: "select",
 
         gridEnabled: true,
+
         snapEnabled: true,
 
         camera: {
@@ -87,6 +107,7 @@
         },
 
         history: [],
+
         future: [],
 
         game: {
@@ -96,7 +117,11 @@
             saved: false
         },
 
-        playing: false
+        playing: false,
+
+        initialized: false,
+
+        initializationFailed: false
     };
 
 
@@ -104,48 +129,74 @@
     // DOM
     // ============================================================
 
-    const $ = id => document.getElementById(id);
+    const $ = id =>
+        document.getElementById(id);
 
-    const viewport = $("viewport");
+    const viewport =
+        $("viewport");
 
-    const explorerPanel = $("explorerPanel");
-    const propertiesPanel = $("propertiesPanel");
+    const explorerPanel =
+        $("explorerPanel");
 
-    const workspaceChildren = $("workspaceChildren");
+    const propertiesPanel =
+        $("propertiesPanel");
 
-    const outputConsole = $("outputConsole");
+    const workspaceChildren =
+        $("workspaceChildren");
 
-    const studioMessage = $("studioMessage");
-    const gameStatus = $("gameStatus");
+    const outputConsole =
+        $("outputConsole");
 
-    const viewportMode = $("viewportMode");
-    const viewportCoordinates = $("viewportCoordinates");
+    const studioMessage =
+        $("studioMessage");
 
-    const noSelectionMessage = $("noSelectionMessage");
-    const selectedObjectName = $("selectedObjectName");
-    const selectedObjectType = $("selectedObjectType");
-    const selectedObjectIcon = $("selectedObjectIcon");
+    const gameStatus =
+        $("gameStatus");
 
-    const selectionBox = $("selectionBox");
+    const viewportMode =
+        $("viewportMode");
+
+    const viewportCoordinates =
+        $("viewportCoordinates");
+
+    const noSelectionMessage =
+        $("noSelectionMessage");
+
+    const selectedObjectName =
+        $("selectedObjectName");
+
+    const selectedObjectType =
+        $("selectedObjectType");
+
+    const selectedObjectIcon =
+        $("selectedObjectIcon");
+
+    const selectionBox =
+        $("selectionBox");
 
 
     // ============================================================
-    // THREE
+    // THREE STATE
     // ============================================================
 
     let THREE = null;
 
     let renderer = null;
+
     let scene = null;
+
     let camera = null;
+
     let canvas = null;
 
     let raycaster = null;
+
     let mouseVector = null;
 
     let gridHelper = null;
 
     let ambientLight = null;
+
     let directionalLight = null;
 
     let threeReady = false;
@@ -154,11 +205,14 @@
 
 
     // ============================================================
-    // HELPERS
+    // GENERAL HELPERS
     // ============================================================
 
     function clamp(value, min, max) {
-        return Math.max(min, Math.min(max, value));
+        return Math.max(
+            min,
+            Math.min(max, value)
+        );
     }
 
 
@@ -167,7 +221,10 @@
             return value;
         }
 
-        return Math.round(value / amount) * amount;
+        return (
+            Math.round(value / amount) *
+            amount
+        );
     }
 
 
@@ -184,6 +241,33 @@
     }
 
 
+    function cloneObject(object) {
+        return JSON.parse(
+            JSON.stringify(object)
+        );
+    }
+
+
+    function isTyping() {
+        const element =
+            document.activeElement;
+
+        if (!element) {
+            return false;
+        }
+
+        const tag =
+            element.tagName;
+
+        return (
+            tag === "INPUT" ||
+            tag === "TEXTAREA" ||
+            tag === "SELECT" ||
+            element.isContentEditable
+        );
+    }
+
+
     function escapeHTML(value) {
         return String(value ?? "")
             .replace(/&/g, "&amp;")
@@ -194,19 +278,21 @@
     }
 
 
-    function cloneObject(object) {
-        return JSON.parse(JSON.stringify(object));
-    }
-
+    // ============================================================
+    // LOGGING
+    // ============================================================
 
     function log(message, type = "info") {
-        console.log(`[WebBlox Studio] ${message}`);
+        console.log(
+            `[WebBlox Studio] ${message}`
+        );
 
         if (!outputConsole) {
             return;
         }
 
-        const line = document.createElement("div");
+        const line =
+            document.createElement("div");
 
         line.className =
             `console-line console-${type}`;
@@ -228,7 +314,8 @@
 
 
     function showToast(message) {
-        const container = $("toastContainer");
+        const container =
+            $("toastContainer");
 
         if (!container) {
             return;
@@ -238,12 +325,15 @@
             document.createElement("div");
 
         toast.className = "toast";
+
         toast.textContent = message;
 
         container.appendChild(toast);
 
         setTimeout(() => {
-            toast.classList.add("toast-hide");
+            toast.classList.add(
+                "toast-hide"
+            );
 
             setTimeout(
                 () => toast.remove(),
@@ -254,92 +344,326 @@
 
 
     // ============================================================
-    // THREE LOADER
+    // FAIL-SAFE LOADING SCREEN
+    // ============================================================
+
+    function finishLoadingScreen() {
+        const loading =
+            $("studioLoading");
+
+        if (!loading) {
+            return;
+        }
+
+        const progress =
+            $("loadingProgress");
+
+        if (progress) {
+            progress.style.width =
+                "100%";
+        }
+
+        /*
+         * IMPORTANT:
+         *
+         * Never leave the editor permanently
+         * blocked behind the loading screen.
+         */
+
+        loading.classList.add(
+            "hidden"
+        );
+
+        loading.style.display =
+            "none";
+    }
+
+
+    function failInitialization(error) {
+        state.initializationFailed = true;
+
+        console.error(
+            "[WebBlox Studio] Initialization failed:",
+            error
+        );
+
+        const message =
+            error?.message ||
+            String(error);
+
+        log(
+            `Studio initialization failed: ${message}`,
+            "error"
+        );
+
+        if (studioMessage) {
+            studioMessage.textContent =
+                "Studio loaded with errors";
+        }
+
+        showToast(
+            "Studio loaded with errors"
+        );
+
+        /*
+         * Critical:
+         * Always remove the loading screen.
+         */
+
+        finishLoadingScreen();
+    }
+
+
+    // ============================================================
+    // TIMEOUT HELPER
+    // ============================================================
+
+    function withTimeout(
+        promise,
+        milliseconds,
+        message
+    ) {
+        return new Promise(
+            (resolve, reject) => {
+
+                let finished = false;
+
+                const timer =
+                    setTimeout(() => {
+
+                        if (finished) {
+                            return;
+                        }
+
+                        finished = true;
+
+                        reject(
+                            new Error(message)
+                        );
+
+                    }, milliseconds);
+
+
+                promise.then(
+                    value => {
+
+                        if (finished) {
+                            return;
+                        }
+
+                        finished = true;
+
+                        clearTimeout(timer);
+
+                        resolve(value);
+                    },
+                    error => {
+
+                        if (finished) {
+                            return;
+                        }
+
+                        finished = true;
+
+                        clearTimeout(timer);
+
+                        reject(error);
+                    }
+                );
+            }
+        );
+    }
+
+
+    // ============================================================
+    // REMOVE OLD VIEWPORT
+    // ============================================================
+
+    function removeOldViewport() {
+
+        [
+            $("world"),
+            $("viewportWelcome"),
+            $("defaultPart")
+        ].forEach(element => {
+
+            if (!element) {
+                return;
+            }
+
+            element.style.display =
+                "none";
+
+            element.style.visibility =
+                "hidden";
+
+            element.style.pointerEvents =
+                "none";
+        });
+
+        if (selectionBox) {
+            selectionBox.style.display =
+                "none";
+        }
+
+        const crosshair =
+            $("viewportCrosshair");
+
+        if (crosshair) {
+            crosshair.style.zIndex =
+                "30";
+
+            crosshair.style.pointerEvents =
+                "none";
+        }
+    }
+
+
+    // ============================================================
+    // THREE.JS LOADER
     // ============================================================
 
     function loadThree() {
-        return new Promise((resolve, reject) => {
 
-            if (window.THREE) {
-                THREE = window.THREE;
-                resolve();
-                return;
-            }
+        return withTimeout(
+            new Promise(
+                (resolve, reject) => {
 
-            const existing =
-                document.querySelector(
-                    "script[data-webblox-three]"
-                );
-
-            if (existing) {
-
-                const finish = () => {
+                    /*
+                     * Already available.
+                     */
 
                     if (window.THREE) {
-                        THREE = window.THREE;
+                        THREE =
+                            window.THREE;
+
                         resolve();
-                    } else {
+
+                        return;
+                    }
+
+
+                    /*
+                     * Existing loader.
+                     */
+
+                    const existing =
+                        document.querySelector(
+                            "script[data-webblox-three]"
+                        );
+
+                    if (existing) {
+
+                        const finish = () => {
+
+                            if (
+                                window.THREE
+                            ) {
+
+                                THREE =
+                                    window.THREE;
+
+                                resolve();
+
+                            } else {
+
+                                reject(
+                                    new Error(
+                                        "Three.js script loaded but window.THREE is unavailable."
+                                    )
+                                );
+                            }
+                        };
+
+                        existing.addEventListener(
+                            "load",
+                            finish,
+                            { once: true }
+                        );
+
+                        existing.addEventListener(
+                            "error",
+                            () => {
+                                reject(
+                                    new Error(
+                                        "Three.js failed to load."
+                                    )
+                                );
+                            },
+                            { once: true }
+                        );
+
+                        /*
+                         * The script may already have
+                         * completed before listeners
+                         * were attached.
+                         */
+
+                        if (window.THREE) {
+                            finish();
+                        }
+
+                        return;
+                    }
+
+
+                    /*
+                     * Create loader.
+                     */
+
+                    const script =
+                        document.createElement(
+                            "script"
+                        );
+
+                    script.src =
+                        CONFIG.THREE_URL;
+
+                    script.async = true;
+
+                    script.dataset.webbloxThree =
+                        "true";
+
+                    script.onload = () => {
+
+                        if (
+                            window.THREE
+                        ) {
+
+                            THREE =
+                                window.THREE;
+
+                            resolve();
+
+                        } else {
+
+                            reject(
+                                new Error(
+                                    "Three.js loaded but window.THREE is unavailable."
+                                )
+                            );
+                        }
+                    };
+
+                    script.onerror = () => {
+
                         reject(
                             new Error(
-                                "Three.js loaded but window.THREE is unavailable."
+                                "Unable to load Three.js from the CDN."
                             )
                         );
-                    }
-                };
+                    };
 
-                existing.addEventListener(
-                    "load",
-                    finish,
-                    { once: true }
-                );
-
-                existing.addEventListener(
-                    "error",
-                    () => reject(
-                        new Error(
-                            "Three.js failed to load."
-                        )
-                    ),
-                    { once: true }
-                );
-
-                return;
-            }
-
-            const script =
-                document.createElement("script");
-
-            script.src =
-                "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
-
-            script.dataset.webbloxThree = "true";
-
-            script.onload = () => {
-
-                if (!window.THREE) {
-                    reject(
-                        new Error(
-                            "Three.js loaded but window.THREE is unavailable."
-                        )
+                    document.head.appendChild(
+                        script
                     );
-
-                    return;
                 }
+            ),
 
-                THREE = window.THREE;
-                resolve();
-            };
+            CONFIG.THREE_TIMEOUT,
 
-            script.onerror = () => {
-                reject(
-                    new Error(
-                        "Unable to load Three.js."
-                    )
-                );
-            };
-
-            document.head.appendChild(script);
-        });
+            "Three.js loading timed out."
+        );
     }
 
 
@@ -347,202 +671,161 @@
     // PLAYER RUNTIME LOADER
     // ============================================================
 
-    /*
-     * IMPORTANT:
-     *
-     * Player/player.js depends on character.js.
-     *
-     * character.js creates window.WebBloxPlayer.createCharacter.
-     *
-     * Therefore player.js CANNOT be loaded by itself.
-     *
-     * The actual Player folder currently contains:
-     *
-     * animations.js
-     * camera.js
-     * character.js
-     * controller.js
-     * physics.js
-     * player.js
-     *
-     * We load character.js before player.js.
-     */
+    function loadPlayerRuntime() {
 
-    const PLAYER_FILES = [
-        "physics.js",
-        "controller.js",
-        "camera.js",
-        "animations.js",
-        "character.js",
-        "player.js"
-    ];
+        return withTimeout(
+            new Promise(
+                (resolve, reject) => {
+
+                    /*
+                     * Already loaded.
+                     */
+
+                    if (
+                        window.WebBloxPlayer &&
+                        typeof
+                            window.WebBloxPlayer.start ===
+                                "function"
+                    ) {
+
+                        resolve(
+                            window.WebBloxPlayer
+                        );
+
+                        return;
+                    }
 
 
-    function getPlayerBasePath() {
+                    /*
+                     * Find an existing Player
+                     * script.
+                     */
 
-        /*
-         * studio/studio.js
-         *
-         * ../Player/
-         */
+                    const existing =
+                        document.querySelector(
+                            "script[data-webblox-player]"
+                        );
 
-        return "../Player/";
-    }
+                    if (existing) {
 
+                        const finish = () => {
 
-    function normalizePath(path) {
+                            if (
+                                window.WebBloxPlayer &&
+                                typeof
+                                    window.WebBloxPlayer.start ===
+                                        "function"
+                            ) {
 
-        try {
-            return new URL(
-                path,
-                document.baseURI
-            ).href;
-        } catch {
-            return path;
-        }
-    }
+                                resolve(
+                                    window.WebBloxPlayer
+                                );
 
+                            } else {
 
-    function playerScriptAlreadyLoaded(path) {
-
-        const target =
-            normalizePath(path);
-
-        return Array.from(
-            document.scripts
-        ).some(script => {
-
-            if (!script.src) {
-                return false;
-            }
-
-            return normalizePath(
-                script.src
-            ) === target;
-        });
-    }
+                                reject(
+                                    new Error(
+                                        "Player/player.js loaded but WebBloxPlayer was not created."
+                                    )
+                                );
+                            }
+                        };
 
 
-    function loadPlayerScript(path) {
+                        existing.addEventListener(
+                            "load",
+                            finish,
+                            { once: true }
+                        );
 
-        return new Promise(
-            (resolve, reject) => {
 
-                if (
-                    playerScriptAlreadyLoaded(path)
-                ) {
-                    resolve();
-                    return;
-                }
+                        existing.addEventListener(
+                            "error",
+                            () => {
 
-                const script =
-                    document.createElement("script");
+                                reject(
+                                    new Error(
+                                        "Player/player.js failed to load."
+                                    )
+                                );
 
-                script.src = path;
+                            },
+                            { once: true }
+                        );
 
-                /*
-                 * Do NOT use async.
-                 *
-                 * Dependency order matters.
-                 */
 
-                script.async = false;
+                        if (
+                            window.WebBloxPlayer
+                        ) {
+                            finish();
+                        }
 
-                script.dataset.webbloxPlayer =
-                    "true";
+                        return;
+                    }
 
-                script.onload = () => {
-                    resolve();
-                };
 
-                script.onerror = () => {
-                    reject(
-                        new Error(
-                            `Player file failed to load: ${path}`
-                        )
+                    /*
+                     * Load Player/player.js.
+                     */
+
+                    const script =
+                        document.createElement(
+                            "script"
+                        );
+
+                    script.src =
+                        CONFIG.PLAYER_URL;
+
+                    script.async = true;
+
+                    script.dataset.webbloxPlayer =
+                        "true";
+
+
+                    script.onload = () => {
+
+                        if (
+                            window.WebBloxPlayer &&
+                            typeof
+                                window.WebBloxPlayer.start ===
+                                    "function"
+                        ) {
+
+                            resolve(
+                                window.WebBloxPlayer
+                            );
+
+                        } else {
+
+                            reject(
+                                new Error(
+                                    "Player/player.js loaded but WebBloxPlayer was not created."
+                                )
+                            );
+                        }
+                    };
+
+
+                    script.onerror = () => {
+
+                        reject(
+                            new Error(
+                                `Could not load ${CONFIG.PLAYER_URL}`
+                            )
+                        );
+                    };
+
+
+                    document.head.appendChild(
+                        script
                     );
-                };
+                }
+            ),
 
-                document.head.appendChild(script);
-            }
+            CONFIG.PLAYER_TIMEOUT,
+
+            "Player runtime loading timed out."
         );
-    }
-
-
-    async function loadPlayerRuntime() {
-
-        /*
-         * Three.js MUST exist before character.js.
-         */
-
-        if (!window.THREE) {
-            throw new Error(
-                "Three.js must load before the Player runtime."
-            );
-        }
-
-        const base =
-            getPlayerBasePath();
-
-        log(
-            "Loading Player runtime..."
-        );
-
-        /*
-         * Load each dependency in order.
-         */
-
-        for (
-            const file
-            of PLAYER_FILES
-        ) {
-
-            const path =
-                base + file;
-
-            log(
-                `Loading Player/${file}...`
-            );
-
-            await loadPlayerScript(path);
-        }
-
-        /*
-         * player.js should now have created
-         * window.WebBloxPlayer.
-         */
-
-        if (
-            !window.WebBloxPlayer
-        ) {
-            throw new Error(
-                "Player runtime did not create window.WebBloxPlayer."
-            );
-        }
-
-        if (
-            typeof window.WebBloxPlayer.start !==
-            "function"
-        ) {
-            throw new Error(
-                "Player runtime loaded but Player.start is unavailable."
-            );
-        }
-
-        if (
-            typeof window.WebBloxPlayer.getCharacter !==
-            "function"
-        ) {
-            throw new Error(
-                "Player runtime loaded but getCharacter is unavailable."
-            );
-        }
-
-        log(
-            "Player runtime loaded successfully."
-        );
-
-        return window.WebBloxPlayer;
     }
 
 
@@ -563,13 +846,17 @@
                 (
                     data.type === "SpawnLocation"
                         ? "Spawn"
-                        : data.type === "Model"
-                            ? "Model"
-                            : data.type === "Folder"
-                                ? "Folder"
-                                : data.type === "Script"
-                                    ? "Script"
-                                    : "Part"
+                        :
+                    data.type === "Model"
+                        ? "Model"
+                        :
+                    data.type === "Folder"
+                        ? "Folder"
+                        :
+                    data.type === "Script"
+                        ? "Script"
+                        :
+                        "Part"
                 ),
 
             className:
@@ -734,7 +1021,8 @@
 
             color:
                 new THREE.Color(
-                    object.color || "#808080"
+                    object.color ||
+                    "#808080"
                 ),
 
             roughness: 0.8,
@@ -747,41 +1035,49 @@
 
             case "SmoothPlastic":
 
-                params.roughness = 0.35;
+                params.roughness =
+                    0.35;
 
                 break;
 
 
             case "Metal":
 
-                params.roughness = 0.25;
+                params.roughness =
+                    0.25;
 
-                params.metalness = 0.85;
+                params.metalness =
+                    0.85;
 
                 break;
 
 
             case "Glass":
 
-                params.transparent = true;
+                params.transparent =
+                    true;
 
-                params.opacity = 0.45;
+                params.opacity =
+                    0.45;
 
-                params.roughness = 0.1;
+                params.roughness =
+                    0.1;
 
                 break;
 
 
             case "Wood":
 
-                params.roughness = 0.9;
+                params.roughness =
+                    0.9;
 
                 break;
 
 
             case "Concrete":
 
-                params.roughness = 1;
+                params.roughness =
+                    1;
 
                 break;
         }
@@ -830,11 +1126,13 @@
             root.castShadow =
                 object.castShadow;
 
-            root.receiveShadow = true;
+            root.receiveShadow =
+                true;
 
 
             if (
-                object.type === "SpawnLocation"
+                object.type ===
+                "SpawnLocation"
             ) {
 
                 const arrowMaterial =
@@ -842,6 +1140,7 @@
                         color: "#22c55e",
                         roughness: 0.45
                     });
+
 
                 root.material =
                     arrowMaterial;
@@ -859,7 +1158,8 @@
 
 
                 arrow.position.y =
-                    object.size.y / 2 + 0.8;
+                    object.size.y / 2 +
+                    0.8;
 
 
                 arrow.rotation.x =
@@ -894,9 +1194,13 @@
                 );
 
 
-            body.position.y = 1.5;
+            body.position.y =
+                1.5;
 
-            body.castShadow = true;
+
+            body.castShadow =
+                true;
+
 
             root.add(body);
 
@@ -912,9 +1216,13 @@
                 );
 
 
-            head.position.y = 3.9;
+            head.position.y =
+                3.9;
 
-            head.castShadow = true;
+
+            head.castShadow =
+                true;
+
 
             root.add(head);
         }
@@ -939,6 +1247,7 @@
 
 
         root.rotation.set(
+
             THREE.MathUtils.degToRad(
                 object.rotation.x
             ),
@@ -985,6 +1294,7 @@
                 child.geometry.dispose();
             }
 
+
             if (child.material) {
 
                 if (
@@ -995,11 +1305,19 @@
 
                     child.material.forEach(
                         material => {
-                            material.dispose();
+
+                            if (
+                                material &&
+                                material.dispose
+                            ) {
+                                material.dispose();
+                            }
                         }
                     );
 
-                } else {
+                } else if (
+                    child.material.dispose
+                ) {
 
                     child.material.dispose();
                 }
@@ -1031,7 +1349,9 @@
 
             disposeMesh(old);
 
-            meshes.delete(object.id);
+            meshes.delete(
+                object.id
+            );
         }
 
 
@@ -1053,9 +1373,15 @@
         );
 
 
-        updateMeshSelection(object);
+        updateMeshSelection(
+            object
+        );
     }
 
+
+    // ============================================================
+    // RENDER WORLD
+    // ============================================================
 
     function renderWorld() {
 
@@ -1097,6 +1423,10 @@
     }
 
 
+    // ============================================================
+    // UPDATE MESH
+    // ============================================================
+
     function updateMeshFromObject(object) {
 
         const mesh =
@@ -1112,56 +1442,64 @@
 
 
         /*
-         * Models can update without recreation.
+         * Rebuild standard Parts because
+         * size/material/color can change.
          */
+
+        if (
+            object.type === "Part" ||
+            object.type === "SpawnLocation"
+        ) {
+
+            renderObject(object);
+
+            return;
+        }
+
+
+        mesh.position.set(
+            object.position.x,
+            object.position.y,
+            object.position.z
+        );
+
+
+        mesh.rotation.set(
+
+            THREE.MathUtils.degToRad(
+                object.rotation.x
+            ),
+
+            THREE.MathUtils.degToRad(
+                object.rotation.y
+            ),
+
+            THREE.MathUtils.degToRad(
+                object.rotation.z
+            )
+        );
+
 
         if (
             object.type === "Model"
         ) {
-
-            mesh.position.set(
-                object.position.x,
-                object.position.y,
-                object.position.z
-            );
-
-            mesh.rotation.set(
-                THREE.MathUtils.degToRad(
-                    object.rotation.x
-                ),
-
-                THREE.MathUtils.degToRad(
-                    object.rotation.y
-                ),
-
-                THREE.MathUtils.degToRad(
-                    object.rotation.z
-                )
-            );
 
             mesh.scale.set(
                 object.size.x / 4,
                 object.size.y,
                 object.size.z / 4
             );
-
-        } else {
-
-            /*
-             * Parts need recreation because
-             * size/material/color can change.
-             */
-
-            renderObject(object);
         }
 
 
-        updateMeshSelection(object);
+        updateMeshSelection(
+            object
+        );
     }
 
 
     // ============================================================
-    // SELECTION
+    // SELECTION VISUAL
     // ============================================================
 
     function updateMeshSelection(object) {
@@ -1186,28 +1524,33 @@
 
 
             /*
-             * Do not permanently replace
-             * material objects.
+             * Do not permanently destroy the
+             * material's original emissive state.
              */
 
             if (
-                child.material.emissive
+                !child.material.emissive
             ) {
-
-                child.material.emissive =
-                    new THREE.Color(
-                        state.selectedId ===
-                        object.id
-                            ? "#3b82f6"
-                            : "#000000"
-                    );
-
-                child.material.emissiveIntensity =
-                    state.selectedId ===
-                    object.id
-                        ? 0.35
-                        : 0;
+                return;
             }
+
+
+            const selected =
+                state.selectedId ===
+                object.id;
+
+
+            child.material.emissive.set(
+                selected
+                    ? "#3b82f6"
+                    : "#000000"
+            );
+
+
+            child.material.emissiveIntensity =
+                selected
+                    ? 0.35
+                    : 0;
         });
     }
 
@@ -1219,10 +1562,16 @@
             of state.objects.values()
         ) {
 
-            updateMeshSelection(object);
+            updateMeshSelection(
+                object
+            );
         }
     }
 
+
+    // ============================================================
+    // SELECT
+    // ============================================================
 
     function selectObject(id) {
 
@@ -1235,7 +1584,8 @@
         }
 
 
-        state.selectedId = id;
+        state.selectedId =
+            id;
 
 
         updateSelectionVisual();
@@ -1255,7 +1605,8 @@
 
     function clearSelection() {
 
-        state.selectedId = null;
+        state.selectedId =
+            null;
 
 
         updateSelectionVisual();
@@ -1285,11 +1636,9 @@
 
 
         if (gridHelper) {
-            scene.remove(gridHelper);
-
-            disposeMesh(gridHelper);
-
-            gridHelper = null;
+            scene.remove(
+                gridHelper
+            );
         }
 
 
@@ -1306,7 +1655,9 @@
             -0.51;
 
 
-        scene.add(gridHelper);
+        scene.add(
+            gridHelper
+        );
 
 
         updateGrid();
@@ -1365,16 +1716,16 @@
         camera.position.set(
 
             target.x +
-            Math.sin(yaw) *
-            horizontal,
+                Math.sin(yaw) *
+                horizontal,
 
             target.y -
-            Math.sin(pitch) *
-            distance,
+                Math.sin(pitch) *
+                distance,
 
             target.z +
-            Math.cos(yaw) *
-            horizontal
+                Math.cos(yaw) *
+                horizontal
         );
 
 
@@ -1418,11 +1769,16 @@
         };
 
 
-        state.camera.yaw = 35;
+        state.camera.yaw =
+            35;
 
-        state.camera.pitch = -25;
 
-        state.camera.distance = 24;
+        state.camera.pitch =
+            -25;
+
+
+        state.camera.distance =
+            24;
 
 
         updateCamera();
@@ -1450,8 +1806,10 @@
         state.camera.target.x =
             object.position.x;
 
+
         state.camera.target.y =
             object.position.y;
+
 
         state.camera.target.z =
             object.position.z;
@@ -1460,7 +1818,6 @@
         state.camera.distance =
             Math.max(
                 8,
-
                 Math.max(
                     object.size.x,
                     object.size.y,
@@ -1479,23 +1836,14 @@
 
 
     // ============================================================
-    // CAMERA MOVEMENT
+    // CAMERA WASD MOVEMENT
     // ============================================================
 
     function updateMovement(delta) {
 
         /*
-         * CAMERA CONTROLS
-         *
-         * Only active while RMB is held.
-         *
-         * W = forward
-         * S = backward
-         * A = left
-         * D = right
-         *
-         * This is intentionally separated from
-         * the W/E/R Studio tool shortcuts.
+         * Camera movement only happens while
+         * RMB is held.
          */
 
         if (
@@ -1506,32 +1854,20 @@
         }
 
 
-        const active =
-            document.activeElement;
-
-
-        if (
-            active &&
-            (
-                active.tagName === "INPUT" ||
-                active.tagName === "TEXTAREA" ||
-                active.tagName === "SELECT"
-            )
-        ) {
+        if (isTyping()) {
             return;
         }
-
-
-        const speed =
-            state.keys.has("shift")
-                ? 40
-                : 18;
 
 
         let forward = 0;
 
         let right = 0;
 
+
+        /*
+         * W = FORWARD
+         * S = BACKWARD
+         */
 
         if (
             state.keys.has("w") ||
@@ -1550,6 +1886,11 @@
             forward -= 1;
         }
 
+
+        /*
+         * D = RIGHT
+         * A = LEFT
+         */
 
         if (
             state.keys.has("d") ||
@@ -1584,9 +1925,12 @@
             );
 
 
-        forward /= length;
+        forward /=
+            length;
 
-        right /= length;
+
+        right /=
+            length;
 
 
         const yaw =
@@ -1595,38 +1939,45 @@
             );
 
 
+        const speed =
+            state.keys.has("shift")
+                ? 40
+                : 18;
+
+
         const amount =
             speed * delta;
 
 
         /*
-         * IMPORTANT:
+         * FIXED CAMERA DIRECTIONS
          *
-         * updateCamera() defines camera
-         * forward as:
+         * The camera is positioned at:
          *
-         * X = sin(yaw)
-         * Z = cos(yaw)
+         * x = +sin(yaw)
+         * z = +cos(yaw)
          *
-         * Therefore W uses the SAME vector.
+         * Therefore its actual forward direction
+         * toward the target is:
          *
-         * This fixes the old inverted movement.
+         * x = -sin(yaw)
+         * z = -cos(yaw)
+         *
+         * This fixes the old inverted WASD.
          */
+
 
         const forwardX =
-            Math.sin(yaw);
+            -Math.sin(yaw);
+
 
         const forwardZ =
-            Math.cos(yaw);
+            -Math.cos(yaw);
 
-
-        /*
-         * Right vector is perpendicular
-         * to the forward vector.
-         */
 
         const rightX =
             Math.cos(yaw);
+
 
         const rightZ =
             -Math.sin(yaw);
@@ -1669,7 +2020,9 @@
         event.preventDefault();
 
 
-        state.mouse.down = true;
+        state.mouse.down =
+            true;
+
 
         state.mouse.button =
             event.button;
@@ -1677,6 +2030,7 @@
 
         state.mouse.lastX =
             event.clientX;
+
 
         state.mouse.lastY =
             event.clientY;
@@ -1692,8 +2046,13 @@
 
     function onPointerMove(event) {
 
+        if (!state.mouse.down) {
+            return;
+        }
+
+
         if (
-            !state.mouse.down
+            state.mouse.draggingObject
         ) {
             return;
         }
@@ -1712,55 +2071,55 @@
         state.mouse.lastX =
             event.clientX;
 
+
         state.mouse.lastY =
             event.clientY;
 
 
         /*
-         * Do not rotate the camera while
-         * transforming an object.
+         * Middle mouse or RMB drag rotates
+         * the editor camera.
          */
 
         if (
-            state.mouse.draggingObject
+            state.mouse.button === 1 ||
+            state.mouse.button === 2
         ) {
-            return;
+
+            state.camera.yaw -=
+                dx * 0.35;
+
+
+            state.camera.pitch -=
+                dy * 0.25;
+
+
+            state.camera.pitch =
+                clamp(
+                    state.camera.pitch,
+                    -89,
+                    89
+                );
+
+
+            updateCamera();
         }
-
-
-        /*
-         * RMB or middle mouse rotates.
-         */
-
-        state.camera.yaw -=
-            dx * 0.35;
-
-
-        state.camera.pitch -=
-            dy * 0.25;
-
-
-        state.camera.pitch =
-            clamp(
-                state.camera.pitch,
-                -89,
-                89
-            );
-
-
-        updateCamera();
     }
 
 
     function onPointerUp() {
 
-        state.mouse.down = false;
+        state.mouse.down =
+            false;
 
-        state.mouse.button = 0;
+
+        state.mouse.button =
+            0;
 
 
         state.mouse.draggingObject =
             false;
+
 
         state.mouse.objectStart =
             null;
@@ -1769,7 +2128,9 @@
         if (canvas) {
 
             canvas.style.cursor =
-                "default";
+                state.tool === "select"
+                    ? "default"
+                    : "crosshair";
         }
     }
 
@@ -1781,12 +2142,13 @@
 
         state.camera.distance =
             clamp(
+
                 state.camera.distance +
-                (
-                    event.deltaY > 0
-                        ? 2
-                        : -2
-                ),
+                    (
+                        event.deltaY > 0
+                            ? 2
+                            : -2
+                    ),
 
                 state.camera.minDistance,
 
@@ -1825,7 +2187,7 @@
                 ) /
                 rect.width
             ) *
-            2 -
+                2 -
             1;
 
 
@@ -1837,7 +2199,7 @@
                 ) /
                 rect.height
             ) *
-            2 +
+                2 +
             1;
 
 
@@ -1876,7 +2238,9 @@
                 current.userData.objectId
             ) {
 
-                return current.userData.objectId;
+                return current
+                    .userData
+                    .objectId;
             }
 
 
@@ -1892,16 +2256,6 @@
     function selectFromViewport(event) {
 
         if (
-            state.tool !== "select" &&
-            state.tool !== "move" &&
-            state.tool !== "scale" &&
-            state.tool !== "rotate"
-        ) {
-            return;
-        }
-
-
-        if (
             event.button !== 0
         ) {
             return;
@@ -1909,7 +2263,9 @@
 
 
         const id =
-            getObjectFromViewport(event);
+            getObjectFromViewport(
+                event
+            );
 
 
         if (!id) {
@@ -1932,13 +2288,15 @@
             state.tool !== "select"
         ) {
 
-            beginTransform(event);
+            beginTransform(
+                event
+            );
         }
     }
 
 
     // ============================================================
-    // TRANSFORM
+    // TRANSFORM SYSTEM
     // ============================================================
 
     function beginTransform(event) {
@@ -2037,43 +2395,41 @@
 
 
             /*
-             * Screen horizontal = camera right.
-             * Screen vertical = world Y.
-             *
-             * Horizontal object movement uses
-             * camera-relative X/Z.
+             * Screen-space transform directions.
              */
 
             const rightX =
                 Math.cos(yaw);
+
 
             const rightZ =
                 -Math.sin(yaw);
 
 
             const forwardX =
-                Math.sin(yaw);
+                -Math.sin(yaw);
+
 
             const forwardZ =
-                Math.cos(yaw);
+                -Math.cos(yaw);
 
 
             object.position.x =
                 start.position.x +
                 (
-                    rightX * dx -
-                    forwardX * dy
+                    rightX * dx +
+                    forwardX * -dy
                 ) *
-                amount;
+                    amount;
 
 
             object.position.z =
                 start.position.z +
                 (
-                    rightZ * dx -
-                    forwardZ * dy
+                    rightZ * dx +
+                    forwardZ * -dy
                 ) *
-                amount;
+                    amount;
 
 
             if (
@@ -2099,10 +2455,7 @@
         ) {
 
             const change =
-                (
-                    dx -
-                    dy
-                ) *
+                (dx - dy) *
                 0.02;
 
 
@@ -2110,7 +2463,7 @@
                 Math.max(
                     0.1,
                     start.size.x +
-                    change
+                        change
                 );
 
 
@@ -2118,7 +2471,7 @@
                 Math.max(
                     0.1,
                     start.size.y +
-                    change
+                        change
                 );
 
 
@@ -2126,7 +2479,7 @@
                 Math.max(
                     0.1,
                     start.size.z +
-                    change
+                        change
                 );
 
 
@@ -2231,10 +2584,6 @@
             "pointerdown",
             event => {
 
-                /*
-                 * Left click selects.
-                 */
-
                 if (
                     event.button === 0
                 ) {
@@ -2245,12 +2594,9 @@
                 }
 
 
-                /*
-                 * RMB/middle mouse controls
-                 * the camera.
-                 */
-
-                onPointerDown(event);
+                onPointerDown(
+                    event
+                );
             }
         );
 
@@ -2271,28 +2617,24 @@
                 }
 
 
-                onPointerMove(event);
+                onPointerMove(
+                    event
+                );
             }
         );
 
 
         window.addEventListener(
             "pointerup",
-            event => {
+            () => {
 
-                if (
-                    state.mouse.draggingObject
-                ) {
+                state.mouse.draggingObject =
+                    false;
 
-                    state.mouse.draggingObject =
-                        false;
+                state.mouse.objectStart =
+                    null;
 
-                    state.mouse.objectStart =
-                        null;
-                }
-
-
-                onPointerUp(event);
+                onPointerUp();
             }
         );
 
@@ -2331,19 +2673,19 @@
 
         const delta =
             Math.min(
-                (
-                    now -
-                    lastFrame
-                ) /
-                1000,
+                (now - lastFrame) /
+                    1000,
                 0.1
             );
 
 
-        lastFrame = now;
+        lastFrame =
+            now;
 
 
-        updateMovement(delta);
+        updateMovement(
+            delta
+        );
 
 
         if (
@@ -2508,10 +2850,14 @@
                     () => {
 
                         if (
-                            state.objects.has(id)
+                            state.objects.has(
+                                id
+                            )
                         ) {
 
-                            selectObject(id);
+                            selectObject(
+                                id
+                            );
                         }
                     }
                 );
@@ -2539,7 +2885,9 @@
                                 !query ||
                                 item.textContent
                                     .toLowerCase()
-                                    .includes(query)
+                                    .includes(
+                                        query
+                                    )
                                     ? ""
                                     : "none";
                         });
@@ -2554,18 +2902,21 @@
 
     function setInput(id, value) {
 
-        const input = $(id);
+        const input =
+            $(id);
 
 
         if (input) {
-            input.value = value;
+            input.value =
+                value;
         }
     }
 
 
     function setChecked(id, value) {
 
-        const input = $(id);
+        const input =
+            $(id);
 
 
         if (input) {
@@ -2601,6 +2952,13 @@
 
                 selectedObjectType.textContent =
                     "Select an object";
+            }
+
+
+            if (selectedObjectIcon) {
+
+                selectedObjectIcon.textContent =
+                    "■";
             }
 
 
@@ -2753,9 +3111,7 @@
         }
 
 
-        if (
-            !object[parts[0]]
-        ) {
+        if (!object[parts[0]]) {
 
             object[parts[0]] = {};
         }
@@ -2807,7 +3163,7 @@
 
                                     ? Number(
                                         input.value
-                                    )
+                                      )
 
                                     : input.value;
 
@@ -2863,11 +3219,8 @@
                 name:
                     type ===
                     "SpawnLocation"
-
                         ? "SpawnLocation"
-
                         : type,
-
 
                 position: {
 
@@ -2885,7 +3238,6 @@
                     z: 0
                 },
 
-
                 size:
                     type === "Model"
 
@@ -2897,23 +3249,18 @@
 
                         : {
                             x: 4,
-
                             y:
                                 type ===
                                 "SpawnLocation"
                                     ? 1
                                     : 1,
-
                             z: 4
                         },
-
 
                 color:
                     type ===
                     "SpawnLocation"
-
                         ? "#22c55e"
-
                         : "#808080"
             });
 
@@ -2939,7 +3286,9 @@
         }
 
 
-        renderObject(object);
+        renderObject(
+            object
+        );
 
 
         selectObject(
@@ -2987,18 +3336,20 @@
 
 
         const mesh =
-            meshes.get(object.id);
+            meshes.get(
+                object.id
+            );
 
 
         if (mesh) {
 
-            if (mesh.parent) {
-                mesh.parent.remove(mesh);
-            }
+            scene.remove(mesh);
 
             disposeMesh(mesh);
 
-            meshes.delete(object.id);
+            meshes.delete(
+                object.id
+            );
         }
 
 
@@ -3050,7 +3401,9 @@
 
 
         const duplicate =
-            cloneObject(object);
+            cloneObject(
+                object
+            );
 
 
         duplicate.id =
@@ -3063,9 +3416,12 @@
             `${object.name} Copy`;
 
 
-        duplicate.position.x += 2;
+        duplicate.position.x +=
+            2;
 
-        duplicate.position.z += 2;
+
+        duplicate.position.z +=
+            2;
 
 
         state.objects.set(
@@ -3221,7 +3577,7 @@
 
         if (
             state.history.length >
-            50
+            CONFIG.MAX_HISTORY
         ) {
 
             state.history.shift();
@@ -3333,7 +3689,8 @@
             );
 
 
-        link.href = url;
+        link.href =
+            url;
 
 
         link.download =
@@ -3358,6 +3715,7 @@
 
 
         link.click();
+
 
         link.remove();
 
@@ -3397,7 +3755,8 @@
             );
 
 
-        input.type = "file";
+        input.type =
+            "file";
 
 
         input.accept =
@@ -3458,9 +3817,7 @@
                     }
 
 
-                    if (
-                        data.game
-                    ) {
+                    if (data.game) {
 
                         state.game = {
                             ...state.game,
@@ -3517,7 +3874,7 @@
 
 
     // ============================================================
-    // MODALS
+    // NEW GAME
     // ============================================================
 
     function openModal(id) {
@@ -3535,10 +3892,6 @@
             .add("hidden");
     }
 
-
-    // ============================================================
-    // NEW GAME
-    // ============================================================
 
     function createNewGame() {
 
@@ -3576,7 +3929,9 @@
             name,
 
             description:
-                descriptionInput?.value.trim() ||
+                descriptionInput
+                    ?.value
+                    .trim() ||
                 "",
 
             icon: "",
@@ -3677,7 +4032,8 @@
 
         const title =
             String(
-                state.game.name || ""
+                state.game.name ||
+                ""
             ).trim();
 
 
@@ -3755,9 +4111,7 @@
 
     async function playGame() {
 
-        if (
-            state.playing
-        ) {
+        if (state.playing) {
             return;
         }
 
@@ -3782,7 +4136,8 @@
         }
 
 
-        state.playing = true;
+        state.playing =
+            true;
 
 
         $("playButton")
@@ -3805,10 +4160,6 @@
 
         try {
 
-            /*
-             * Load every Player dependency.
-             */
-
             const Player =
                 await loadPlayerRuntime();
 
@@ -3821,126 +4172,36 @@
             }
 
 
-            /*
-             * The actual WebBlox Player API
-             * expects the THREE.Scene directly.
-             *
-             * NOT:
-             *
-             * Player.start({
-             *     scene,
-             *     camera,
-             *     ...
-             * })
-             *
-             * It expects:
-             *
-             * Player.start(scene)
-             */
-
-            if (!scene) {
-
-                throw new Error(
-                    "Studio scene is unavailable."
-                );
-            }
+            const runtimeData =
+                getGameData();
 
 
-            log(
-                "Starting Player with Studio scene..."
-            );
+            await Player.start({
 
+                game:
+                    runtimeData.game,
 
-            const result =
-                Player.start(
-                    scene
-                );
+                objects:
+                    runtimeData.objects,
 
+                scene,
 
-            /*
-             * Player.start is currently
-             * synchronous, but support a
-             * Promise if the runtime becomes
-             * asynchronous later.
-             */
+                camera,
 
-            if (
-                result &&
-                typeof result.then ===
-                    "function"
-            ) {
+                renderer,
 
-                await result;
-            }
+                viewport,
 
-
-            /*
-             * Verify that the runtime really
-             * started and a character exists.
-             */
-
-            if (
-                typeof Player.isRunning ===
-                    "function" &&
-                !Player.isRunning()
-            ) {
-
-                throw new Error(
-                    "Player runtime did not enter the running state."
-                );
-            }
-
-
-            const character =
-                typeof Player.getCharacter ===
-                    "function"
-
-                    ? Player.getCharacter()
-
-                    : null;
-
-
-            if (!character) {
-
-                throw new Error(
-                    "Player runtime started but did not create a character. Check character.js loading."
-                );
-            }
-
-
-            /*
-             * Make sure the character is actually
-             * in Studio's scene.
-             */
-
-            if (
-                character.parent !==
-                scene
-            ) {
-
-                scene.add(
-                    character
-                );
-            }
+                onLog:
+                    message =>
+                        log(
+                            `[Player] ${message}`
+                        )
+            });
 
 
             log(
                 "Player runtime started."
-            );
-
-
-            log(
-                "Player character spawned."
-            );
-
-
-            log(
-                "R15 character initialized."
-            );
-
-
-            log(
-                "Bacon hair initialized."
             );
 
 
@@ -3988,9 +4249,7 @@
 
     async function stopGame() {
 
-        if (
-            !state.playing
-        ) {
+        if (!state.playing) {
             return;
         }
 
@@ -4001,21 +4260,10 @@
                 window.WebBloxPlayer &&
                 typeof
                     window.WebBloxPlayer.stop ===
-                    "function"
+                        "function"
             ) {
 
-                const result =
-                    window.WebBloxPlayer.stop();
-
-
-                if (
-                    result &&
-                    typeof result.then ===
-                        "function"
-                ) {
-
-                    await result;
-                }
+                await window.WebBloxPlayer.stop();
             }
 
         } catch (error) {
@@ -4023,12 +4271,6 @@
             console.error(
                 "[WebBlox] Player stop failed:",
                 error
-            );
-
-
-            log(
-                `Player stop error: ${error.message}`,
-                "error"
             );
         }
 
@@ -4092,9 +4334,7 @@
 
                 $(id)
                     ?.classList
-                    .remove(
-                        "active"
-                    );
+                    .remove("active");
             });
 
 
@@ -4124,7 +4364,7 @@
 
 
     // ============================================================
-    // KEYBOARD SHORTCUTS
+    // KEYBOARD
     // ============================================================
 
     function setupKeyboard() {
@@ -4137,42 +4377,24 @@
                     event.key.toLowerCase();
 
 
-                const typing =
-                    document.activeElement &&
-                    (
-                        document.activeElement.tagName ===
-                            "INPUT" ||
-
-                        document.activeElement.tagName ===
-                            "TEXTAREA" ||
-
-                        document.activeElement.tagName ===
-                            "SELECT"
-                    );
-
-
                 /*
-                 * Always remember keys.
+                 * ALWAYS track keys.
                  *
-                 * This allows RMB + WASD to work.
+                 * This is important because WASD
+                 * needs to work while RMB is held.
                  */
 
-                state.keys.add(key);
+                state.keys.add(
+                    key
+                );
 
 
-                /*
-                 * Never use Studio shortcuts while
-                 * typing into a field.
-                 */
-
-                if (typing) {
+                if (isTyping()) {
                     return;
                 }
 
 
-                // ------------------------------------------------
                 // CTRL + Z
-                // ------------------------------------------------
 
                 if (
                     event.ctrlKey &&
@@ -4198,9 +4420,7 @@
                 }
 
 
-                // ------------------------------------------------
                 // CTRL + Y
-                // ------------------------------------------------
 
                 if (
                     event.ctrlKey &&
@@ -4215,9 +4435,7 @@
                 }
 
 
-                // ------------------------------------------------
                 // CTRL + D
-                // ------------------------------------------------
 
                 if (
                     event.ctrlKey &&
@@ -4232,12 +4450,11 @@
                 }
 
 
-                // ------------------------------------------------
                 // DELETE
-                // ------------------------------------------------
 
                 if (
-                    event.key === "Delete"
+                    event.key ===
+                    "Delete"
                 ) {
 
                     event.preventDefault();
@@ -4248,99 +4465,94 @@
                 }
 
 
-                // ------------------------------------------------
-                // ESCAPE
-                // ------------------------------------------------
+                // ESC
 
                 if (
-                    event.key === "Escape"
+                    event.key ===
+                    "Escape"
                 ) {
 
                     event.preventDefault();
 
                     clearSelection();
 
-
                     state.mouse.draggingObject =
                         false;
-
 
                     return;
                 }
 
 
                 /*
-                 * Q/W/E/R are Studio tools.
-                 *
-                 * They only switch tools when
-                 * RMB is NOT currently held.
-                 *
-                 * This prevents W from fighting
-                 * with RMB + W camera movement.
+                 * Do NOT change tools while
+                 * RMB camera navigation is active.
                  */
 
                 if (
-                    !state.mouse.down
+                    state.mouse.down &&
+                    state.mouse.button === 2
                 ) {
-
-                    if (
-                        key === "q"
-                    ) {
-
-                        setTool(
-                            "select"
-                        );
-
-                        return;
-                    }
+                    return;
+                }
 
 
-                    if (
-                        key === "w"
-                    ) {
+                // Q = SELECT
 
-                        setTool(
-                            "move"
-                        );
+                if (key === "q") {
 
-                        return;
-                    }
+                    setTool(
+                        "select"
+                    );
 
-
-                    if (
-                        key === "e"
-                    ) {
-
-                        setTool(
-                            "rotate"
-                        );
-
-                        return;
-                    }
+                    return;
+                }
 
 
-                    if (
-                        key === "r"
-                    ) {
+                // W = MOVE
 
-                        setTool(
-                            "scale"
-                        );
+                if (key === "w") {
 
-                        return;
-                    }
+                    setTool(
+                        "move"
+                    );
+
+                    return;
+                }
 
 
-                    if (
-                        key === "f"
-                    ) {
+                // E = ROTATE
 
-                        event.preventDefault();
+                if (key === "e") {
 
-                        focusSelected();
+                    setTool(
+                        "rotate"
+                    );
 
-                        return;
-                    }
+                    return;
+                }
+
+
+                // R = SCALE
+
+                if (key === "r") {
+
+                    setTool(
+                        "scale"
+                    );
+
+                    return;
+                }
+
+
+                // F = FOCUS
+
+                if (key === "f") {
+
+                    event.preventDefault();
+
+                    focusSelected();
+
+                    return;
                 }
             }
         );
@@ -4371,6 +4583,9 @@
 
                 state.mouse.draggingObject =
                     false;
+
+                state.mouse.objectStart =
+                    null;
             }
         );
     }
@@ -4434,9 +4649,7 @@
             );
 
 
-        // --------------------------------------------------------
-        // TOOLS
-        // --------------------------------------------------------
+        // Tools
 
         $("selectTool")
             ?.addEventListener(
@@ -4478,9 +4691,7 @@
             );
 
 
-        // --------------------------------------------------------
-        // GRID
-        // --------------------------------------------------------
+        // Grid
 
         $("gridButton")
             ?.addEventListener(
@@ -4504,9 +4715,7 @@
             );
 
 
-        // --------------------------------------------------------
-        // SNAP
-        // --------------------------------------------------------
+        // Snap
 
         $("snapButton")
             ?.addEventListener(
@@ -4527,9 +4736,7 @@
             );
 
 
-        // --------------------------------------------------------
-        // CAMERA
-        // --------------------------------------------------------
+        // Camera reset
 
         $("cameraReset")
             ?.addEventListener(
@@ -4538,6 +4745,8 @@
             );
 
 
+        // Zoom in
+
         $("cameraZoomIn")
             ?.addEventListener(
                 "click",
@@ -4545,6 +4754,7 @@
 
                     state.camera.distance =
                         clamp(
+
                             state.camera.distance -
                                 2,
 
@@ -4559,6 +4769,8 @@
             );
 
 
+        // Zoom out
+
         $("cameraZoomOut")
             ?.addEventListener(
                 "click",
@@ -4566,6 +4778,7 @@
 
                     state.camera.distance =
                         clamp(
+
                             state.camera.distance +
                                 2,
 
@@ -4580,9 +4793,7 @@
             );
 
 
-        // --------------------------------------------------------
-        // ADD OBJECT
-        // --------------------------------------------------------
+        // Add object
 
         $("addObjectButton")
             ?.addEventListener(
@@ -4624,9 +4835,7 @@
             });
 
 
-        // --------------------------------------------------------
-        // REFRESH EXPLORER
-        // --------------------------------------------------------
+        // Refresh
 
         $("refreshExplorerButton")
             ?.addEventListener(
@@ -4643,9 +4852,7 @@
             );
 
 
-        // --------------------------------------------------------
-        // WELCOME ADD PART
-        // --------------------------------------------------------
+        // Welcome add part
 
         $("welcomeAddPart")
             ?.addEventListener(
@@ -4657,18 +4864,14 @@
             );
 
 
-        // --------------------------------------------------------
-        // OUTPUT
-        // --------------------------------------------------------
+        // Output clear
 
         $("clearOutputButton")
             ?.addEventListener(
                 "click",
                 () => {
 
-                    if (
-                        outputConsole
-                    ) {
+                    if (outputConsole) {
 
                         outputConsole.innerHTML =
                             "";
@@ -4676,6 +4879,8 @@
                 }
             );
 
+
+        // Output toggle
 
         $("toggleOutputButton")
             ?.addEventListener(
@@ -4691,9 +4896,7 @@
             );
 
 
-        // --------------------------------------------------------
-        // MODALS
-        // --------------------------------------------------------
+        // Modals
 
         document
             .querySelectorAll(
@@ -4726,9 +4929,7 @@
             );
 
 
-        // --------------------------------------------------------
-        // ACTIONS
-        // --------------------------------------------------------
+        // Actions
 
         document
             .querySelectorAll(
@@ -4752,9 +4953,7 @@
             });
 
 
-        // --------------------------------------------------------
-        // PROPERTY SEARCH
-        // --------------------------------------------------------
+        // Property search
 
         $("propertySearchButton")
             ?.addEventListener(
@@ -4826,7 +5025,8 @@
 
     function toggleMenu(id) {
 
-        const menu = $(id);
+        const menu =
+            $(id);
 
 
         if (!menu) {
@@ -5032,11 +5232,14 @@
 
 
                 const id =
-                    element.dataset.objectId;
+                    element.dataset
+                        .objectId;
 
 
                 if (
-                    !state.objects.has(id)
+                    !state.objects.has(
+                        id
+                    )
                 ) {
                     return;
                 }
@@ -5045,7 +5248,9 @@
                 event.preventDefault();
 
 
-                selectObject(id);
+                selectObject(
+                    id
+                );
 
 
                 menu.classList.remove(
@@ -5198,7 +5403,17 @@
         }
 
 
+        log(
+            "Loading Three.js..."
+        );
+
+
         await loadThree();
+
+
+        log(
+            "Three.js loaded."
+        );
 
 
         scene =
@@ -5231,7 +5446,6 @@
             Math.min(
                 window.devicePixelRatio ||
                     1,
-
                 2
             )
         );
@@ -5286,9 +5500,7 @@
         );
 
 
-        // --------------------------------------------------------
-        // LIGHTING
-        // --------------------------------------------------------
+        // Lighting
 
         ambientLight =
             new THREE.HemisphereLight(
@@ -5334,9 +5546,7 @@
         );
 
 
-        // --------------------------------------------------------
-        // RAYCASTING
-        // --------------------------------------------------------
+        // Raycasting
 
         raycaster =
             new THREE.Raycaster();
@@ -5382,17 +5592,17 @@
 
 
         log(
-            "Q = Select | W = Move | E = Rotate | R = Scale"
-        );
-
-
-        log(
-            "F = Focus selected object."
+            "Studio controls: Q Select | W Move | E Rotate | R Scale"
         );
 
 
         log(
             "RMB + WASD = camera movement."
+        );
+
+
+        log(
+            "W = forward | S = backward | A = left | D = right"
         );
 
 
@@ -5406,6 +5616,10 @@
         );
     }
 
+
+    // ============================================================
+    // RESIZE
+    // ============================================================
 
     function resizeRenderer() {
 
@@ -5450,59 +5664,6 @@
 
 
     // ============================================================
-    // REMOVE OLD VIEWPORT
-    // ============================================================
-
-    function removeOldViewport() {
-
-        [
-            $("viewportWelcome"),
-            $("defaultPart"),
-            $("world")
-        ].forEach(element => {
-
-            if (!element) {
-                return;
-            }
-
-
-            element.style.display =
-                "none";
-
-
-            element.style.visibility =
-                "hidden";
-
-
-            element.style.pointerEvents =
-                "none";
-        });
-
-
-        if (selectionBox) {
-
-            selectionBox.style.display =
-                "none";
-        }
-
-
-        const crosshair =
-            $("viewportCrosshair");
-
-
-        if (crosshair) {
-
-            crosshair.style.zIndex =
-                "30";
-
-
-            crosshair.style.pointerEvents =
-                "none";
-        }
-    }
-
-
-    // ============================================================
     // INITIALIZE
     // ============================================================
 
@@ -5513,38 +5674,55 @@
         );
 
 
+        /*
+         * Immediately remove old/fake viewport
+         * elements.
+         */
+
         removeOldViewport();
 
 
-        createDefaultWorld();
-
-
-        setupKeyboard();
-
-        setupExplorer();
-
-        setupProperties();
-
-        setupButtons();
-
-        setupMenuButtons();
-
-
-        updateExplorer();
-
-        updateProperties();
-
-        updateGameStatus();
-
-
-        if (viewportMode) {
-
-            viewportMode.textContent =
-                "Perspective";
-        }
-
+        /*
+         * Make the editor usable even if
+         * Three.js fails.
+         */
 
         try {
+
+            createDefaultWorld();
+
+            setupKeyboard();
+
+            setupExplorer();
+
+            setupProperties();
+
+            setupButtons();
+
+            setupMenuButtons();
+
+            updateExplorer();
+
+            updateProperties();
+
+            updateGameStatus();
+
+
+            if (viewportMode) {
+
+                viewportMode.textContent =
+                    "Perspective";
+            }
+
+
+            log(
+                "Starting WebBlox Studio..."
+            );
+
+
+            /*
+             * Initialize Three.js.
+             */
 
             await initialize3D();
 
@@ -5554,10 +5732,13 @@
 
             updateCamera();
 
-
             updateExplorer();
 
             updateProperties();
+
+
+            state.initialized =
+                true;
 
 
             log(
@@ -5569,48 +5750,33 @@
                 "[WebBlox Studio] Ready."
             );
 
+
         } catch (error) {
 
-            console.error(
-                "[WebBlox Studio] Initialization failed:",
+            /*
+             * IMPORTANT:
+             *
+             * This catches EVERYTHING.
+             *
+             * The editor will NOT remain
+             * permanently stuck on the loading
+             * screen.
+             */
+
+            failInitialization(
                 error
             );
 
+        } finally {
 
-            log(
-                `Studio initialization failed: ${error.message}`,
-                "error"
-            );
-        }
+            /*
+             * CRITICAL FAIL-SAFE:
+             *
+             * Regardless of success or failure,
+             * always close the loading screen.
+             */
 
-
-        const loading =
-            $("studioLoading");
-
-
-        if (loading) {
-
-            const progress =
-                $("loadingProgress");
-
-
-            if (progress) {
-
-                progress.style.width =
-                    "100%";
-            }
-
-
-            setTimeout(
-                () => {
-
-                    loading.classList.add(
-                        "hidden"
-                    );
-
-                },
-                350
-            );
+            finishLoadingScreen();
         }
     }
 
@@ -5619,34 +5785,9 @@
     // PUBLIC API
     // ============================================================
 
-    /*
-     * Player/player.js can access:
-     *
-     * window.WebBloxStudio.state
-     *
-     * The getters below also expose the real
-     * Three.js runtime objects.
-     */
-
     window.WebBloxStudio = {
 
         state,
-
-        get scene() {
-            return scene;
-        },
-
-        get camera() {
-            return camera;
-        },
-
-        get renderer() {
-            return renderer;
-        },
-
-        get canvas() {
-            return canvas;
-        },
 
         createObject,
 
@@ -5682,9 +5823,7 @@
 
         renderWorld,
 
-        publishGame,
-
-        getGameData
+        publishGame
     };
 
 
@@ -5711,4 +5850,3 @@
     }
 
 })();
-```
