@@ -1,4 +1,3 @@
-```javascript
 /*
  * WebBlox Studio - Project Manager
  * Stage 1
@@ -128,41 +127,35 @@
                 description:
                     description.trim(),
 
+                /*
+                 * Only real placeable objects go here.
+                 * Workspace / Camera / Lighting / StarterPlayer /
+                 * StarterGui are structural nodes that Studio's
+                 * Explorer already renders on its own — they are
+                 * NOT Parts and must not be fed into createObject(),
+                 * or they'd show up as stray gray boxes at the origin.
+                 */
                 objects: [
                     {
-                        id: "workspace",
-                        type: "Workspace",
-                        name: "Workspace"
-                    },
-
-                    {
-                        id: "camera",
-                        type: "Camera",
-                        name: "Camera"
+                        id: "defaultPart",
+                        type: "Part",
+                        name: "Baseplate",
+                        position: { x: 0, y: -1, z: 0 },
+                        size: { x: 20, y: 1, z: 20 },
+                        color: "#808080",
+                        anchored: true,
+                        canCollide: true
                     },
 
                     {
                         id: "spawn",
                         type: "SpawnLocation",
-                        name: "Spawn"
-                    },
-
-                    {
-                        id: "lighting",
-                        type: "Lighting",
-                        name: "Lighting"
-                    },
-
-                    {
-                        id: "starterPlayer",
-                        type: "StarterPlayer",
-                        name: "StarterPlayer"
-                    },
-
-                    {
-                        id: "starterGui",
-                        type: "StarterGui",
-                        name: "StarterGui"
+                        name: "Spawn",
+                        position: { x: 0, y: 0, z: 0 },
+                        size: { x: 4, y: 1, z: 4 },
+                        color: "#22c55e",
+                        anchored: true,
+                        canCollide: true
                     }
                 ]
             }
@@ -846,6 +839,45 @@
 
         renderProjectList();
     }
+
+    // ============================================================
+    // PERSIST EDITOR DATA BACK TO THE ACTIVE PROJECT
+    // ============================================================
+
+    function updateActiveProjectPlaceData(placeData) {
+        loadProjects();
+
+        const id =
+            getActiveProjectId();
+
+        if (!id) {
+            return false;
+        }
+
+        const project =
+            projects.find(
+                item =>
+                    item.id === id
+            );
+
+        if (!project) {
+            return false;
+        }
+
+        project.placeData =
+            placeData;
+
+        project.updatedAt =
+            new Date().toISOString();
+
+        saveProjects();
+
+        activeProject =
+            project;
+
+        return true;
+    }
+
 
     // ============================================================
     // ENTER EDITOR
@@ -1920,6 +1952,7 @@
         deleteProject,
         getActiveProjectId,
         setActiveProjectId,
+        updateActiveProjectPlaceData,
 
         getActiveProject() {
             return activeProject;
@@ -1933,4 +1966,3 @@
     };
 
 })();
-```
