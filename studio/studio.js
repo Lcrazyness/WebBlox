@@ -2070,6 +2070,7 @@
     function onPointerDown(event) {
 
         if (
+            event.button !== 0 &&
             event.button !== 1 &&
             event.button !== 2
         ) {
@@ -3870,6 +3871,138 @@
         showToast(
             "Game saved"
         );
+
+
+        persistActiveProject();
+    }
+
+
+    // ============================================================
+    // PROJECT MANAGER INTEGRATION
+    //
+    // Bridges this editor to studio-projects.js. That file never
+    // touches state.objects directly — it only tells us which
+    // project was opened (via a custom event) and gives us a
+    // place to write data back to (updateActiveProjectPlaceData).
+    // ============================================================
+
+    function persistActiveProject() {
+
+        if (
+            !window.WebBloxProjects ||
+            typeof window.WebBloxProjects
+                .updateActiveProjectPlaceData !==
+                "function"
+        ) {
+            return;
+        }
+
+        window.WebBloxProjects.updateActiveProjectPlaceData(
+            getGameData()
+        );
+    }
+
+
+    function loadProjectIntoEditor(project) {
+
+        const placeData =
+            project?.placeData;
+
+        const objects =
+            Array.isArray(
+                placeData?.objects
+            )
+                ? placeData.objects
+                : null;
+
+        saveHistory();
+
+        state.objects.clear();
+
+        if (objects && objects.length) {
+
+            for (
+                const object
+                of objects
+            ) {
+                createObject(
+                    object
+                );
+            }
+
+        } else {
+
+            createDefaultWorld();
+        }
+
+        state.game.name =
+            placeData?.name ||
+            project?.title ||
+            state.game.name;
+
+        state.game.description =
+            placeData?.description ||
+            project?.description ||
+            state.game.description;
+
+        state.game.saved =
+            true;
+
+        state.selectedId =
+            null;
+
+        renderWorld();
+
+        updateExplorer();
+
+        updateProperties();
+
+        updateGameStatus();
+
+        log(
+            `Opened project: ${
+                project?.title ||
+                "Untitled"
+            }`
+        );
+    }
+
+
+    function setupProjectIntegration() {
+
+        document.addEventListener(
+            "webblox:project-opened",
+            event => {
+
+                loadProjectIntoEditor(
+                    event.detail
+                        ?.project
+                );
+            }
+        );
+
+        const brandButton =
+            $("studioBrandButton");
+
+        if (brandButton) {
+
+            brandButton.addEventListener(
+                "click",
+                () => {
+
+                    persistActiveProject();
+
+                    if (
+                        window.WebBloxProjects &&
+                        typeof window.WebBloxProjects
+                            .showProjectSelection ===
+                            "function"
+                    ) {
+                        window.WebBloxProjects.showProjectSelection();
+                    }
+                }
+            );
+        }
     }
 
 
@@ -5902,6 +6035,8 @@
         setupButtons();
 
         setupMenuButtons();
+
+        setupProjectIntegration();
 
 
         updateExplorer();
