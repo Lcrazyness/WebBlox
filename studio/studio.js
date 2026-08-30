@@ -1,6133 +1,1132 @@
-/*
- * WebBlox Studio
- * Stage 3A
- *
- * COMPLETE STUDIO CONTROLLER
- *
- * IMPORTANT:
- * - This file is safe to load on GitHub Pages.
- * - The Studio loading screen can NEVER remain stuck forever.
- * - Player runtime failure does NOT prevent Studio from opening.
- * - Player runtime is loaded only when Play is pressed.
- * - Uses a reliable path to /Player/player.js.
- *
- * Controls:
- * Q = Select
- * W = Move
- * E = Rotate
- * R = Scale
- * F = Focus
- *
- * RMB + WASD = Camera movement
- * RMB drag = Camera rotation
- * Mouse wheel = Zoom
- *
- * Ctrl+D = Duplicate
- * Delete = Delete
- * Ctrl+Z = Undo
- * Ctrl+Y / Ctrl+Shift+Z = Redo
- * Escape = Clear selection
- *
- * FILE:
- * studio/studio.js
- */
+"use strict";
 
-(() => {
-    "use strict";
+/* ============================================================
+   WebBlox Studio
+   Player <-> Studio bridge
+   ============================================================ */
 
-    console.log("[WebBlox Studio] Loading studio.js");
-
-    // ============================================================
-    // STATE
-    // ============================================================
-
-    const state = {
-        objects: new Map(),
-
-        selectedId: null,
-
-        tool: "select",
-
-        gridEnabled: true,
-        snapEnabled: true,
-
-        camera: {
-            yaw: 35,
-            pitch: -25,
-            distance: 24,
-
-            target: {
-                x: 0,
-                y: 0,
-                z: 0
-            },
-
-            minDistance: 3,
-            maxDistance: 200
-        },
-
-        keys: new Set(),
-
-        mouse: {
-            down: false,
-            button: 0,
-
-            lastX: 0,
-            lastY: 0,
-
-            draggingObject: false,
-
-            dragStartX: 0,
-            dragStartY: 0,
-
-            objectStart: null
-        },
-
-        history: [],
-        future: [],
-
-        game: {
-            name: "Untitled Game",
-            description: "",
-            icon: "",
-            saved: false
-        },
-
-        playing: false,
-
-        studioReady: false,
-
-        playerAvailable: false
-    };
+const PROJECT_KEY =
+    "webblox_studio_project";
 
 
-    // ============================================================
-    // DOM HELPERS
-    // ============================================================
+/* ============================================================
+   DOM
+   ============================================================ */
 
-    const $ = id => document.getElementById(id);
+const viewport =
+    document.getElementById(
+        "viewport"
+    );
 
-    const viewport = $("viewport");
+const world =
+    document.getElementById(
+        "world"
+    );
 
-    const explorerPanel = $("explorerPanel");
-    const propertiesPanel = $("propertiesPanel");
+const explorer =
+    document.getElementById(
+        "explorer"
+    );
 
-    const workspaceChildren = $("workspaceChildren");
+const properties =
+    document.getElementById(
+        "properties"
+    );
 
-    const outputConsole = $("outputConsole");
+const output =
+    document.getElementById(
+        "output"
+    );
 
-    const studioMessage = $("studioMessage");
-    const gameStatus = $("gameStatus");
-
-    const viewportMode = $("viewportMode");
-    const viewportCoordinates = $("viewportCoordinates");
-
-    const noSelectionMessage = $("noSelectionMessage");
-    const selectedObjectName = $("selectedObjectName");
-    const selectedObjectType = $("selectedObjectType");
-    const selectedObjectIcon = $("selectedObjectIcon");
-
-    const selectionBox = $("selectionBox");
-
-
-    // ============================================================
-    // GENERAL HELPERS
-    // ============================================================
-
-    function clamp(value, min, max) {
-        return Math.max(min, Math.min(max, value));
-    }
+const spawnPoint =
+    document.getElementById(
+        "spawnPoint"
+    );
 
 
-    function snap(value, amount = 1) {
-        if (!state.snapEnabled) {
-            return value;
-        }
+/* ============================================================
+   BUTTONS
+   ============================================================ */
 
-        return Math.round(value / amount) * amount;
-    }
+const backToPlayer =
+    document.getElementById(
+        "backToPlayer"
+    );
+
+const newProjectButton =
+    document.getElementById(
+        "newProjectButton"
+    );
+
+const saveProjectButton =
+    document.getElementById(
+        "saveProjectButton"
+    );
+
+const playProjectButton =
+    document.getElementById(
+        "playProjectButton"
+    );
+
+const insertPartButton =
+    document.getElementById(
+        "insertPartButton"
+    );
+
+const insertSpawnButton =
+    document.getElementById(
+        "insertSpawnButton"
+    );
+
+const gridButton =
+    document.getElementById(
+        "gridButton"
+    );
+
+const topViewButton =
+    document.getElementById(
+        "topViewButton"
+    );
+
+const resetCameraButton =
+    document.getElementById(
+        "resetCameraButton"
+    );
 
 
-    function makeId(prefix = "object") {
-        return (
-            prefix +
-            "_" +
-            Date.now().toString(36) +
-            "_" +
-            Math.random()
-                .toString(36)
-                .slice(2, 8)
-        );
-    }
+/* ============================================================
+   STATE
+   ============================================================ */
+
+let project = {
+
+    name:
+        "My WebBlox Game",
+
+    description:
+        "Your WebBlox game",
+
+    parts: []
+
+};
 
 
-    function cloneObject(object) {
-        return JSON.parse(
-            JSON.stringify(object)
-        );
-    }
+let selectedObject =
+    null;
+
+let objectCounter =
+    0;
 
 
-    function escapeHTML(value) {
-        return String(value ?? "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
+/* ============================================================
+   STORAGE
+   ============================================================ */
 
+function saveProject() {
 
-    function log(message, type = "info") {
+    try {
 
-        console.log(
-            `[WebBlox Studio] ${message}`
+        localStorage.setItem(
+            PROJECT_KEY,
+            JSON.stringify(
+                project
+            )
         );
 
-        if (!outputConsole) {
-            return;
-        }
-
-        const line =
-            document.createElement("div");
-
-        line.className =
-            `console-line console-${type}`;
-
-        line.innerHTML = `
-            <span class="console-time">
-                [WebBlox]
-            </span>
-            <span>
-                ${escapeHTML(message)}
-            </span>
-        `;
-
-        outputConsole.appendChild(line);
-
-        outputConsole.scrollTop =
-            outputConsole.scrollHeight;
-    }
-
-
-    function showToast(message) {
-
-        const container =
-            $("toastContainer");
-
-        if (!container) {
-            return;
-        }
-
-        const toast =
-            document.createElement("div");
-
-        toast.className = "toast";
-
-        toast.textContent =
-            message;
-
-        container.appendChild(toast);
-
-        setTimeout(() => {
-
-            toast.classList.add(
-                "toast-hide"
-            );
-
-            setTimeout(
-                () => toast.remove(),
-                250
-            );
-
-        }, 2500);
-    }
-
-
-    // ============================================================
-    // LOADING SCREEN FAILSAFE
-    // ============================================================
-
-    let loadingScreenFinished = false;
-
-    function finishLoadingScreen() {
-
-        if (loadingScreenFinished) {
-            return;
-        }
-
-        loadingScreenFinished = true;
-
-        const loading =
-            $("studioLoading");
-
-        if (!loading) {
-            return;
-        }
-
-        const progress =
-            $("loadingProgress");
-
-        if (progress) {
-            progress.style.width =
-                "100%";
-        }
-
-        loading.classList.add(
-            "hidden"
+        log(
+            "Project saved."
         );
 
-        /*
-         * Extra protection in case CSS
-         * does not contain .hidden.
-         */
+    } catch (error) {
 
-        setTimeout(() => {
+        log(
+            "Could not save project."
+        );
 
-            if (!loading) {
-                return;
-            }
+        console.error(
+            error
+        );
 
-            loading.style.display =
-                "none";
-
-            loading.style.visibility =
-                "hidden";
-
-            loading.style.pointerEvents =
-                "none";
-
-        }, 500);
     }
 
+}
 
-    /*
-     * ABSOLUTE FAILSAFE.
-     *
-     * Even if something crashes before initialize()
-     * finishes, Studio will not be permanently trapped
-     * behind the loading screen.
-     */
 
-    setTimeout(() => {
+function loadProject() {
 
-        if (!loadingScreenFinished) {
+    try {
 
-            console.warn(
-                "[WebBlox Studio] Loading timeout reached. Forcing editor open."
+        const saved =
+            localStorage.getItem(
+                PROJECT_KEY
             );
 
-            log(
-                "Studio startup timeout. Opening editor in safe mode.",
-                "error"
+        if (!saved) {
+
+            saveProject();
+
+            return;
+
+        }
+
+        const parsed =
+            JSON.parse(
+                saved
             );
 
-            finishLoadingScreen();
-        }
+        if (
+            parsed &&
+            typeof parsed === "object"
+        ) {
 
-    }, 8000);
+            project = {
 
+                name:
+                    parsed.name ||
+                    "My WebBlox Game",
 
-    // ============================================================
-    // REMOVE OLD / FAKE VIEWPORT
-    // ============================================================
+                description:
+                    parsed.description ||
+                    "Your WebBlox game",
 
-    function removeOldViewport() {
-
-        [
-            $("world"),
-            $("viewportWelcome"),
-            $("defaultPart")
-        ].forEach(element => {
-
-            if (!element) {
-                return;
-            }
-
-            element.style.display =
-                "none";
-
-            element.style.visibility =
-                "hidden";
-
-            element.style.pointerEvents =
-                "none";
-        });
-
-        if (selectionBox) {
-
-            selectionBox.style.display =
-                "none";
-        }
-
-        const crosshair =
-            $("viewportCrosshair");
-
-        if (crosshair) {
-
-            crosshair.style.zIndex =
-                "30";
-
-            crosshair.style.pointerEvents =
-                "none";
-        }
-    }
-
-
-    // ============================================================
-    // THREE.JS
-    // ============================================================
-
-    let THREE = null;
-
-    let renderer = null;
-    let scene = null;
-    let camera = null;
-    let canvas = null;
-
-    let raycaster = null;
-    let mouseVector = null;
-
-    let gridHelper = null;
-
-    let ambientLight = null;
-    let directionalLight = null;
-
-    let threeReady = false;
-
-    const meshes = new Map();
-
-
-    function loadThree() {
-
-        return new Promise((resolve, reject) => {
-
-            if (window.THREE) {
-
-                THREE =
-                    window.THREE;
-
-                resolve(THREE);
-
-                return;
-            }
-
-            const existing =
-                document.querySelector(
-                    "script[data-webblox-three]"
-                );
-
-            if (existing) {
-
-                if (existing.dataset.loaded === "true") {
-
-                    if (window.THREE) {
-
-                        THREE =
-                            window.THREE;
-
-                        resolve(THREE);
-
-                        return;
-                    }
-                }
-
-                existing.addEventListener(
-                    "load",
-                    () => {
-
-                        if (window.THREE) {
-
-                            THREE =
-                                window.THREE;
-
-                            resolve(THREE);
-
-                        } else {
-
-                            reject(
-                                new Error(
-                                    "Three.js loaded but window.THREE is unavailable."
-                                )
-                            );
-                        }
-
-                    },
-                    { once: true }
-                );
-
-                existing.addEventListener(
-                    "error",
-                    () => {
-
-                        reject(
-                            new Error(
-                                "Three.js failed to load."
-                            )
-                        );
-
-                    },
-                    { once: true }
-                );
-
-                return;
-            }
-
-
-            const script =
-                document.createElement("script");
-
-            script.src =
-                "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
-
-            script.dataset.webbloxThree =
-                "true";
-
-            script.onload = () => {
-
-                script.dataset.loaded =
-                    "true";
-
-                if (!window.THREE) {
-
-                    reject(
-                        new Error(
-                            "Three.js loaded but was unavailable."
-                        )
-                    );
-
-                    return;
-                }
-
-                THREE =
-                    window.THREE;
-
-                resolve(THREE);
-            };
-
-            script.onerror = () => {
-
-                reject(
-                    new Error(
-                        "Unable to load Three.js from CDN."
+                parts:
+                    Array.isArray(
+                        parsed.parts
                     )
-                );
+                        ? parsed.parts
+                        : []
+
             };
 
-            document.head.appendChild(
-                script
-            );
-        });
-    }
-
-
-    // ============================================================
-    // PLAYER RUNTIME
-    // ============================================================
-
-    /*
-     * IMPORTANT:
-     *
-     * We do NOT load Player during Studio startup.
-     *
-     * This was one of the main reasons Studio could become
-     * trapped during loading.
-     *
-     * Player is loaded only when Play is pressed.
-     */
-
-    function getPlayerPath() {
-
-        /*
-         * studio.js is expected at:
-         *
-         * /WebBlox/studio/studio.js
-         *
-         * Player should be:
-         *
-         * /WebBlox/Player/player.js
-         *
-         * Therefore:
-         *
-         * ../Player/player.js
-         *
-         * is correct when studio.html is inside /studio/.
-         */
-
-        try {
-
-            return new URL(
-                "../Player/player.js",
-                document.baseURI
-            ).href;
-
-        } catch {
-
-            return "../Player/player.js";
         }
-    }
 
+    } catch (error) {
 
-    function loadPlayerRuntime() {
+        console.error(
+            error
+        );
 
-        return new Promise((resolve, reject) => {
-
-            if (
-                window.WebBloxPlayer &&
-                typeof window.WebBloxPlayer.start ===
-                    "function"
-            ) {
-
-                state.playerAvailable =
-                    true;
-
-                resolve(
-                    window.WebBloxPlayer
-                );
-
-                return;
-            }
-
-
-            const playerPath =
-                getPlayerPath();
-
-            log(
-                `Loading Player runtime: ${playerPath}`
-            );
-
-
-            const existing =
-                document.querySelector(
-                    "script[data-webblox-player]"
-                );
-
-            if (existing) {
-
-                const finish =
-                    () => {
-
-                        if (
-                            window.WebBloxPlayer &&
-                            typeof window.WebBloxPlayer.start ===
-                                "function"
-                        ) {
-
-                            state.playerAvailable =
-                                true;
-
-                            resolve(
-                                window.WebBloxPlayer
-                            );
-
-                        } else {
-
-                            reject(
-                                new Error(
-                                    "player.js loaded but WebBloxPlayer.start was not found."
-                                )
-                            );
-                        }
-                    };
-
-
-                if (
-                    existing.dataset.loaded ===
-                    "true"
-                ) {
-
-                    finish();
-
-                    return;
-                }
-
-
-                existing.addEventListener(
-                    "load",
-                    finish,
-                    { once: true }
-                );
-
-                existing.addEventListener(
-                    "error",
-                    () => {
-
-                        reject(
-                            new Error(
-                                "Player/player.js failed to load."
-                            )
-                        );
-
-                    },
-                    { once: true }
-                );
-
-                return;
-            }
-
-
-            const script =
-                document.createElement("script");
-
-            script.src =
-                playerPath;
-
-            script.dataset.webbloxPlayer =
-                "true";
-
-            script.async =
-                false;
-
-
-            script.onload = () => {
-
-                script.dataset.loaded =
-                    "true";
-
-                if (
-                    window.WebBloxPlayer &&
-                    typeof window.WebBloxPlayer.start ===
-                        "function"
-                ) {
-
-                    state.playerAvailable =
-                        true;
-
-                    log(
-                        "Player runtime loaded."
-                    );
-
-                    resolve(
-                        window.WebBloxPlayer
-                    );
-
-                } else {
-
-                    reject(
-                        new Error(
-                            "player.js loaded but WebBloxPlayer.start was not created."
-                        )
-                    );
-                }
-            };
-
-
-            script.onerror = () => {
-
-                reject(
-                    new Error(
-                        `Could not load Player runtime: ${playerPath}`
-                    )
-                );
-            };
-
-
-            document.head.appendChild(
-                script
-            );
-        });
-    }
-
-
-    // ============================================================
-    // OBJECT SYSTEM
-    // ============================================================
-
-    function createObject(data = {}) {
-
-        const object = {
-
-            id:
-                data.id ||
-                makeId("object"),
+        project = {
 
             name:
-                data.name ||
-                (
-                    data.type === "SpawnLocation"
-                        ? "Spawn"
-                        : data.type === "Model"
-                            ? "Model"
-                            : data.type === "Folder"
-                                ? "Folder"
-                                : data.type === "Script"
-                                    ? "Script"
-                                    : "Part"
-                ),
+                "My WebBlox Game",
 
-            className:
-                data.className ||
-                data.type ||
-                "Part",
+            description:
+                "Your WebBlox game",
 
-            type:
-                data.type ||
-                data.className ||
-                "Part",
+            parts: []
 
-            position: {
-
-                x:
-                    Number(
-                        data.position?.x ??
-                        0
-                    ),
-
-                y:
-                    Number(
-                        data.position?.y ??
-                        0
-                    ),
-
-                z:
-                    Number(
-                        data.position?.z ??
-                        0
-                    )
-            },
-
-            rotation: {
-
-                x:
-                    Number(
-                        data.rotation?.x ??
-                        0
-                    ),
-
-                y:
-                    Number(
-                        data.rotation?.y ??
-                        0
-                    ),
-
-                z:
-                    Number(
-                        data.rotation?.z ??
-                        0
-                    )
-            },
-
-            size: {
-
-                x:
-                    Number(
-                        data.size?.x ??
-                        4
-                    ),
-
-                y:
-                    Number(
-                        data.size?.y ??
-                        1
-                    ),
-
-                z:
-                    Number(
-                        data.size?.z ??
-                        4
-                    )
-            },
-
-            color:
-                data.color ||
-                (
-                    data.type === "SpawnLocation"
-                        ? "#22c55e"
-                        : "#808080"
-                ),
-
-            material:
-                data.material ||
-                "Plastic",
-
-            anchored:
-                data.anchored !== false,
-
-            canCollide:
-                data.canCollide !== false,
-
-            castShadow:
-                data.castShadow !== false,
-
-            script:
-                data.script ||
-                ""
         };
 
+    }
 
-        state.objects.set(
-            object.id,
-            object
+}
+
+
+/* ============================================================
+   OUTPUT
+   ============================================================ */
+
+function log(message) {
+
+    const line =
+        document.createElement(
+            "div"
         );
 
+    line.textContent =
+        "[WebBlox] " +
+        message;
 
-        return object;
-    }
+    output.appendChild(
+        line
+    );
 
+    output.scrollTop =
+        output.scrollHeight;
 
-    // ============================================================
-    // DEFAULT WORLD
-    // ============================================================
+}
 
-    function createDefaultWorld() {
 
-        state.objects.clear();
+/* ============================================================
+   PARTS
+   ============================================================ */
 
-        createObject({
+function createPartData(
+    name = "Part"
+) {
 
-            id: "defaultPart",
+    objectCounter++;
 
-            name: "Part",
+    return {
 
-            type: "Part",
+        id:
+            "part_" +
+            Date.now() +
+            "_" +
+            objectCounter,
 
-            position: {
-                x: 0,
-                y: -1,
-                z: 0
-            },
+        name:
+            name,
 
-            size: {
-                x: 20,
-                y: 1,
-                z: 20
-            },
+        type:
+            "Part",
 
-            color: "#808080",
+        x:
+            0,
 
-            anchored: true,
+        y:
+            0,
 
-            canCollide: true
-        });
+        z:
+            0,
 
+        sizeX:
+            4,
 
-        createObject({
+        sizeY:
+            1,
 
-            id: "spawn",
+        sizeZ:
+            4
 
-            name: "Spawn",
+    };
 
-            type: "SpawnLocation",
+}
 
-            position: {
-                x: 0,
-                y: 0,
-                z: 0
-            },
 
-            size: {
-                x: 4,
-                y: 1,
-                z: 4
-            },
+function addPart() {
 
-            color: "#22c55e",
-
-            anchored: true,
-
-            canCollide: true
-        });
-
-
-        state.selectedId =
-            null;
-    }
-
-
-    // ============================================================
-    // MATERIALS
-    // ============================================================
-
-    function getMaterial(object) {
-
-        const params = {
-
-            color:
-                new THREE.Color(
-                    object.color ||
-                    "#808080"
-                ),
-
-            roughness:
-                0.8,
-
-            metalness:
-                0
-        };
-
-
-        switch (
-            object.material
-        ) {
-
-            case "SmoothPlastic":
-
-                params.roughness =
-                    0.35;
-
-                break;
-
-
-            case "Metal":
-
-                params.roughness =
-                    0.25;
-
-                params.metalness =
-                    0.85;
-
-                break;
-
-
-            case "Glass":
-
-                params.transparent =
-                    true;
-
-                params.opacity =
-                    0.45;
-
-                params.roughness =
-                    0.1;
-
-                break;
-
-
-            case "Wood":
-
-                params.roughness =
-                    0.9;
-
-                break;
-
-
-            case "Concrete":
-
-                params.roughness =
-                    1;
-
-                break;
-        }
-
-
-        return new THREE.MeshStandardMaterial(
-            params
-        );
-    }
-
-
-    // ============================================================
-    // CREATE MESH
-    // ============================================================
-
-    function createMeshForObject(object) {
-
-        if (!threeReady) {
-            return null;
-        }
-
-
-        let root;
-
-
-        if (
-            object.type === "Part" ||
-            object.type === "SpawnLocation"
-        ) {
-
-            const geometry =
-                new THREE.BoxGeometry(
-
-                    Math.max(
-                        0.01,
-                        object.size.x
-                    ),
-
-                    Math.max(
-                        0.01,
-                        object.size.y
-                    ),
-
-                    Math.max(
-                        0.01,
-                        object.size.z
-                    )
-                );
-
-
-            const material =
-                getMaterial(
-                    object
-                );
-
-
-            root =
-                new THREE.Mesh(
-                    geometry,
-                    material
-                );
-
-
-            root.castShadow =
-                object.castShadow;
-
-            root.receiveShadow =
-                true;
-
-
-            if (
-                object.type ===
-                "SpawnLocation"
-            ) {
-
-                const arrowMaterial =
-                    new THREE.MeshStandardMaterial({
-                        color:
-                            "#22c55e",
-
-                        roughness:
-                            0.45
-                    });
-
-
-                root.material =
-                    arrowMaterial;
-
-
-                const arrow =
-                    new THREE.Mesh(
-
-                        new THREE.ConeGeometry(
-                            0.45,
-                            1.4,
-                            4
-                        ),
-
-                        arrowMaterial
-                    );
-
-
-                arrow.position.y =
-                    object.size.y /
-                        2 +
-                    0.8;
-
-
-                arrow.rotation.x =
-                    Math.PI;
-
-
-                root.add(
-                    arrow
-                );
-            }
-        }
-
-
-        else if (
-            object.type ===
-            "Model"
-        ) {
-
-            root =
-                new THREE.Group();
-
-
-            const material =
-                getMaterial(
-                    object
-                );
-
-
-            const body =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-                        2.5,
-                        3,
-                        1.5
-                    ),
-
-                    material
-                );
-
-
-            body.position.y =
-                1.5;
-
-            body.castShadow =
-                true;
-
-
-            root.add(
-                body
-            );
-
-
-            const head =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-                        1.7,
-                        1.7,
-                        1.7
-                    ),
-
-                    material
-                );
-
-
-            head.position.y =
-                3.9;
-
-            head.castShadow =
-                true;
-
-
-            root.add(
-                head
-            );
-        }
-
-
-        else {
-
-            root =
-                new THREE.Group();
-        }
-
-
-        root.userData.objectId =
-            object.id;
-
-
-        root.position.set(
-
-            object.position.x,
-
-            object.position.y,
-
-            object.position.z
+    const part =
+        createPartData(
+            "Part"
         );
 
+    project.parts.push(
+        part
+    );
 
-        root.rotation.set(
+    createPartElement(
+        part
+    );
 
-            THREE.MathUtils.degToRad(
-                object.rotation.x
-            ),
+    renderExplorer();
 
-            THREE.MathUtils.degToRad(
-                object.rotation.y
-            ),
+    selectObject(
+        part
+    );
 
-            THREE.MathUtils.degToRad(
-                object.rotation.z
-            )
+    saveProject();
+
+    log(
+        "Inserted Part."
+    );
+
+}
+
+
+function addSpawn() {
+
+    const existing =
+        project.parts.find(
+            part =>
+                part.type === "Spawn"
         );
 
-
-        if (
-            object.type ===
-            "Model"
-        ) {
-
-            root.scale.set(
-
-                object.size.x /
-                    4,
-
-                object.size.y,
-
-                object.size.z /
-                    4
-            );
-        }
-
-
-        return root;
-    }
-
-
-    // ============================================================
-    // DISPOSE MESH
-    // ============================================================
-
-    function disposeMesh(mesh) {
-
-        if (!mesh) {
-            return;
-        }
-
-
-        mesh.traverse(
-            child => {
-
-                if (child.geometry) {
-
-                    child.geometry.dispose();
-                }
-
-
-                if (child.material) {
-
-                    if (
-                        Array.isArray(
-                            child.material
-                        )
-                    ) {
-
-                        child.material.forEach(
-                            material => {
-
-                                if (
-                                    material &&
-                                    typeof material.dispose ===
-                                        "function"
-                                ) {
-                                    material.dispose();
-                                }
-                            }
-                        );
-
-                    } else if (
-                        typeof child.material.dispose ===
-                            "function"
-                    ) {
-
-                        child.material.dispose();
-                    }
-                }
-            }
-        );
-    }
-
-
-    // ============================================================
-    // RENDER OBJECT
-    // ============================================================
-
-    function renderObject(object) {
-
-        if (!threeReady) {
-            return;
-        }
-
-
-        const old =
-            meshes.get(
-                object.id
-            );
-
-
-        if (old) {
-
-            if (old.parent) {
-
-                old.parent.remove(
-                    old
-                );
-            }
-
-            disposeMesh(
-                old
-            );
-
-            meshes.delete(
-                object.id
-            );
-        }
-
-
-        const mesh =
-            createMeshForObject(
-                object
-            );
-
-
-        if (!mesh) {
-            return;
-        }
-
-
-        scene.add(
-            mesh
-        );
-
-
-        meshes.set(
-            object.id,
-            mesh
-        );
-
-
-        updateMeshSelection(
-            object
-        );
-    }
-
-
-    function renderWorld() {
-
-        if (!threeReady) {
-            return;
-        }
-
-
-        for (
-            const mesh
-            of meshes.values()
-        ) {
-
-            if (mesh.parent) {
-
-                mesh.parent.remove(
-                    mesh
-                );
-            }
-
-            disposeMesh(
-                mesh
-            );
-        }
-
-
-        meshes.clear();
-
-
-        for (
-            const object
-            of state.objects.values()
-        ) {
-
-            renderObject(
-                object
-            );
-        }
-
-
-        updateSelectionVisual();
-
-        updateGrid();
-
-        updateCameraStatus();
-    }
-
-
-    function updateMeshFromObject(object) {
-
-        const mesh =
-            meshes.get(
-                object.id
-            );
-
-
-        if (!mesh) {
-
-            renderObject(
-                object
-            );
-
-            return;
-        }
-
-
-        if (
-            object.type === "Part" ||
-            object.type ===
-                "SpawnLocation"
-        ) {
-
-            /*
-             * Rebuild because size/material/color
-             * may have changed.
-             */
-
-            renderObject(
-                object
-            );
-
-            return;
-        }
-
-
-        mesh.position.set(
-
-            object.position.x,
-
-            object.position.y,
-
-            object.position.z
-        );
-
-
-        mesh.rotation.set(
-
-            THREE.MathUtils.degToRad(
-                object.rotation.x
-            ),
-
-            THREE.MathUtils.degToRad(
-                object.rotation.y
-            ),
-
-            THREE.MathUtils.degToRad(
-                object.rotation.z
-            )
-        );
-
-
-        if (
-            object.type ===
-            "Model"
-        ) {
-
-            mesh.scale.set(
-
-                object.size.x /
-                    4,
-
-                object.size.y,
-
-                object.size.z /
-                    4
-            );
-        }
-
-
-        updateMeshSelection(
-            object
-        );
-    }
-
-
-    // ============================================================
-    // SELECTION
-    // ============================================================
-
-    function updateMeshSelection(object) {
-
-        const mesh =
-            meshes.get(
-                object.id
-            );
-
-
-        if (!mesh) {
-            return;
-        }
-
-
-        mesh.traverse(
-            child => {
-
-                if (
-                    !child.isMesh ||
-                    !child.material
-                ) {
-                    return;
-                }
-
-
-                const materials =
-                    Array.isArray(
-                        child.material
-                    )
-                        ? child.material
-                        : [
-                            child.material
-                        ];
-
-
-                materials.forEach(
-                    material => {
-
-                        if (
-                            !material.emissive
-                        ) {
-                            return;
-                        }
-
-
-                        material.emissive =
-                            new THREE.Color(
-                                state.selectedId ===
-                                    object.id
-                                    ? "#3b82f6"
-                                    : "#000000"
-                            );
-
-
-                        material.emissiveIntensity =
-                            state.selectedId ===
-                                object.id
-                                ? 0.35
-                                : 0;
-                    }
-                );
-            }
-        );
-    }
-
-
-    function updateSelectionVisual() {
-
-        for (
-            const object
-            of state.objects.values()
-        ) {
-
-            updateMeshSelection(
-                object
-            );
-        }
-    }
-
-
-    function selectObject(id) {
-
-        const object =
-            state.objects.get(
-                id
-            );
-
-
-        if (!object) {
-            return;
-        }
-
-
-        state.selectedId =
-            id;
-
-
-        updateSelectionVisual();
-
-        updateProperties();
-
-        updateExplorerSelection();
-
-
-        if (studioMessage) {
-
-            studioMessage.textContent =
-                `Selected ${object.name}`;
-        }
-    }
-
-
-    function clearSelection() {
-
-        state.selectedId =
-            null;
-
-
-        updateSelectionVisual();
-
-        updateProperties();
-
-        updateExplorerSelection();
-
-
-        if (studioMessage) {
-
-            studioMessage.textContent =
-                "Nothing selected";
-        }
-    }
-
-
-    // ============================================================
-    // GRID
-    // ============================================================
-
-    function createGrid() {
-
-        if (!threeReady) {
-            return;
-        }
-
-
-        if (gridHelper) {
-
-            scene.remove(
-                gridHelper
-            );
-
-            gridHelper =
-                null;
-        }
-
-
-        gridHelper =
-            new THREE.GridHelper(
-
-                200,
-
-                200,
-
-                0x555555,
-
-                0x252525
-            );
-
-
-        gridHelper.position.y =
-            -0.51;
-
-
-        scene.add(
-            gridHelper
-        );
-
-
-        updateGrid();
-    }
-
-
-    function updateGrid() {
-
-        if (gridHelper) {
-
-            gridHelper.visible =
-                state.gridEnabled;
-        }
-    }
-
-
-    // ============================================================
-    // CAMERA
-    // ============================================================
-
-    function updateCamera() {
-
-        if (
-            !camera ||
-            !threeReady
-        ) {
-            return;
-        }
-
-
-        const yaw =
-            THREE.MathUtils.degToRad(
-                state.camera.yaw
-            );
-
-
-        const pitch =
-            THREE.MathUtils.degToRad(
-                state.camera.pitch
-            );
-
-
-        const distance =
-            state.camera.distance;
-
-
-        const target =
-            state.camera.target;
-
-
-        const horizontal =
-            Math.cos(
-                pitch
-            ) *
-            distance;
-
-
-        camera.position.set(
-
-            target.x +
-                Math.sin(yaw) *
-                horizontal,
-
-            target.y -
-                Math.sin(pitch) *
-                distance,
-
-            target.z +
-                Math.cos(yaw) *
-                horizontal
-        );
-
-
-        camera.lookAt(
-
-            target.x,
-
-            target.y,
-
-            target.z
-        );
-
-
-        updateCameraStatus();
-    }
-
-
-    function updateCameraStatus() {
-
-        if (!viewportCoordinates) {
-            return;
-        }
-
-
-        const p =
-            camera
-                ? camera.position
-                : state.camera.target;
-
-
-        viewportCoordinates.textContent =
-            `X: ${Math.round(p.x)} ` +
-            `Y: ${Math.round(p.y)} ` +
-            `Z: ${Math.round(p.z)}`;
-    }
-
-
-    function resetCamera() {
-
-        state.camera.target = {
-            x: 0,
-            y: 0,
-            z: 0
-        };
-
-
-        state.camera.yaw =
-            35;
-
-        state.camera.pitch =
-            -25;
-
-        state.camera.distance =
-            24;
-
-
-        updateCamera();
-
-        log(
-            "Camera reset."
-        );
-    }
-
-
-    function focusSelected() {
-
-        const object =
-            state.objects.get(
-                state.selectedId
-            );
-
-
-        if (!object) {
-
-            showToast(
-                "Select an object first."
-            );
-
-            return;
-        }
-
-
-        state.camera.target.x =
-            object.position.x;
-
-
-        state.camera.target.y =
-            object.position.y;
-
-
-        state.camera.target.z =
-            object.position.z;
-
-
-        state.camera.distance =
-            Math.max(
-
-                8,
-
-                Math.max(
-
-                    object.size.x,
-
-                    object.size.y,
-
-                    object.size.z
-                ) *
-                    4
-            );
-
-
-        updateCamera();
-
-
-        log(
-            `Focused "${object.name}".`
-        );
-    }
-
-
-    // ============================================================
-    // CAMERA WASD
-    // ============================================================
-
-    function updateMovement(delta) {
-
-        /*
-         * Camera movement requires RMB.
-         *
-         * This is intentionally separated from
-         * W/E/R studio shortcuts.
-         */
-
-        if (
-            !state.mouse.down ||
-            state.mouse.button !== 2
-        ) {
-            return;
-        }
-
-
-        const active =
-            document.activeElement;
-
-
-        if (
-            active &&
-            (
-                active.tagName ===
-                    "INPUT" ||
-                active.tagName ===
-                    "TEXTAREA" ||
-                active.tagName ===
-                    "SELECT"
-            )
-        ) {
-            return;
-        }
-
-
-        let forward =
-            0;
-
-        let right =
-            0;
-
-
-        /*
-         * Correct WASD:
-         *
-         * W = forward
-         * S = backward
-         * A = left
-         * D = right
-         */
-
-        if (
-            state.keys.has("w") ||
-            state.keys.has("arrowup")
-        ) {
-
-            forward +=
-                1;
-        }
-
-
-        if (
-            state.keys.has("s") ||
-            state.keys.has("arrowdown")
-        ) {
-
-            forward -=
-                1;
-        }
-
-
-        if (
-            state.keys.has("d") ||
-            state.keys.has("arrowright")
-        ) {
-
-            right +=
-                1;
-        }
-
-
-        if (
-            state.keys.has("a") ||
-            state.keys.has("arrowleft")
-        ) {
-
-            right -=
-                1;
-        }
-
-
-        if (
-            !forward &&
-            !right
-        ) {
-            return;
-        }
-
-
-        const length =
-            Math.hypot(
-                forward,
-                right
-            );
-
-
-        forward /=
-            length;
-
-
-        right /=
-            length;
-
-
-        const yaw =
-            THREE.MathUtils.degToRad(
-                state.camera.yaw
-            );
-
-
-        const speed =
-            state.keys.has("shift")
-                ? 40
-                : 18;
-
-
-        const amount =
-            speed *
-            delta;
-
-
-        /*
-         * Camera forward vector.
-         *
-         * W moves toward where camera faces.
-         * S moves opposite.
-         *
-         * D moves right.
-         * A moves left.
-         */
-
-        const forwardX =
-            Math.sin(
-                yaw
-            );
-
-
-        const forwardZ =
-            Math.cos(
-                yaw
-            );
-
-
-        const rightX =
-            Math.cos(
-                yaw
-            );
-
-
-        const rightZ =
-            -Math.sin(
-                yaw
-            );
-
-
-        state.camera.target.x +=
-            (
-                forwardX *
-                    forward +
-                rightX *
-                    right
-            ) *
-            amount;
-
-
-        state.camera.target.z +=
-            (
-                forwardZ *
-                    forward +
-                rightZ *
-                    right
-            ) *
-            amount;
-
-
-        updateCamera();
-    }
-
-
-    // ============================================================
-    // MOUSE CAMERA
-    // ============================================================
-
-    function onPointerDown(event) {
-
-        if (
-            event.button !== 1 &&
-            event.button !== 2
-        ) {
-            return;
-        }
-
-
-        event.preventDefault();
-
-
-        state.mouse.down =
-            true;
-
-
-        state.mouse.button =
-            event.button;
-
-
-        state.mouse.lastX =
-            event.clientX;
-
-
-        state.mouse.lastY =
-            event.clientY;
-
-
-        if (canvas) {
-
-            canvas.style.cursor =
-                "grabbing";
-        }
-    }
-
-
-    function onPointerMove(event) {
-
-        if (
-            !state.mouse.down
-        ) {
-            return;
-        }
-
-
-        if (
-            state.mouse.draggingObject
-        ) {
-
-            transformSelected(
-                event
-            );
-
-            return;
-        }
-
-
-        const dx =
-            event.clientX -
-            state.mouse.lastX;
-
-
-        const dy =
-            event.clientY -
-            state.mouse.lastY;
-
-
-        state.mouse.lastX =
-            event.clientX;
-
-
-        state.mouse.lastY =
-            event.clientY;
-
-
-        /*
-         * RMB and middle mouse rotate camera.
-         */
-
-        if (
-            state.mouse.button ===
-                2 ||
-            state.mouse.button ===
-                1
-        ) {
-
-            state.camera.yaw -=
-                dx *
-                0.35;
-
-
-            state.camera.pitch -=
-                dy *
-                0.25;
-
-
-            state.camera.pitch =
-                clamp(
-                    state.camera.pitch,
-                    -89,
-                    89
-                );
-
-
-            updateCamera();
-        }
-    }
-
-
-    function onPointerUp() {
-
-        state.mouse.down =
-            false;
-
-        state.mouse.button =
-            0;
-
-        state.mouse.draggingObject =
-            false;
-
-        state.mouse.objectStart =
-            null;
-
-
-        if (canvas) {
-
-            canvas.style.cursor =
-                state.tool === "select"
-                    ? "default"
-                    : "crosshair";
-        }
-    }
-
-
-    function handleWheel(event) {
-
-        event.preventDefault();
-
-
-        state.camera.distance =
-            clamp(
-
-                state.camera.distance +
-                    (
-                        event.deltaY >
-                            0
-                            ? 2
-                            : -2
-                    ),
-
-                state.camera.minDistance,
-
-                state.camera.maxDistance
-            );
-
-
-        updateCamera();
-    }
-
-
-    // ============================================================
-    // VIEWPORT RAYCASTING
-    // ============================================================
-
-    function getObjectFromViewport(event) {
-
-        if (
-            !raycaster ||
-            !camera ||
-            !canvas
-        ) {
-            return null;
-        }
-
-
-        const rect =
-            canvas.getBoundingClientRect();
-
-
-        if (
-            rect.width <= 0 ||
-            rect.height <= 0
-        ) {
-            return null;
-        }
-
-
-        mouseVector.x =
-            (
-                (
-                    event.clientX -
-                    rect.left
-                ) /
-                rect.width
-            ) *
-                2 -
-            1;
-
-
-        mouseVector.y =
-            -(
-                (
-                    event.clientY -
-                    rect.top
-                ) /
-                rect.height
-            ) *
-                2 +
-            1;
-
-
-        raycaster.setFromCamera(
-            mouseVector,
-            camera
-        );
-
-
-        const roots =
-            Array.from(
-                meshes.values()
-            );
-
-
-        const hits =
-            raycaster.intersectObjects(
-                roots,
-                true
-            );
-
-
-        if (!hits.length) {
-            return null;
-        }
-
-
-        let current =
-            hits[0].object;
-
-
-        while (current) {
-
-            if (
-                current.userData &&
-                current.userData.objectId
-            ) {
-
-                return current
-                    .userData
-                    .objectId;
-            }
-
-
-            current =
-                current.parent;
-        }
-
-
-        return null;
-    }
-
-
-    function selectFromViewport(event) {
-
-        if (
-            event.button !== 0
-        ) {
-            return;
-        }
-
-
-        const id =
-            getObjectFromViewport(
-                event
-            );
-
-
-        if (!id) {
-
-            if (
-                state.tool ===
-                "select"
-            ) {
-
-                clearSelection();
-            }
-
-            return;
-        }
-
+    if (existing) {
 
         selectObject(
-            id
+            existing
         );
 
+        log(
+            "A Spawn already exists."
+        );
 
-        if (
-            state.tool !==
-            "select"
-        ) {
+        return;
 
-            beginTransform(
-                event
-            );
-        }
     }
 
+    const spawn =
+        createPartData(
+            "Spawn"
+        );
 
-    // ============================================================
-    // TRANSFORM
-    // ============================================================
+    spawn.type =
+        "Spawn";
 
-    function beginTransform(event) {
+    spawn.sizeX =
+        6;
 
-        const object =
-            state.objects.get(
-                state.selectedId
-            );
+    spawn.sizeY =
+        1;
 
+    spawn.sizeZ =
+        6;
 
-        if (!object) {
-            return;
-        }
+    project.parts.unshift(
+        spawn
+    );
 
+    createPartElement(
+        spawn
+    );
 
-        saveHistory();
+    renderExplorer();
 
+    selectObject(
+        spawn
+    );
 
-        state.mouse.draggingObject =
-            true;
+    saveProject();
 
+    log(
+        "Inserted Spawn."
+    );
 
-        state.mouse.dragStartX =
-            event.clientX;
-
-
-        state.mouse.dragStartY =
-            event.clientY;
-
-
-        state.mouse.objectStart =
-            cloneObject(
-                object
-            );
+}
 
 
-        if (canvas) {
+/* ============================================================
+   VIEWPORT
+   ============================================================ */
 
-            canvas.style.cursor =
-                "grabbing";
-        }
+function createPartElement(part) {
+
+    const existing =
+        document.querySelector(
+            '[data-object-id="' +
+            part.id +
+            '"]'
+        );
+
+    if (existing) {
+
+        existing.remove();
+
     }
 
-
-    function transformSelected(event) {
-
-        if (
-            !state.mouse.draggingObject
-        ) {
-            return;
-        }
-
-
-        const object =
-            state.objects.get(
-                state.selectedId
-            );
-
-
-        const start =
-            state.mouse.objectStart;
-
-
-        if (
-            !object ||
-            !start
-        ) {
-            return;
-        }
-
-
-        const dx =
-            event.clientX -
-            state.mouse.dragStartX;
-
-
-        const dy =
-            event.clientY -
-            state.mouse.dragStartY;
-
-
-        const amount =
-            0.025 *
-            (
-                state.camera.distance /
-                10
-            );
-
-
-        if (
-            state.tool ===
-            "move"
-        ) {
-
-            const yaw =
-                THREE.MathUtils.degToRad(
-                    state.camera.yaw
-                );
-
-
-            object.position.x =
-                start.position.x +
-                (
-                    Math.cos(yaw) *
-                        dx -
-                    Math.sin(yaw) *
-                        dy
-                ) *
-                    amount;
-
-
-            object.position.z =
-                start.position.z +
-                (
-                    -Math.sin(yaw) *
-                        dx -
-                    Math.cos(yaw) *
-                        dy
-                ) *
-                    amount;
-
-
-            if (
-                state.snapEnabled
-            ) {
-
-                object.position.x =
-                    snap(
-                        object.position.x
-                    );
-
-
-                object.position.z =
-                    snap(
-                        object.position.z
-                    );
-            }
-        }
-
-
-        else if (
-            state.tool ===
-            "scale"
-        ) {
-
-            const change =
-                (
-                    dx -
-                    dy
-                ) *
-                0.02;
-
-
-            object.size.x =
-                Math.max(
-                    0.1,
-                    start.size.x +
-                        change
-                );
-
-
-            object.size.y =
-                Math.max(
-                    0.1,
-                    start.size.y +
-                        change
-                );
-
-
-            object.size.z =
-                Math.max(
-                    0.1,
-                    start.size.z +
-                        change
-                );
-
-
-            if (
-                state.snapEnabled
-            ) {
-
-                object.size.x =
-                    Math.max(
-                        0.1,
-                        snap(
-                            object.size.x,
-                            0.5
-                        )
-                    );
-
-
-                object.size.y =
-                    Math.max(
-                        0.1,
-                        snap(
-                            object.size.y,
-                            0.5
-                        )
-                    );
-
-
-                object.size.z =
-                    Math.max(
-                        0.1,
-                        snap(
-                            object.size.z,
-                            0.5
-                        )
-                    );
-            }
-        }
-
-
-        else if (
-            state.tool ===
-            "rotate"
-        ) {
-
-            object.rotation.y =
-                start.rotation.y +
-                dx *
-                    0.5;
-
-
-            object.rotation.x =
-                start.rotation.x -
-                dy *
-                    0.25;
-
-
-            if (
-                state.snapEnabled
-            ) {
-
-                object.rotation.y =
-                    snap(
-                        object.rotation.y,
-                        15
-                    );
-
-
-                object.rotation.x =
-                    snap(
-                        object.rotation.x,
-                        15
-                    );
-            }
-        }
-
-
-        updateMeshFromObject(
-            object
+    const element =
+        document.createElement(
+            "div"
         );
 
+    element.className =
+        "viewport-part";
 
-        updateProperties();
+    element.dataset.objectId =
+        part.id;
 
+    element.title =
+        part.name;
 
-        state.game.saved =
-            false;
+    if (
+        part.type === "Spawn"
+    ) {
 
+        element.classList.add(
+            "spawn-object"
+        );
 
-        updateGameStatus();
     }
 
+    element.style.setProperty(
+        "--part-x",
+        part.x
+    );
 
-    // ============================================================
-    // 3D INPUT
-    // ============================================================
+    element.style.setProperty(
+        "--part-y",
+        part.y
+    );
 
-    function setup3DInput() {
+    element.style.setProperty(
+        "--part-z",
+        part.z
+    );
 
-        if (!canvas) {
-            return;
-        }
+    element.style.width =
+        Math.max(
+            35,
+            part.sizeX * 22
+        ) +
+        "px";
 
+    element.style.height =
+        Math.max(
+            20,
+            part.sizeY * 22
+        ) +
+        "px";
 
-        canvas.addEventListener(
-            "pointerdown",
-            event => {
+    element.addEventListener(
+        "click",
+        function(event) {
 
-                if (
-                    event.button ===
-                    0
-                ) {
+            event.stopPropagation();
 
-                    selectFromViewport(
-                        event
-                    );
-                }
-
-
-                onPointerDown(
-                    event
-                );
-            }
-        );
-
-
-        canvas.addEventListener(
-            "pointermove",
-            event => {
-
-                onPointerMove(
-                    event
-                );
-            }
-        );
-
-
-        window.addEventListener(
-            "pointerup",
-            () => {
-
-                onPointerUp();
-            }
-        );
-
-
-        canvas.addEventListener(
-            "wheel",
-            handleWheel,
-            {
-                passive: false
-            }
-        );
-
-
-        canvas.addEventListener(
-            "contextmenu",
-            event => {
-
-                event.preventDefault();
-            }
-        );
-    }
-
-
-    // ============================================================
-    // ANIMATION
-    // ============================================================
-
-    let lastFrame =
-        performance.now();
-
-
-    function animate(now) {
-
-        requestAnimationFrame(
-            animate
-        );
-
-
-        const delta =
-            Math.min(
-                (
-                    now -
-                    lastFrame
-                ) /
-                    1000,
-
-                0.1
+            selectObject(
+                part
             );
 
+        }
+    );
 
-        lastFrame =
-            now;
+    world.appendChild(
+        element
+    );
+
+}
 
 
-        updateMovement(
-            delta
+function rebuildViewport() {
+
+    document
+        .querySelectorAll(
+            ".viewport-part"
+        )
+        .forEach(
+            element =>
+                element.remove()
         );
 
+    project.parts.forEach(
+        part => {
 
-        if (
-            renderer &&
-            scene &&
-            camera
-        ) {
-
-            renderer.render(
-                scene,
-                camera
-            );
-        }
-    }
-
-
-    // ============================================================
-    // EXPLORER
-    // ============================================================
-
-    function getObjectIcon(type) {
-
-        switch (type) {
-
-            case "Part":
-                return "■";
-
-            case "SpawnLocation":
-                return "◆";
-
-            case "Model":
-                return "◇";
-
-            case "Folder":
-                return "□";
-
-            case "Script":
-                return "⌘";
-
-            default:
-                return "■";
-        }
-    }
-
-
-    function updateExplorer() {
-
-        if (!workspaceChildren) {
-            return;
-        }
-
-
-        workspaceChildren
-            .querySelectorAll(
-                "[data-generated-object]"
-            )
-            .forEach(
-                element =>
-                    element.remove()
+            createPartElement(
+                part
             );
 
+        }
+    );
 
-        for (
-            const object
-            of state.objects.values()
-        ) {
+}
+
+
+/* ============================================================
+   EXPLORER
+   ============================================================ */
+
+function renderExplorer() {
+
+    explorer.innerHTML =
+        "";
+
+    const gameItem =
+        document.createElement(
+            "div"
+        );
+
+    gameItem.className =
+        "explorer-item explorer-game";
+
+    gameItem.innerHTML =
+        "▾ <strong>" +
+        escapeHTML(
+            project.name
+        ) +
+        "</strong>";
+
+    explorer.appendChild(
+        gameItem
+    );
+
+
+    const workspace =
+        document.createElement(
+            "div"
+        );
+
+    workspace.className =
+        "explorer-item explorer-folder";
+
+    workspace.textContent =
+        "▾ Workspace";
+
+    explorer.appendChild(
+        workspace
+    );
+
+
+    project.parts.forEach(
+        part => {
 
             const item =
                 document.createElement(
-                    "div"
+                    "button"
                 );
 
+            item.type =
+                "button";
 
             item.className =
-                "tree-item";
+                "explorer-object";
 
-
-            item.dataset.objectId =
-                object.id;
-
-
-            item.dataset.objectType =
-                object.type;
-
-
-            item.dataset.generatedObject =
-                "true";
-
-
-            item.innerHTML = `
-
-                <span class="tree-spacer"></span>
-
-                <span class="tree-icon">
-                    ${getObjectIcon(object.type)}
-                </span>
-
-                <span class="tree-name">
-                    ${escapeHTML(object.name)}
-                </span>
-            `;
-
+            item.textContent =
+                (
+                    part.type === "Spawn"
+                        ? "◆ "
+                        : "■ "
+                ) +
+                part.name;
 
             item.addEventListener(
                 "click",
-                event => {
-
-                    event.stopPropagation();
+                function() {
 
                     selectObject(
-                        object.id
+                        part
                     );
+
                 }
             );
 
-
-            workspaceChildren.appendChild(
+            explorer.appendChild(
                 item
             );
+
         }
+    );
+
+}
 
 
-        updateExplorerSelection();
+/* ============================================================
+   PROPERTIES
+   ============================================================ */
+
+function selectObject(object) {
+
+    selectedObject =
+        object;
+
+    renderProperties();
+
+    document
+        .querySelectorAll(
+            ".viewport-part"
+        )
+        .forEach(
+            element => {
+
+                element.classList.toggle(
+                    "selected",
+                    element.dataset.objectId ===
+                    object.id
+                );
+
+            }
+        );
+
+}
+
+
+function renderProperties() {
+
+    if (!selectedObject) {
+
+        properties.innerHTML = `
+            <div class="nothing-selected">
+                <strong>Nothing selected</strong>
+                <span>Select an object</span>
+            </div>
+        `;
+
+        return;
+
     }
 
+    const object =
+        selectedObject;
 
-    function updateExplorerSelection() {
+    properties.innerHTML = `
+        <div class="property-group">
 
-        document
-            .querySelectorAll(
-                "#workspaceChildren .tree-item"
-            )
-            .forEach(
-                item => {
+            <label>Name</label>
 
-                    item.classList.toggle(
+            <input
+                id="propertyName"
+                type="text"
+                value="${escapeHTML(object.name)}"
+            >
 
-                        "selected",
+        </div>
 
-                        item.dataset.objectId ===
-                            state.selectedId
-                    );
-                }
-            );
-    }
+        <div class="property-group">
+
+            <label>Type</label>
+
+            <input
+                type="text"
+                value="${escapeHTML(object.type)}"
+                disabled
+            >
+
+        </div>
+
+        <div class="property-group">
+
+            <label>Position</label>
+
+            <div class="property-row">
+
+                <input
+                    id="propertyX"
+                    type="number"
+                    value="${object.x}"
+                >
+
+                <input
+                    id="propertyY"
+                    type="number"
+                    value="${object.y}"
+                >
+
+                <input
+                    id="propertyZ"
+                    type="number"
+                    value="${object.z}"
+                >
+
+            </div>
+
+        </div>
+
+        <div class="property-group">
+
+            <label>Size</label>
+
+            <div class="property-row">
+
+                <input
+                    id="propertySizeX"
+                    type="number"
+                    value="${object.sizeX}"
+                >
+
+                <input
+                    id="propertySizeY"
+                    type="number"
+                    value="${object.sizeY}"
+                >
+
+                <input
+                    id="propertySizeZ"
+                    type="number"
+                    value="${object.sizeZ}"
+                >
+
+            </div>
+
+        </div>
+
+        <button
+            id="deleteObjectButton"
+            class="delete-object"
+            type="button"
+        >
+            Delete
+        </button>
+    `;
 
 
-    function setupExplorer() {
+    document
+        .getElementById(
+            "propertyName"
+        )
+        .addEventListener(
+            "input",
+            function(event) {
 
-        document
-            .querySelectorAll(
-                "#explorerTree .tree-item"
-            )
-            .forEach(
-                item => {
+                object.name =
+                    event.target.value ||
+                    "Part";
 
-                    const id =
-                        item.dataset.objectId;
+                renderExplorer();
 
+                saveProject();
 
-                    if (!id) {
-                        return;
-                    }
-
-
-                    item.addEventListener(
-                        "click",
-                        () => {
-
-                            if (
-                                state.objects.has(
-                                    id
-                                )
-                            ) {
-
-                                selectObject(
-                                    id
-                                );
-                            }
-                        }
-                    );
-                }
-            );
+            }
+        );
 
 
-        $("explorerSearch")
-            ?.addEventListener(
+    [
+        [
+            "propertyX",
+            "x"
+        ],
+        [
+            "propertyY",
+            "y"
+        ],
+        [
+            "propertyZ",
+            "z"
+        ],
+        [
+            "propertySizeX",
+            "sizeX"
+        ],
+        [
+            "propertySizeY",
+            "sizeY"
+        ],
+        [
+            "propertySizeZ",
+            "sizeZ"
+        ]
+    ].forEach(
+        pair => {
+
+            const input =
+                document.getElementById(
+                    pair[0]
+                );
+
+            input.addEventListener(
                 "input",
-                event => {
+                function(event) {
 
-                    const query =
-                        event.target.value
-                            .trim()
-                            .toLowerCase();
+                    object[
+                        pair[1]
+                    ] =
+                        Number(
+                            event.target.value
+                        ) || 0;
 
+                    rebuildViewport();
 
-                    document
-                        .querySelectorAll(
-                            "#workspaceChildren .tree-item"
-                        )
-                        .forEach(
-                            item => {
+                    saveProject();
 
-                                item.style.display =
-                                    !query ||
-                                    item.textContent
-                                        .toLowerCase()
-                                        .includes(
-                                            query
-                                        )
-                                        ? ""
-                                        : "none";
-                            }
-                        );
-                }
-            );
-    }
-
-
-    // ============================================================
-    // PROPERTIES
-    // ============================================================
-
-    function setInput(id, value) {
-
-        const input =
-            $(id);
-
-
-        if (input) {
-            input.value =
-                value;
-        }
-    }
-
-
-    function setChecked(id, value) {
-
-        const input =
-            $(id);
-
-
-        if (input) {
-            input.checked =
-                Boolean(value);
-        }
-    }
-
-
-    function updateProperties() {
-
-        const object =
-            state.objects.get(
-                state.selectedId
-            );
-
-
-        if (!object) {
-
-            noSelectionMessage
-                ?.classList
-                .remove(
-                    "hidden"
-                );
-
-
-            if (
-                selectedObjectName
-            ) {
-
-                selectedObjectName.textContent =
-                    "Nothing selected";
-            }
-
-
-            if (
-                selectedObjectType
-            ) {
-
-                selectedObjectType.textContent =
-                    "Select an object";
-            }
-
-
-            return;
-        }
-
-
-        noSelectionMessage
-            ?.classList
-            .add(
-                "hidden"
-            );
-
-
-        if (
-            selectedObjectName
-        ) {
-
-            selectedObjectName.textContent =
-                object.name;
-        }
-
-
-        if (
-            selectedObjectType
-        ) {
-
-            selectedObjectType.textContent =
-                object.type;
-        }
-
-
-        if (
-            selectedObjectIcon
-        ) {
-
-            selectedObjectIcon.textContent =
-                getObjectIcon(
-                    object.type
-                );
-        }
-
-
-        setInput(
-            "positionX",
-            object.position.x
-        );
-
-
-        setInput(
-            "positionY",
-            object.position.y
-        );
-
-
-        setInput(
-            "positionZ",
-            object.position.z
-        );
-
-
-        setInput(
-            "rotationX",
-            object.rotation.x
-        );
-
-
-        setInput(
-            "rotationY",
-            object.rotation.y
-        );
-
-
-        setInput(
-            "rotationZ",
-            object.rotation.z
-        );
-
-
-        setInput(
-            "sizeX",
-            object.size.x
-        );
-
-
-        setInput(
-            "sizeY",
-            object.size.y
-        );
-
-
-        setInput(
-            "sizeZ",
-            object.size.z
-        );
-
-
-        setInput(
-            "objectColor",
-            object.color
-        );
-
-
-        setInput(
-            "objectMaterial",
-            object.material
-        );
-
-
-        setChecked(
-            "objectAnchored",
-            object.anchored
-        );
-
-
-        setChecked(
-            "objectCanCollide",
-            object.canCollide
-        );
-
-
-        setChecked(
-            "objectCastShadow",
-            object.castShadow
-        );
-
-
-        const colorValue =
-            $("objectColorValue");
-
-
-        if (colorValue) {
-
-            colorValue.textContent =
-                object.color;
-        }
-    }
-
-
-    function setObjectProperty(
-        object,
-        property,
-        value
-    ) {
-
-        const parts =
-            property.split(".");
-
-
-        if (
-            parts.length ===
-            1
-        ) {
-
-            object[
-                parts[0]
-            ] =
-                value;
-
-            return;
-        }
-
-
-        if (
-            !object[
-                parts[0]
-            ]
-        ) {
-
-            object[
-                parts[0]
-            ] = {};
-        }
-
-
-        object[
-            parts[0]
-        ][
-            parts[1]
-        ] =
-            value;
-    }
-
-
-    function setupProperties() {
-
-        document
-            .querySelectorAll(
-                "[data-property]"
-            )
-            .forEach(
-                input => {
-
-                    input.addEventListener(
-                        "change",
-                        () => {
-
-                            const object =
-                                state.objects.get(
-                                    state.selectedId
-                                );
-
-
-                            if (!object) {
-                                return;
-                            }
-
-
-                            saveHistory();
-
-
-                            const property =
-                                input.dataset
-                                    .property;
-
-
-                            const value =
-                                input.type ===
-                                    "checkbox"
-
-                                    ? input.checked
-
-                                    : input.type ===
-                                        "number"
-
-                                        ? Number(
-                                            input.value
-                                        )
-
-                                        : input.value;
-
-
-                            setObjectProperty(
-                                object,
-                                property,
-                                value
-                            );
-
-
-                            updateMeshFromObject(
-                                object
-                            );
-
-
-                            updateProperties();
-
-                            updateExplorer();
-
-
-                            state.game.saved =
-                                false;
-
-
-                            updateGameStatus();
-                        }
-                    );
-                }
-            );
-    }
-
-
-    // ============================================================
-    // INSERT OBJECT
-    // ============================================================
-
-    function insertObject(
-        type = "Part"
-    ) {
-
-        saveHistory();
-
-
-        const count =
-            state.objects.size;
-
-
-        const object =
-            createObject({
-
-                type,
-
-                name:
-                    type ===
-                    "SpawnLocation"
-
-                        ? "SpawnLocation"
-
-                        : type,
-
-
-                position: {
-
-                    x:
-                        snap(
-                            count *
-                            2
-                        ),
-
-                    y:
-                        type ===
-                        "SpawnLocation"
-
-                            ? 1
-                            : 0,
-
-                    z: 0
-                },
-
-
-                size:
-
-                    type ===
-                    "Model"
-
-                        ? {
-                            x: 4,
-                            y: 1,
-                            z: 4
-                        }
-
-                        : {
-                            x: 4,
-                            y:
-                                type ===
-                                "SpawnLocation"
-                                    ? 1
-                                    : 1,
-                            z: 4
-                        },
-
-
-                color:
-                    type ===
-                    "SpawnLocation"
-
-                        ? "#22c55e"
-
-                        : "#808080"
-            });
-
-
-        if (
-            type ===
-            "Script"
-        ) {
-
-            object.script =
-                "-- WebBlox Luau\n\n";
-        }
-
-
-        if (
-            type ===
-            "Folder"
-        ) {
-
-            object.size = {
-                x: 1,
-                y: 1,
-                z: 1
-            };
-        }
-
-
-        renderObject(
-            object
-        );
-
-
-        selectObject(
-            object.id
-        );
-
-
-        updateExplorer();
-
-
-        state.game.saved =
-            false;
-
-
-        updateGameStatus();
-
-
-        log(
-            `Created ${type} "${object.name}".`
-        );
-
-
-        return object;
-    }
-
-
-    // ============================================================
-    // DELETE
-    // ============================================================
-
-    function deleteSelected() {
-
-        const object =
-            state.objects.get(
-                state.selectedId
-            );
-
-
-        if (!object) {
-            return;
-        }
-
-
-        saveHistory();
-
-
-        const mesh =
-            meshes.get(
-                object.id
-            );
-
-
-        if (mesh) {
-
-            if (mesh.parent) {
-
-                mesh.parent.remove(
-                    mesh
-                );
-            }
-
-            disposeMesh(
-                mesh
-            );
-
-            meshes.delete(
-                object.id
-            );
-        }
-
-
-        state.objects.delete(
-            object.id
-        );
-
-
-        state.selectedId =
-            null;
-
-
-        updateExplorer();
-
-        updateProperties();
-
-
-        state.game.saved =
-            false;
-
-
-        updateGameStatus();
-
-
-        log(
-            `Deleted "${object.name}".`
-        );
-    }
-
-
-    // ============================================================
-    // DUPLICATE
-    // ============================================================
-
-    function duplicateSelected() {
-
-        const object =
-            state.objects.get(
-                state.selectedId
-            );
-
-
-        if (!object) {
-            return;
-        }
-
-
-        saveHistory();
-
-
-        const duplicate =
-            cloneObject(
-                object
-            );
-
-
-        duplicate.id =
-            makeId(
-                object.type.toLowerCase()
-            );
-
-
-        duplicate.name =
-            `${object.name} Copy`;
-
-
-        duplicate.position.x +=
-            2;
-
-
-        duplicate.position.z +=
-            2;
-
-
-        state.objects.set(
-            duplicate.id,
-            duplicate
-        );
-
-
-        renderObject(
-            duplicate
-        );
-
-
-        selectObject(
-            duplicate.id
-        );
-
-
-        updateExplorer();
-
-
-        state.game.saved =
-            false;
-
-
-        updateGameStatus();
-
-
-        log(
-            `Duplicated "${object.name}".`
-        );
-    }
-
-
-    // ============================================================
-    // RENAME
-    // ============================================================
-
-    function renameSelected() {
-
-        const object =
-            state.objects.get(
-                state.selectedId
-            );
-
-
-        if (!object) {
-            return;
-        }
-
-
-        const newName =
-            prompt(
-                "Rename object:",
-                object.name
-            );
-
-
-        if (
-            newName ===
-                null ||
-            !newName.trim()
-        ) {
-
-            return;
-        }
-
-
-        saveHistory();
-
-
-        object.name =
-            newName.trim();
-
-
-        state.game.saved =
-            false;
-
-
-        updateExplorer();
-
-        updateProperties();
-
-        updateGameStatus();
-    }
-
-
-    // ============================================================
-    // HISTORY
-    // ============================================================
-
-    function snapshot() {
-
-        return {
-
-            objects:
-                Array.from(
-                    state.objects.values()
-                ).map(
-                    cloneObject
-                ),
-
-            selectedId:
-                state.selectedId,
-
-            game:
-                cloneObject(
-                    state.game
-                )
-        };
-    }
-
-
-    function restoreSnapshot(
-        data
-    ) {
-
-        state.objects.clear();
-
-
-        for (
-            const object
-            of data.objects
-        ) {
-
-            state.objects.set(
-                object.id,
-                object
-            );
-        }
-
-
-        state.selectedId =
-            data.selectedId;
-
-
-        state.game =
-            data.game;
-
-
-        renderWorld();
-
-        updateExplorer();
-
-        updateProperties();
-
-        updateGameStatus();
-    }
-
-
-    function saveHistory() {
-
-        state.history.push(
-            snapshot()
-        );
-
-
-        if (
-            state.history.length >
-            50
-        ) {
-
-            state.history.shift();
-        }
-
-
-        state.future =
-            [];
-    }
-
-
-    function undo() {
-
-        if (
-            !state.history.length
-        ) {
-            return;
-        }
-
-
-        state.future.push(
-            snapshot()
-        );
-
-
-        restoreSnapshot(
-            state.history.pop()
-        );
-
-
-        log(
-            "Undo."
-        );
-    }
-
-
-    function redo() {
-
-        if (
-            !state.future.length
-        ) {
-            return;
-        }
-
-
-        state.history.push(
-            snapshot()
-        );
-
-
-        restoreSnapshot(
-            state.future.pop()
-        );
-
-
-        log(
-            "Redo."
-        );
-    }
-
-
-    // ============================================================
-    // SAVE
-    // ============================================================
-
-    function getGameData() {
-
-        return {
-
-            version:
-                3,
-
-            game:
-                cloneObject(
-                    state.game
-                ),
-
-            objects:
-                Array.from(
-                    state.objects.values()
-                ).map(
-                    cloneObject
-                )
-        };
-    }
-
-
-    function saveGame() {
-
-        const data =
-            getGameData();
-
-
-        const blob =
-            new Blob(
-                [
-                    JSON.stringify(
-                        data,
-                        null,
-                        2
-                    )
-                ],
-                {
-                    type:
-                        "application/json"
                 }
             );
 
-
-        const url =
-            URL.createObjectURL(
-                blob
-            );
-
-
-        const link =
-            document.createElement(
-                "a"
-            );
-
-
-        link.href =
-            url;
-
-
-        link.download =
-            `${
-                (
-                    state.game.name ||
-                    "WebBloxGame"
-                )
-                    .replace(
-                        /[^a-z0-9-_ ]/gi,
-                        ""
-                    )
-                    .trim()
-                    .replace(
-                        /\s+/g,
-                        "_"
-                    )
-            }.webblox.json`;
-
-
-        document.body.appendChild(
-            link
-        );
-
-
-        link.click();
-
-        link.remove();
-
-
-        URL.revokeObjectURL(
-            url
-        );
-
-
-        state.game.saved =
-            true;
-
-
-        updateGameStatus();
-
-
-        log(
-            "Game saved."
-        );
-
-
-        showToast(
-            "Game saved"
-        );
-    }
-
-
-    // ============================================================
-    // LOAD
-    // ============================================================
-
-    function loadGame() {
-
-        const input =
-            document.createElement(
-                "input"
-            );
-
-
-        input.type =
-            "file";
-
-
-        input.accept =
-            ".json,.webblox.json";
-
-
-        input.addEventListener(
-            "change",
-            async () => {
-
-                const file =
-                    input.files?.[0];
-
-
-                if (!file) {
-                    return;
-                }
-
-
-                try {
-
-                    const text =
-                        await file.text();
-
-
-                    const data =
-                        JSON.parse(
-                            text
-                        );
-
-
-                    if (
-                        !Array.isArray(
-                            data.objects
-                        )
-                    ) {
-
-                        throw new Error(
-                            "Invalid WebBlox game."
-                        );
-                    }
-
-
-                    saveHistory();
-
-
-                    state.objects.clear();
-
-
-                    for (
-                        const object
-                        of data.objects
-                    ) {
-
-                        createObject(
-                            object
-                        );
-                    }
-
-
-                    if (data.game) {
-
-                        state.game = {
-
-                            ...state.game,
-
-                            ...data.game
-                        };
-                    }
-
-
-                    state.selectedId =
-                        null;
-
-
-                    renderWorld();
-
-                    updateExplorer();
-
-                    updateProperties();
-
-                    updateGameStatus();
-
-
-                    log(
-                        `Loaded ${file.name}.`
-                    );
-
-
-                    showToast(
-                        "Game loaded"
-                    );
-
-                } catch (error) {
-
-                    console.error(
-                        error
-                    );
-
-
-                    log(
-                        `Unable to load game: ${error.message}`,
-                        "error"
-                    );
-
-
-                    showToast(
-                        "Invalid game file"
-                    );
-                }
-            }
-        );
-
-
-        input.click();
-    }
-
-
-    // ============================================================
-    // NEW GAME
-    // ============================================================
-
-    function openModal(id) {
-
-        $(id)
-            ?.classList
-            .remove(
-                "hidden"
-            );
-    }
-
-
-    function closeModal(id) {
-
-        $(id)
-            ?.classList
-            .add(
-                "hidden"
-            );
-    }
-
-
-    function createNewGame() {
-
-        const nameInput =
-            $("newGameName");
-
-
-        const descriptionInput =
-            $("newGameDescription");
-
-
-        const name =
-            nameInput?.value.trim();
-
-
-        if (!name) {
-
-            nameInput?.focus();
-
-
-            showToast(
-                "Game title is required."
-            );
-
-
-            return;
-        }
-
-
-        saveHistory();
-
-
-        state.game = {
-
-            name,
-
-            description:
-                descriptionInput?.value.trim() ||
-                "",
-
-            icon: "",
-
-            saved: false
-        };
-
-
-        createDefaultWorld();
-
-
-        renderWorld();
-
-
-        updateExplorer();
-
-        updateProperties();
-
-        updateGameStatus();
-
-
-        closeModal(
-            "newGameModal"
-        );
-
-
-        log(
-            `Created new game "${name}".`
-        );
-
-
-        showToast(
-            "New game created"
-        );
-    }
-
-
-    // ============================================================
-    // PUBLISH
-    // ============================================================
-
-    function openPublishModal() {
-
-        if (
-            !state.game.name ||
-            !state.game.name.trim() ||
-            state.game.name ===
-                "Untitled Game"
-        ) {
-
-            showToast(
-                "Your game needs a title before it can be published."
-            );
-
-
-            openModal(
-                "newGameModal"
-            );
-
-
-            $("newGameName")
-                ?.focus();
-
-
-            return;
-        }
-
-
-        const name =
-            $("publishGameName");
-
-
-        const description =
-            $("publishGameDescription");
-
-
-        if (name) {
-
-            name.textContent =
-                state.game.name;
-        }
-
-
-        if (description) {
-
-            description.textContent =
-                state.game.description ||
-                "No description";
-        }
-
-
-        openModal(
-            "publishModal"
-        );
-    }
-
-
-    function publishGame() {
-
-        const title =
-            String(
-                state.game.name ||
-                ""
-            ).trim();
-
-
-        if (!title) {
-
-            closeModal(
-                "publishModal"
-            );
-
-
-            showToast(
-                "A game title is required."
-            );
-
-
-            return;
-        }
-
-
-        const gameData =
-            getGameData();
-
-
-        console.log(
-            "[WebBlox] Publish payload:",
-            gameData
-        );
-
-
-        state.game.saved =
-            true;
-
-
-        updateGameStatus();
-
-
-        closeModal(
-            "publishModal"
-        );
-
-
-        log(
-            `Game "${title}" passed publish validation.`
-        );
-
-
-        log(
-            "Online publishing connection will be added to the WebBlox backend."
-        );
-
-
-        showToast(
-            "Game ready to publish"
-        );
-    }
-
-
-    function updateGameStatus() {
-
-        if (!gameStatus) {
-            return;
-        }
-
-
-        gameStatus.textContent =
-            state.game.saved
-                ? "Saved"
-                : "Unsaved";
-    }
-
-
-    // ============================================================
-    // PLAY
-    // ============================================================
-
-    async function playGame() {
-
-        if (
-            state.playing
-        ) {
-            return;
-        }
-
-
-        if (
-            !state.game.name ||
-            state.game.name ===
-                "Untitled Game"
-        ) {
-
-            showToast(
-                "Create a game with a title first."
-            );
-
-
-            openModal(
-                "newGameModal"
-            );
-
-
-            return;
-        }
-
-
-        state.playing =
-            true;
-
-
-        $("playButton")
-            ?.setAttribute(
-                "disabled",
-                ""
-            );
-
-
-        $("stopButton")
-            ?.removeAttribute(
-                "disabled"
-            );
-
-
-        log(
-            "Starting WebBlox Player runtime..."
-        );
-
-
-        try {
-
-            /*
-             * Player is loaded here instead of during
-             * Studio startup.
-             */
-
-            const Player =
-                await loadPlayerRuntime();
-
-
-            if (
-                !Player ||
-                typeof Player.start !==
-                    "function"
-            ) {
-
-                throw new Error(
-                    "Player runtime does not expose start()."
-                );
-            }
-
-
-            const runtimeData =
-                getGameData();
-
-
-            await Player.start({
-
-                game:
-                    runtimeData.game,
-
-                objects:
-                    runtimeData.objects,
-
-                scene,
-
-                camera,
-
-                renderer,
-
-                viewport,
-
-                onLog:
-                    message => {
-
-                        log(
-                            `[Player] ${message}`
-                        );
-                    }
-            });
-
-
-            log(
-                "Player runtime started."
-            );
-
-
-            showToast(
-                "Play mode started"
-            );
-
-        } catch (error) {
-
-            console.error(
-                "[WebBlox] Player startup failed:",
-                error
-            );
-
-
-            state.playing =
-                false;
-
-
-            $("playButton")
-                ?.removeAttribute(
-                    "disabled"
-                );
-
-
-            $("stopButton")
-                ?.setAttribute(
-                    "disabled",
-                    ""
-                );
-
-
-            log(
-                `Player failed: ${error.message}`,
-                "error"
-            );
-
-
-            showToast(
-                "Player failed to start. Studio is still working."
-            );
-        }
-    }
-
-
-    async function stopGame() {
-
-        if (
-            !state.playing
-        ) {
-            return;
-        }
-
-
-        try {
-
-            if (
-                window.WebBloxPlayer &&
-                typeof window.WebBloxPlayer.stop ===
-                    "function"
-            ) {
-
-                await window.WebBloxPlayer.stop();
-            }
-
-        } catch (error) {
-
-            console.error(
-                "[WebBlox] Player stop failed:",
-                error
-            );
-        }
-
-
-        state.playing =
-            false;
-
-
-        $("playButton")
-            ?.removeAttribute(
-                "disabled"
-            );
-
-
-        $("stopButton")
-            ?.setAttribute(
-                "disabled",
-                ""
-            );
-
-
-        log(
-            "Player runtime stopped."
-        );
-
-
-        showToast(
-            "Play mode stopped"
-        );
-    }
-
-
-    // ============================================================
-    // TOOLS
-    // ============================================================
-
-    function setTool(tool) {
-
-        state.tool =
-            tool;
-
-
-        const ids = {
-
-            select:
-                "selectTool",
-
-            move:
-                "moveTool",
-
-            scale:
-                "scaleTool",
-
-            rotate:
-                "rotateTool"
-        };
-
-
-        Object.values(
-            ids
-        ).forEach(
-            id => {
-
-                $(id)
-                    ?.classList
-                    .remove(
-                        "active"
-                    );
-            }
-        );
-
-
-        $(ids[tool])
-            ?.classList
-            .add(
-                "active"
-            );
-
-
-        if (viewportMode) {
-
-            viewportMode.textContent =
-                tool
-                    .charAt(0)
-                    .toUpperCase() +
-                tool.slice(1);
-        }
-
-
-        if (canvas) {
-
-            canvas.style.cursor =
-                tool ===
-                    "select"
-                    ? "default"
-                    : "crosshair";
-        }
-    }
-
-
-    // ============================================================
-    // KEYBOARD
-    // ============================================================
-
-    function setupKeyboard() {
-
-        window.addEventListener(
-            "keydown",
-            event => {
-
-                const key =
-                    event.key.toLowerCase();
-
-
-                /*
-                 * Always track movement keys.
-                 */
-
-                state.keys.add(
-                    key
-                );
-
-
-                const active =
-                    document.activeElement;
-
-
-                const typing =
-                    active &&
-                    (
-                        active.tagName ===
-                            "INPUT" ||
-                        active.tagName ===
-                            "TEXTAREA" ||
-                        active.tagName ===
-                            "SELECT"
-                    );
-
-
-                if (typing) {
-                    return;
-                }
-
-
-                // CTRL + Z
-
-                if (
-                    event.ctrlKey &&
-                    key === "z"
-                ) {
-
-                    event.preventDefault();
-
-
-                    if (
-                        event.shiftKey
-                    ) {
-
-                        redo();
-
-                    } else {
-
-                        undo();
-                    }
-
-
-                    return;
-                }
-
-
-                // CTRL + Y
-
-                if (
-                    event.ctrlKey &&
-                    key === "y"
-                ) {
-
-                    event.preventDefault();
-
-                    redo();
-
-                    return;
-                }
-
-
-                // CTRL + D
-
-                if (
-                    event.ctrlKey &&
-                    key === "d"
-                ) {
-
-                    event.preventDefault();
-
-                    duplicateSelected();
-
-                    return;
-                }
-
-
-                // DELETE
-
-                if (
-                    event.key ===
-                    "Delete"
-                ) {
-
-                    event.preventDefault();
-
-                    deleteSelected();
-
-                    return;
-                }
-
-
-                // ESCAPE
-
-                if (
-                    event.key ===
-                    "Escape"
-                ) {
-
-                    event.preventDefault();
-
-                    clearSelection();
-
-                    state.mouse.draggingObject =
-                        false;
-
-                    return;
-                }
-
-
-                /*
-                 * W/E/R/Q are Studio tools ONLY when
-                 * RMB camera mode is not being used.
-                 */
-
-                if (
-                    !state.mouse.down
-                ) {
-
-                    if (
-                        key === "q"
-                    ) {
-
-                        setTool(
-                            "select"
-                        );
-
-                        return;
-                    }
-
-
-                    if (
-                        key === "w"
-                    ) {
-
-                        setTool(
-                            "move"
-                        );
-
-                        return;
-                    }
-
-
-                    if (
-                        key === "e"
-                    ) {
-
-                        setTool(
-                            "rotate"
-                        );
-
-                        return;
-                    }
-
-
-                    if (
-                        key === "r"
-                    ) {
-
-                        setTool(
-                            "scale"
-                        );
-
-                        return;
-                    }
-
-
-                    if (
-                        key === "f"
-                    ) {
-
-                        event.preventDefault();
-
-                        focusSelected();
-
-                        return;
-                    }
-                }
-            }
-        );
-
-
-        window.addEventListener(
-            "keyup",
-            event => {
-
-                state.keys.delete(
-                    event.key.toLowerCase()
-                );
-            }
-        );
-
-
-        window.addEventListener(
-            "blur",
-            () => {
-
-                state.keys.clear();
-
-                state.mouse.down =
-                    false;
-
-                state.mouse.button =
-                    0;
-
-                state.mouse.draggingObject =
-                    false;
-            }
-        );
-    }
-
-
-    // ============================================================
-    // BUTTONS
-    // ============================================================
-
-    function setupButtons() {
-
-        $("newGameButton")
-            ?.addEventListener(
-                "click",
-                () =>
-                    openModal(
-                        "newGameModal"
-                    )
-            );
-
-
-        $("openGameButton")
-            ?.addEventListener(
-                "click",
-                loadGame
-            );
-
-
-        $("saveGameButton")
-            ?.addEventListener(
-                "click",
-                saveGame
-            );
-
-
-        $("undoButton")
-            ?.addEventListener(
-                "click",
-                undo
-            );
-
-
-        $("redoButton")
-            ?.addEventListener(
-                "click",
-                redo
-            );
-
-
-        $("playButton")
-            ?.addEventListener(
-                "click",
-                playGame
-            );
-
-
-        $("stopButton")
-            ?.addEventListener(
-                "click",
-                stopGame
-            );
-
-
-        // Tools
-
-        $("selectTool")
-            ?.addEventListener(
-                "click",
-                () =>
-                    setTool(
-                        "select"
-                    )
-            );
-
-
-        $("moveTool")
-            ?.addEventListener(
-                "click",
-                () =>
-                    setTool(
-                        "move"
-                    )
-            );
-
-
-        $("scaleTool")
-            ?.addEventListener(
-                "click",
-                () =>
-                    setTool(
-                        "scale"
-                    )
-            );
-
-
-        $("rotateTool")
-            ?.addEventListener(
-                "click",
-                () =>
-                    setTool(
-                        "rotate"
-                    )
-            );
-
-
-        // Grid
-
-        $("gridButton")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    state.gridEnabled =
-                        !state.gridEnabled;
-
-
-                    $("gridButton")
-                        ?.classList
-                        .toggle(
-                            "active",
-                            state.gridEnabled
-                        );
-
-
-                    updateGrid();
-                }
-            );
-
-
-        // Snap
-
-        $("snapButton")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    state.snapEnabled =
-                        !state.snapEnabled;
-
-
-                    $("snapButton")
-                        ?.classList
-                        .toggle(
-                            "active",
-                            state.snapEnabled
-                        );
-                }
-            );
-
-
-        // Camera reset
-
-        $("cameraReset")
-            ?.addEventListener(
-                "click",
-                resetCamera
-            );
-
-
-        // Camera zoom in
-
-        $("cameraZoomIn")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    state.camera.distance =
-                        clamp(
-
-                            state.camera.distance -
-                                2,
-
-                            state.camera.minDistance,
-
-                            state.camera.maxDistance
-                        );
-
-
-                    updateCamera();
-                }
-            );
-
-
-        // Camera zoom out
-
-        $("cameraZoomOut")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    state.camera.distance =
-                        clamp(
-
-                            state.camera.distance +
-                                2,
-
-                            state.camera.minDistance,
-
-                            state.camera.maxDistance
-                        );
-
-
-                    updateCamera();
-                }
-            );
-
-
-        // Add object
-
-        $("addObjectButton")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    $("addObjectMenu")
-                        ?.classList
-                        .toggle(
-                            "hidden"
-                        );
-                }
-            );
-
-
-        document
-            .querySelectorAll(
-                "[data-create-object]"
-            )
-            .forEach(
-                button => {
-
-                    button.addEventListener(
-                        "click",
-                        () => {
-
-                            insertObject(
-                                button.dataset
-                                    .createObject
-                            );
-
-
-                            $("addObjectMenu")
-                                ?.classList
-                                .add(
-                                    "hidden"
-                                );
-                        }
-                    );
-                }
-            );
-
-
-        // Refresh Explorer
-
-        $("refreshExplorerButton")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    updateExplorer();
-
-
-                    showToast(
-                        "Explorer refreshed"
-                    );
-                }
-            );
-
-
-        // Welcome add part
-
-        $("welcomeAddPart")
-            ?.addEventListener(
-                "click",
-                () =>
-                    insertObject(
-                        "Part"
-                    )
-            );
-
-
-        // Output
-
-        $("clearOutputButton")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    if (
-                        outputConsole
-                    ) {
-
-                        outputConsole.innerHTML =
-                            "";
-                    }
-                }
-            );
-
-
-        $("toggleOutputButton")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    $("outputPanel")
-                        ?.classList
-                        .toggle(
-                            "collapsed"
-                        );
-                }
-            );
-
-
-        // Modals
-
-        document
-            .querySelectorAll(
-                "[data-close-modal]"
-            )
-            .forEach(
-                button => {
-
-                    button.addEventListener(
-                        "click",
-                        () =>
-                            closeModal(
-                                button.dataset
-                                    .closeModal
-                            )
-                    );
-                }
-            );
-
-
-        $("createGameConfirm")
-            ?.addEventListener(
-                "click",
-                createNewGame
-            );
-
-
-        $("publishConfirmButton")
-            ?.addEventListener(
-                "click",
-                publishGame
-            );
-
-
-        // Actions
-
-        document
-            .querySelectorAll(
-                "[data-action]"
-            )
-            .forEach(
-                button => {
-
-                    button.addEventListener(
-                        "click",
-                        () => {
-
-                            handleAction(
-                                button.dataset
-                                    .action
-                            );
-
-
-                            closeMenus();
-                        }
-                    );
-                }
-            );
-
-
-        // Property search
-
-        $("propertySearchButton")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    $("propertySearch")
-                        ?.classList
-                        .toggle(
-                            "hidden"
-                        );
-                }
-            );
-
-
-        $("propertySearchInput")
-            ?.addEventListener(
-                "input",
-                event => {
-
-                    const query =
-                        event.target.value
-                            .trim()
-                            .toLowerCase();
-
-
-                    document
-                        .querySelectorAll(
-                            "[data-property-section]"
-                        )
-                        .forEach(
-                            section => {
-
-                                section.style.display =
-                                    !query ||
-                                    section.textContent
-                                        .toLowerCase()
-                                        .includes(
-                                            query
-                                        )
-                                        ? ""
-                                        : "none";
-                            }
-                        );
-                }
-            );
-
-
-        setupContextMenu();
-    }
-
-
-    // ============================================================
-    // MENUS
-    // ============================================================
-
-    function closeMenus() {
-
-        document
-            .querySelectorAll(
-                ".dropdown-menu, .floating-menu"
-            )
-            .forEach(
-                menu =>
-                    menu.classList.add(
-                        "hidden"
-                    )
-            );
-    }
-
-
-    function toggleMenu(id) {
-
-        const menu =
-            $(id);
-
-
-        if (!menu) {
-            return;
-        }
-
-
-        const hidden =
-            menu.classList.contains(
-                "hidden"
-            );
-
-
-        closeMenus();
-
-
-        if (hidden) {
-
-            menu.classList.remove(
-                "hidden"
-            );
-        }
-    }
-
-
-    // ============================================================
-    // ACTION HANDLER
-    // ============================================================
-
-    function handleAction(action) {
-
-        switch (action) {
-
-            case "new":
-                openModal(
-                    "newGameModal"
-                );
-                break;
-
-
-            case "open":
-                loadGame();
-                break;
-
-
-            case "save":
-                saveGame();
-                break;
-
-
-            case "publish":
-                openPublishModal();
-                break;
-
-
-            case "undo":
-                undo();
-                break;
-
-
-            case "redo":
-                redo();
-                break;
-
-
-            case "duplicate":
-                duplicateSelected();
-                break;
-
-
-            case "delete":
-                deleteSelected();
-                break;
-
-
-            case "toggleExplorer":
-
-                explorerPanel
-                    ?.classList
-                    .toggle(
-                        "hidden"
-                    );
-
-                break;
-
-
-            case "toggleProperties":
-
-                propertiesPanel
-                    ?.classList
-                    .toggle(
-                        "hidden"
-                    );
-
-                break;
-
-
-            case "toggleOutput":
-
-                $("outputPanel")
-                    ?.classList
-                    .toggle(
-                        "collapsed"
-                    );
-
-                break;
-
-
-            case "insertPart":
-                insertObject(
-                    "Part"
-                );
-                break;
-
-
-            case "insertSpawn":
-                insertObject(
-                    "SpawnLocation"
-                );
-                break;
-
-
-            case "insertModel":
-                insertObject(
-                    "Model"
-                );
-                break;
-
-
-            case "play":
-                playGame();
-                break;
-
-
-            case "stop":
-                stopGame();
-                break;
-
-
-            case "testHere":
-                playGame();
-                break;
-        }
-    }
-
-
-    // ============================================================
-    // CONTEXT MENU
-    // ============================================================
-
-    function setupContextMenu() {
-
-        const menu =
-            $("contextMenu");
-
-
-        if (!menu) {
-            return;
-        }
-
-
-        document.addEventListener(
-            "contextmenu",
-            event => {
-
-                const element =
-                    event.target.closest(
-                        ".tree-item"
-                    );
-
-
-                if (!element) {
-                    return;
-                }
-
-
-                const id =
-                    element.dataset.objectId;
-
-
-                if (
-                    !state.objects.has(
-                        id
-                    )
-                ) {
-                    return;
-                }
-
-
-                event.preventDefault();
-
-
-                selectObject(
-                    id
-                );
-
-
-                menu.classList.remove(
-                    "hidden"
-                );
-
-
-                menu.style.left =
-                    `${event.clientX}px`;
-
-
-                menu.style.top =
-                    `${event.clientY}px`;
-            }
-        );
-
-
-        document.addEventListener(
-            "click",
-            () => {
-
-                menu.classList.add(
-                    "hidden"
-                );
-            }
-        );
-
-
-        menu.addEventListener(
-            "click",
-            event => {
-
-                event.stopPropagation();
-
-
-                const button =
-                    event.target.closest(
-                        "[data-context-action]"
-                    );
-
-
-                if (!button) {
-                    return;
-                }
-
-
-                switch (
-                    button.dataset
-                        .contextAction
-                ) {
-
-                    case "duplicate":
-
-                        duplicateSelected();
-
-                        break;
-
-
-                    case "rename":
-
-                        renameSelected();
-
-                        break;
-
-
-                    case "delete":
-
-                        deleteSelected();
-
-                        break;
-                }
-
-
-                menu.classList.add(
-                    "hidden"
-                );
-            }
-        );
-    }
-
-
-    // ============================================================
-    // MENU BUTTONS
-    // ============================================================
-
-    function setupMenuButtons() {
-
-        $("fileMenuButton")
-            ?.addEventListener(
-                "click",
-                () =>
-                    toggleMenu(
-                        "fileMenu"
-                    )
-            );
-
-
-        $("editMenuButton")
-            ?.addEventListener(
-                "click",
-                () =>
-                    toggleMenu(
-                        "editMenu"
-                    )
-            );
-
-
-        $("viewMenuButton")
-            ?.addEventListener(
-                "click",
-                () =>
-                    toggleMenu(
-                        "viewMenu"
-                    )
-            );
-
-
-        $("modelMenuButton")
-            ?.addEventListener(
-                "click",
-                () =>
-                    toggleMenu(
-                        "modelMenu"
-                    )
-            );
-
-
-        $("testMenuButton")
-            ?.addEventListener(
-                "click",
-                () =>
-                    toggleMenu(
-                        "testMenu"
-                    )
-            );
-    }
-
-
-    // ============================================================
-    // INITIALIZE THREE
-    // ============================================================
-
-    async function initialize3D() {
-
-        if (!viewport) {
-
-            throw new Error(
-                "Viewport element #viewport was not found."
-            );
-        }
-
-
-        /*
-         * Give Three.js a maximum startup time.
-         */
-
-        let timeoutId;
-
-
-        const timeoutPromise =
-            new Promise(
-                (_, reject) => {
-
-                    timeoutId =
-                        setTimeout(
-                            () => {
-
-                                reject(
-                                    new Error(
-                                        "Three.js startup timed out."
-                                    )
-                                );
-
-                            },
-                            7000
-                        );
-                }
-            );
-
-
-        try {
-
-            await Promise.race(
-                [
-                    loadThree(),
-                    timeoutPromise
-                ]
-            );
-
-        } finally {
-
-            clearTimeout(
-                timeoutId
-            );
-        }
-
-
-        if (!THREE) {
-
-            throw new Error(
-                "Three.js is unavailable."
-            );
-        }
-
-
-        scene =
-            new THREE.Scene();
-
-
-        scene.background =
-            new THREE.Color(
-                "#171717"
-            );
-
-
-        camera =
-            new THREE.PerspectiveCamera(
-
-                60,
-
-                1,
-
-                0.1,
-
-                2000
-            );
-
-
-        renderer =
-            new THREE.WebGLRenderer({
-
-                antialias:
-                    true,
-
-                alpha:
-                    false
-            });
-
-
-        renderer.setPixelRatio(
-            Math.min(
-                window.devicePixelRatio ||
-                    1,
-
-                2
-            )
-        );
-
-
-        renderer.shadowMap.enabled =
-            true;
-
-
-        renderer.shadowMap.type =
-            THREE.PCFSoftShadowMap;
-
-
-        if (
-            "outputColorSpace"
-            in renderer
-        ) {
-
-            renderer.outputColorSpace =
-                THREE.SRGBColorSpace;
-        }
-
-
-        canvas =
-            renderer.domElement;
-
-
-        canvas.id =
-            "webblox3DCanvas";
-
-
-        canvas.style.position =
-            "absolute";
-
-
-        canvas.style.inset =
-            "0";
-
-
-        canvas.style.width =
-            "100%";
-
-
-        canvas.style.height =
-            "100%";
-
-
-        canvas.style.display =
-            "block";
-
-
-        canvas.style.zIndex =
-            "20";
-
-
-        viewport.appendChild(
-            canvas
-        );
-
-
-        // Lighting
-
-        ambientLight =
-            new THREE.HemisphereLight(
-
-                0xffffff,
-
-                0x333333,
-
-                1.8
-            );
-
-
-        scene.add(
-            ambientLight
-        );
-
-
-        directionalLight =
-            new THREE.DirectionalLight(
-
-                0xffffff,
-
-                2.5
-            );
-
-
-        directionalLight.position.set(
-            25,
-            40,
-            20
-        );
-
-
-        directionalLight.castShadow =
-            true;
-
-
-        directionalLight.shadow.mapSize.width =
-            2048;
-
-
-        directionalLight.shadow.mapSize.height =
-            2048;
-
-
-        scene.add(
-            directionalLight
-        );
-
-
-        // Raycaster
-
-        raycaster =
-            new THREE.Raycaster();
-
-
-        mouseVector =
-            new THREE.Vector2();
-
-
-        threeReady =
-            true;
-
-
-        createGrid();
-
-
-        setup3DInput();
-
-
-        resizeRenderer();
-
-
-        window.addEventListener(
-            "resize",
-            resizeRenderer
-        );
-
-
-        renderWorld();
-
-
-        updateCamera();
-
-
-        requestAnimationFrame(
-            animate
-        );
-
-
-        log(
-            "Real 3D WebGL viewport initialized."
-        );
-
-
-        log(
-            "Q Select | W Move | E Rotate | R Scale | F Focus"
-        );
-
-
-        log(
-            "RMB + WASD = camera movement."
-        );
-
-
-        log(
-            "RMB drag = camera rotation."
-        );
-
-
-        log(
-            "Mouse wheel = zoom."
-        );
-    }
-
-
-    function resizeRenderer() {
-
-        if (
-            !renderer ||
-            !camera ||
-            !viewport
-        ) {
-            return;
-        }
-
-
-        const width =
-            viewport.clientWidth;
-
-
-        const height =
-            viewport.clientHeight;
-
-
-        if (
-            width <= 0 ||
-            height <= 0
-        ) {
-            return;
-        }
-
-
-        renderer.setSize(
-            width,
-            height,
-            false
-        );
-
-
-        camera.aspect =
-            width /
-            height;
-
-
-        camera.updateProjectionMatrix();
-    }
-
-
-    // ============================================================
-    // INITIALIZE
-    // ============================================================
-
-    async function initialize() {
-
-        console.log(
-            "[WebBlox Studio] Starting initialization..."
-        );
-
-
-        /*
-         * FIRST:
-         * Remove fake/old viewport.
-         */
-
-        removeOldViewport();
-
-
-        /*
-         * SECOND:
-         * Create world immediately.
-         *
-         * This means Explorer/Properties can work even
-         * before WebGL finishes.
-         */
-
-        createDefaultWorld();
-
-
-        /*
-         * THIRD:
-         * Setup all normal Studio UI immediately.
-         */
-
-        setupKeyboard();
-
-        setupExplorer();
-
-        setupProperties();
-
-        setupButtons();
-
-        setupMenuButtons();
-
-
-        updateExplorer();
-
-        updateProperties();
-
-        updateGameStatus();
-
-
-        setTool(
-            "select"
-        );
-
-
-        if (viewportMode) {
-
-            viewportMode.textContent =
-                "Perspective";
-        }
-
-
-        log(
-            "Studio interface loaded."
-        );
-
-
-        /*
-         * FOURTH:
-         * Initialize WebGL.
-         *
-         * Player is deliberately NOT loaded here.
-         */
-
-        try {
-
-            await initialize3D();
-
-
-            removeOldViewport();
-
-
-            updateCamera();
-
-            updateExplorer();
-
-            updateProperties();
-
-
-            state.studioReady =
-                true;
-
-
-            log(
-                "WebBlox Studio ready."
-            );
-
-
-            console.log(
-                "[WebBlox Studio] Ready."
-            );
-
-        } catch (error) {
-
-            console.error(
-                "[WebBlox Studio] 3D initialization failed:",
-                error
-            );
-
-
-            log(
-                `3D viewport failed: ${error.message}`,
-                "error"
-            );
-
-
-            /*
-             * DO NOT stop the Studio.
-             *
-             * The editor UI remains usable.
-             */
-
-            state.studioReady =
-                true;
-
-
-            if (viewportMode) {
-
-                viewportMode.textContent =
-                    "Safe Mode";
-            }
-
-
-            showToast(
-                "3D viewport failed, but Studio opened in safe mode."
-            );
-        }
-
-
-        /*
-         * CRITICAL:
-         *
-         * Always finish the loading screen.
-         */
-
-        finishLoadingScreen();
-
-
-        /*
-         * Extra delayed failsafe.
-         */
-
-        setTimeout(
-            finishLoadingScreen,
-            100
-        );
-    }
-
-
-    // ============================================================
-    // GLOBAL ERROR PROTECTION
-    // ============================================================
-
-    window.addEventListener(
-        "error",
-        event => {
-
-            console.error(
-                "[WebBlox Studio] Global error:",
-                event.error ||
-                    event.message
-            );
-
-
-            /*
-             * Never allow a JavaScript error to leave
-             * the loading overlay covering the editor.
-             */
-
-            finishLoadingScreen();
         }
     );
 
 
-    window.addEventListener(
-        "unhandledrejection",
-        event => {
+    document
+        .getElementById(
+            "deleteObjectButton"
+        )
+        .addEventListener(
+            "click",
+            function() {
 
-            console.error(
-                "[WebBlox Studio] Unhandled promise rejection:",
-                event.reason
-            );
+                deleteSelectedObject();
+
+            }
+        );
+
+}
 
 
-            finishLoadingScreen();
-        }
+function deleteSelectedObject() {
+
+    if (!selectedObject) {
+        return;
+    }
+
+    const id =
+        selectedObject.id;
+
+    project.parts =
+        project.parts.filter(
+            part =>
+                part.id !== id
+        );
+
+    selectedObject =
+        null;
+
+    rebuildViewport();
+
+    renderExplorer();
+
+    renderProperties();
+
+    saveProject();
+
+    log(
+        "Object deleted."
     );
 
+}
 
-    // ============================================================
-    // PUBLIC API
-    // ============================================================
 
-    window.WebBloxStudio = {
+/* ============================================================
+   NEW PROJECT
+   ============================================================ */
 
-        state,
+function newProject() {
 
-        createObject,
+    const confirmed =
+        window.confirm(
+            "Create a new WebBlox project?"
+        );
 
-        insertObject,
+    if (!confirmed) {
+        return;
+    }
 
-        selectObject,
+    project = {
 
-        clearSelection,
+        name:
+            "My WebBlox Game",
 
-        deleteSelected,
+        description:
+            "Your WebBlox game",
 
-        duplicateSelected,
+        parts: []
 
-        renameSelected,
-
-        undo,
-
-        redo,
-
-        saveGame,
-
-        loadGame,
-
-        playGame,
-
-        stopGame,
-
-        resetCamera,
-
-        focusSelected,
-
-        setTool,
-
-        renderWorld,
-
-        publishGame,
-
-        finishLoadingScreen
     };
 
+    selectedObject =
+        null;
 
-    // ============================================================
-    // START
-    // ============================================================
+    rebuildViewport();
 
-    if (
-        document.readyState ===
-        "loading"
-    ) {
+    renderExplorer();
 
-        document.addEventListener(
-            "DOMContentLoaded",
-            initialize,
-            {
-                once: true
-            }
+    renderProperties();
+
+    saveProject();
+
+    log(
+        "New project created."
+    );
+
+}
+
+
+/* ============================================================
+   PLAY
+   ============================================================ */
+
+function playProject() {
+
+    saveProject();
+
+    /*
+       ../ means:
+
+       /WebBlox/studio/
+       ->
+       /WebBlox/
+    */
+
+    const playerURL =
+        new URL(
+            "../",
+            window.location.href
         );
 
-    } else {
+    playerURL.searchParams.set(
+        "play",
+        "1"
+    );
 
-        initialize();
+    window.location.href =
+        playerURL.href;
+
+}
+
+
+/* ============================================================
+   CAMERA
+   ============================================================ */
+
+function resetCamera() {
+
+    viewport.style.setProperty(
+        "--camera-x",
+        "0deg"
+    );
+
+    viewport.style.setProperty(
+        "--camera-y",
+        "0deg"
+    );
+
+    viewport.style.setProperty(
+        "--camera-z",
+        "0deg"
+    );
+
+    viewport.style.setProperty(
+        "--camera-scale",
+        "1"
+    );
+
+    log(
+        "Camera reset."
+    );
+
+}
+
+
+function topView() {
+
+    viewport.classList.toggle(
+        "top-view"
+    );
+
+    log(
+        "Top view toggled."
+    );
+
+}
+
+
+function toggleGrid() {
+
+    viewport.classList.toggle(
+        "grid-hidden"
+    );
+
+}
+
+
+/* ============================================================
+   BACK TO PLAYER
+   ============================================================ */
+
+function goToPlayer() {
+
+    window.location.href =
+        new URL(
+            "../",
+            window.location.href
+        ).href;
+
+}
+
+
+/* ============================================================
+   ESCAPE
+   ============================================================ */
+
+function escapeHTML(value) {
+
+    return String(value)
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+
+}
+
+
+/* ============================================================
+   EVENTS
+   ============================================================ */
+
+backToPlayer.addEventListener(
+    "click",
+    goToPlayer
+);
+
+newProjectButton.addEventListener(
+    "click",
+    newProject
+);
+
+saveProjectButton.addEventListener(
+    "click",
+    saveProject
+);
+
+playProjectButton.addEventListener(
+    "click",
+    playProject
+);
+
+insertPartButton.addEventListener(
+    "click",
+    addPart
+);
+
+insertSpawnButton.addEventListener(
+    "click",
+    addSpawn
+);
+
+gridButton.addEventListener(
+    "click",
+    toggleGrid
+);
+
+topViewButton.addEventListener(
+    "click",
+    topView
+);
+
+resetCameraButton.addEventListener(
+    "click",
+    resetCamera
+);
+
+
+/* ============================================================
+   VIEWPORT CLICK
+   ============================================================ */
+
+viewport.addEventListener(
+    "click",
+    function() {
+
+        selectedObject =
+            null;
+
+        renderProperties();
+
+        document
+            .querySelectorAll(
+                ".viewport-part"
+            )
+            .forEach(
+                element =>
+                    element.classList.remove(
+                        "selected"
+                    )
+            );
+
     }
+);
 
-})();
+
+/* ============================================================
+   START
+   ============================================================ */
+
+loadProject();
+
+rebuildViewport();
+
+renderExplorer();
+
+renderProperties();
+
+log(
+    "WebBlox Studio initialized."
+);
+
+log(
+    "Player connection ready."
+);
