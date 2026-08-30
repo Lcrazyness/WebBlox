@@ -1,13 +1,17 @@
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
 
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#111111"
     >
 
     <title>WebBlox Studio</title>
@@ -16,13 +20,18 @@
         rel="stylesheet"
         href="studio.css"
     >
-
 </head>
-
 
 <body>
 
-<div class="studio-app">
+<!-- ============================================================
+     WEBBLOX STUDIO
+     ============================================================ -->
+
+<div
+    id="studio"
+    class="studio"
+>
 
 
     <!-- ========================================================
@@ -33,51 +42,60 @@
 
         <div class="studio-brand">
 
-            <button
-                id="backToPlayer"
-                class="studio-back"
-                type="button"
-            >
-                ←
-            </button>
-
-            <div class="studio-logo">
+            <div class="studio-brand-icon">
                 W
             </div>
 
-            <div class="studio-title">
-
-                <strong>
-                    WebBlox Studio
-                </strong>
-
-                <span>
-                    Web editor
-                </span>
-
+            <div class="studio-brand-text">
+                <strong>WebBlox</strong>
+                <span>Studio</span>
             </div>
 
         </div>
 
 
-        <nav class="studio-tabs">
+        <!-- MAIN MENU -->
+
+        <nav
+            class="studio-menu"
+            aria-label="Studio menu"
+        >
 
             <button
-                class="studio-tab active"
+                id="fileMenuButton"
+                class="menu-button"
                 type="button"
             >
-                Home
+                File
             </button>
 
             <button
-                class="studio-tab"
+                id="editMenuButton"
+                class="menu-button"
+                type="button"
+            >
+                Edit
+            </button>
+
+            <button
+                id="viewMenuButton"
+                class="menu-button"
+                type="button"
+            >
+                View
+            </button>
+
+            <button
+                id="modelMenuButton"
+                class="menu-button"
                 type="button"
             >
                 Model
             </button>
 
             <button
-                class="studio-tab"
+                id="testMenuButton"
+                class="menu-button"
                 type="button"
             >
                 Test
@@ -86,259 +104,1793 @@
         </nav>
 
 
-        <div class="studio-actions">
+        <!-- TOOLBAR -->
+
+        <div class="studio-toolbar">
 
             <button
-                id="newProjectButton"
+                id="newGameButton"
+                class="toolbar-button"
                 type="button"
+                title="Create a new game"
             >
-                New
+                <span class="toolbar-icon">＋</span>
+                <span>New</span>
             </button>
 
             <button
-                id="saveProjectButton"
+                id="openGameButton"
+                class="toolbar-button"
                 type="button"
+                title="Open a game"
             >
-                Save
+                <span class="toolbar-icon">□</span>
+                <span>Open</span>
             </button>
 
             <button
-                id="playProjectButton"
-                class="studio-play"
+                id="saveGameButton"
+                class="toolbar-button"
+                type="button"
+                title="Save game"
+            >
+                <span class="toolbar-icon">▣</span>
+                <span>Save</span>
+            </button>
+
+            <div class="toolbar-divider"></div>
+
+            <button
+                id="undoButton"
+                class="toolbar-icon-button"
+                type="button"
+                title="Undo"
+                aria-label="Undo"
+            >
+                ↶
+            </button>
+
+            <button
+                id="redoButton"
+                class="toolbar-icon-button"
+                type="button"
+                title="Redo"
+                aria-label="Redo"
+            >
+                ↷
+            </button>
+
+        </div>
+
+
+        <!-- TEST CONTROLS -->
+
+        <div class="studio-test-controls">
+
+            <button
+                id="playButton"
+                class="play-button"
                 type="button"
             >
-                ▶ Play
+                <span>▶</span>
+                <span>Play</span>
             </button>
+
+            <button
+                id="stopButton"
+                class="stop-button"
+                type="button"
+                disabled
+            >
+                <span>■</span>
+                <span>Stop</span>
+            </button>
+
+        </div>
+
+
+        <!-- ACCOUNT -->
+
+        <div class="studio-account">
+
+            <div
+                id="accountAvatar"
+                class="account-avatar"
+            >
+                W
+            </div>
 
         </div>
 
     </header>
 
 
+
     <!-- ========================================================
-         MAIN STUDIO
+         MAIN WORKSPACE
          ======================================================== -->
 
-    <main class="studio-main">
+    <main class="studio-workspace">
 
 
-        <!-- LEFT TOOLBAR -->
+        <!-- ====================================================
+             LEFT SIDEBAR
+             ==================================================== -->
 
-        <aside class="studio-left">
+        <aside
+            id="explorerPanel"
+            class="studio-panel explorer-panel"
+        >
 
-            <div class="panel-title">
-                Tools
-            </div>
+            <div class="panel-header">
 
-            <button
-                id="selectTool"
-                class="tool-button active"
-                type="button"
-            >
-                ↖ Select
-            </button>
-
-            <button
-                id="moveTool"
-                class="tool-button"
-                type="button"
-            >
-                ✥ Move
-            </button>
-
-            <button
-                id="scaleTool"
-                class="tool-button"
-                type="button"
-            >
-                ⤢ Scale
-            </button>
-
-            <button
-                id="rotateTool"
-                class="tool-button"
-                type="button"
-            >
-                ⟳ Rotate
-            </button>
-
-
-            <div class="panel-divider"></div>
-
-
-            <div class="panel-title">
-                Insert
-            </div>
-
-            <button
-                id="insertPartButton"
-                class="insert-button"
-                type="button"
-            >
-                + Part
-            </button>
-
-            <button
-                id="insertSpawnButton"
-                class="insert-button"
-                type="button"
-            >
-                + Spawn
-            </button>
-
-        </aside>
-
-
-        <!-- CENTER -->
-
-        <section class="studio-center">
-
-
-            <div class="viewport-toolbar">
-
-                <span>
-                    3D Viewport
-                </span>
-
-                <div class="viewport-tools">
-
-                    <button
-                        id="gridButton"
-                        type="button"
-                    >
-                        Grid
-                    </button>
-
-                    <button
-                        id="topViewButton"
-                        type="button"
-                    >
-                        Top
-                    </button>
-
-                    <button
-                        id="resetCameraButton"
-                        type="button"
-                    >
-                        Reset
-                    </button>
-
-                </div>
-
-            </div>
-
-
-            <div
-                id="viewport"
-                class="viewport"
-            >
-
-                <div
-                    id="world"
-                    class="world"
-                >
-
-                    <div
-                        id="spawnPoint"
-                        class="spawn-point"
-                    >
-                        Spawn
-                    </div>
-
-                </div>
-
-
-                <div class="viewport-help">
-
-                    <span>
-                        Drag = Orbit
-                    </span>
-
-                    <span>
-                        Wheel = Zoom
-                    </span>
-
-                    <span>
-                        Right click = Pan
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <div class="studio-output">
-
-                <div class="output-title">
-                    Output
-                </div>
-
-                <div
-                    id="output"
-                    class="output"
-                ></div>
-
-            </div>
-
-        </section>
-
-
-        <!-- RIGHT -->
-
-        <aside class="studio-right">
-
-
-            <div class="right-section">
-
-                <div class="right-header">
+                <div class="panel-title">
                     Explorer
                 </div>
 
-                <div
-                    id="explorer"
-                    class="explorer"
-                ></div>
+                <div class="panel-actions">
+
+                    <button
+                        id="addObjectButton"
+                        class="panel-action-button"
+                        type="button"
+                        title="Add object"
+                    >
+                        ＋
+                    </button>
+
+                    <button
+                        id="refreshExplorerButton"
+                        class="panel-action-button"
+                        type="button"
+                        title="Refresh"
+                    >
+                        ↻
+                    </button>
+
+                </div>
 
             </div>
 
 
-            <div class="right-section properties-section">
+            <!-- SEARCH -->
 
-                <div class="right-header">
-                    Properties
-                </div>
+            <div class="explorer-search">
 
-                <div
-                    id="properties"
-                    class="properties"
+                <span class="search-symbol">
+                    ⌕
+                </span>
+
+                <input
+                    id="explorerSearch"
+                    type="text"
+                    placeholder="Search"
+                    autocomplete="off"
                 >
 
-                    <div class="nothing-selected">
+            </div>
 
-                        <strong>
-                            Nothing selected
-                        </strong>
 
-                        <span>
-                            Select an object
+            <!-- EXPLORER TREE -->
+
+            <div
+                id="explorerTree"
+                class="explorer-tree"
+            >
+
+                <div
+                    class="tree-item tree-root"
+                    data-object-id="workspace"
+                    data-object-type="Workspace"
+                >
+
+                    <button
+                        class="tree-expand"
+                        type="button"
+                        aria-label="Expand Workspace"
+                    >
+                        ▾
+                    </button>
+
+                    <span class="tree-icon">
+                        ◈
+                    </span>
+
+                    <span class="tree-name">
+                        Workspace
+                    </span>
+
+                </div>
+
+
+                <div
+                    id="workspaceChildren"
+                    class="tree-children"
+                >
+
+                    <div
+                        class="tree-item"
+                        data-object-id="camera"
+                        data-object-type="Camera"
+                    >
+
+                        <span class="tree-spacer"></span>
+
+                        <span class="tree-icon camera-icon">
+                            ◉
+                        </span>
+
+                        <span class="tree-name">
+                            Camera
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        class="tree-item"
+                        data-object-id="spawn"
+                        data-object-type="SpawnLocation"
+                    >
+
+                        <span class="tree-spacer"></span>
+
+                        <span class="tree-icon spawn-icon">
+                            ◆
+                        </span>
+
+                        <span class="tree-name">
+                            Spawn
                         </span>
 
                     </div>
 
                 </div>
 
+
+                <div
+                    class="tree-item"
+                    data-object-id="lighting"
+                    data-object-type="Lighting"
+                >
+
+                    <button
+                        class="tree-expand invisible"
+                        type="button"
+                        aria-hidden="true"
+                    >
+                        ▾
+                    </button>
+
+                    <span class="tree-icon">
+                        ☼
+                    </span>
+
+                    <span class="tree-name">
+                        Lighting
+                    </span>
+
+                </div>
+
+
+                <div
+                    class="tree-item"
+                    data-object-id="starterPlayer"
+                    data-object-type="StarterPlayer"
+                >
+
+                    <button
+                        class="tree-expand invisible"
+                        type="button"
+                        aria-hidden="true"
+                    >
+                        ▾
+                    </button>
+
+                    <span class="tree-icon">
+                        ●
+                    </span>
+
+                    <span class="tree-name">
+                        StarterPlayer
+                    </span>
+
+                </div>
+
+
+                <div
+                    class="tree-item"
+                    data-object-id="starterGui"
+                    data-object-type="StarterGui"
+                >
+
+                    <button
+                        class="tree-expand invisible"
+                        type="button"
+                        aria-hidden="true"
+                    >
+                        ▾
+                    </button>
+
+                    <span class="tree-icon">
+                        ▣
+                    </span>
+
+                    <span class="tree-name">
+                        StarterGui
+                    </span>
+
+                </div>
+
             </div>
 
+
+            <!-- ADD OBJECT MENU -->
+
+            <div
+                id="addObjectMenu"
+                class="floating-menu hidden"
+            >
+
+                <div class="floating-menu-title">
+                    Insert Object
+                </div>
+
+                <button
+                    class="object-menu-item"
+                    data-create-object="Part"
+                    type="button"
+                >
+                    <span>■</span>
+                    <span>Part</span>
+                </button>
+
+                <button
+                    class="object-menu-item"
+                    data-create-object="SpawnLocation"
+                    type="button"
+                >
+                    <span>◆</span>
+                    <span>Spawn Location</span>
+                </button>
+
+                <button
+                    class="object-menu-item"
+                    data-create-object="Model"
+                    type="button"
+                >
+                    <span>◇</span>
+                    <span>Model</span>
+                </button>
+
+                <button
+                    class="object-menu-item"
+                    data-create-object="Folder"
+                    type="button"
+                >
+                    <span>□</span>
+                    <span>Folder</span>
+                </button>
+
+                <button
+                    class="object-menu-item"
+                    data-create-object="Script"
+                    type="button"
+                >
+                    <span>⌘</span>
+                    <span>Script</span>
+                </button>
+
+            </div>
+
+        </aside>
+
+
+
+        <!-- ====================================================
+             CENTER
+             ==================================================== -->
+
+        <section class="studio-center">
+
+
+            <!-- VIEWPORT TOOLBAR -->
+
+            <div class="viewport-toolbar">
+
+                <div class="viewport-tools">
+
+                    <button
+                        id="selectTool"
+                        class="viewport-tool active"
+                        type="button"
+                        title="Select"
+                    >
+                        ↖
+                    </button>
+
+                    <button
+                        id="moveTool"
+                        class="viewport-tool"
+                        type="button"
+                        title="Move"
+                    >
+                        ✥
+                    </button>
+
+                    <button
+                        id="scaleTool"
+                        class="viewport-tool"
+                        type="button"
+                        title="Scale"
+                    >
+                        ⤢
+                    </button>
+
+                    <button
+                        id="rotateTool"
+                        class="viewport-tool"
+                        type="button"
+                        title="Rotate"
+                    >
+                        ↻
+                    </button>
+
+                </div>
+
+
+                <div class="viewport-divider"></div>
+
+
+                <div class="viewport-options">
+
+                    <button
+                        id="gridButton"
+                        class="viewport-option active"
+                        type="button"
+                    >
+                        Grid
+                    </button>
+
+                    <button
+                        id="snapButton"
+                        class="viewport-option active"
+                        type="button"
+                    >
+                        Snap
+                    </button>
+
+                </div>
+
+
+                <div class="viewport-spacer"></div>
+
+
+                <div class="viewport-camera">
+
+                    <span>
+                        Camera
+                    </span>
+
+                    <button
+                        id="cameraPerspectiveButton"
+                        class="camera-button active"
+                        type="button"
+                    >
+                        Perspective
+                    </button>
+
+                    <button
+                        id="cameraTopButton"
+                        class="camera-button"
+                        type="button"
+                    >
+                        Top
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 3D VIEWPORT
+                 ================================================= -->
+
+            <div
+                id="viewport"
+                class="viewport"
+                tabindex="0"
+            >
+
+                <!-- Background grid -->
+
+                <div
+                    id="viewportGrid"
+                    class="viewport-grid"
+                ></div>
+
+
+                <!-- World -->
+
+                <div
+                    id="world"
+                    class="world"
+                >
+
+                    <!-- Camera indicator -->
+
+                    <div
+                        id="cameraIndicator"
+                        class="camera-indicator"
+                    >
+
+                        <div class="camera-indicator-body">
+                            ◉
+                        </div>
+
+                        <span>
+                            Camera
+                        </span>
+
+                    </div>
+
+
+                    <!-- Spawn -->
+
+                    <div
+                        id="spawnObject"
+                        class="world-object spawn-object"
+                        data-object-id="spawn"
+                    >
+
+                        <div class="spawn-platform"></div>
+
+                        <div class="spawn-arrow">
+                            ↑
+                        </div>
+
+                        <span>
+                            Spawn
+                        </span>
+
+                    </div>
+
+
+                    <!-- Default Part -->
+
+                    <div
+                        id="defaultPart"
+                        class="world-object part-object"
+                        data-object-id="defaultPart"
+                        data-object-type="Part"
+                    >
+
+                        <div class="part-face part-top"></div>
+
+                        <div class="part-face part-front"></div>
+
+                        <div class="part-face part-side"></div>
+
+                    </div>
+
+
+                    <!-- Selection -->
+
+                    <div
+                        id="selectionBox"
+                        class="selection-box hidden"
+                    >
+
+                        <div class="selection-handle handle-top-left"></div>
+                        <div class="selection-handle handle-top-right"></div>
+                        <div class="selection-handle handle-bottom-left"></div>
+                        <div class="selection-handle handle-bottom-right"></div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Viewport center -->
+
+                <div
+                    id="viewportCrosshair"
+                    class="viewport-crosshair"
+                >
+                    <span></span>
+                    <span></span>
+                </div>
+
+
+                <!-- Camera controls -->
+
+                <div class="viewport-camera-controls">
+
+                    <button
+                        id="cameraZoomIn"
+                        type="button"
+                        title="Zoom in"
+                    >
+                        ＋
+                    </button>
+
+                    <button
+                        id="cameraZoomOut"
+                        type="button"
+                        title="Zoom out"
+                    >
+                        −
+                    </button>
+
+                    <button
+                        id="cameraReset"
+                        type="button"
+                        title="Reset camera"
+                    >
+                        ⌂
+                    </button>
+
+                </div>
+
+
+                <!-- Viewport status -->
+
+                <div class="viewport-status">
+
+                    <span id="viewportMode">
+                        Select
+                    </span>
+
+                    <span class="status-separator">
+                        |
+                    </span>
+
+                    <span id="viewportCoordinates">
+                        X: 0  Y: 0  Z: 0
+                    </span>
+
+                </div>
+
+
+                <!-- Empty viewport message -->
+
+                <div
+                    id="viewportWelcome"
+                    class="viewport-welcome"
+                >
+
+                    <div class="welcome-icon">
+                        W
+                    </div>
+
+                    <h2>
+                        Welcome to WebBlox Studio
+                    </h2>
+
+                    <p>
+                        Create something awesome.
+                    </p>
+
+                    <button
+                        id="welcomeAddPart"
+                        class="welcome-button"
+                        type="button"
+                    >
+                        ＋ Add Part
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 BOTTOM OUTPUT
+                 ================================================= -->
+
+            <section
+                id="outputPanel"
+                class="output-panel"
+            >
+
+                <div class="output-header">
+
+                    <div class="output-title">
+                        Output
+                    </div>
+
+                    <div class="output-actions">
+
+                        <button
+                            id="clearOutputButton"
+                            type="button"
+                        >
+                            Clear
+                        </button>
+
+                        <button
+                            id="toggleOutputButton"
+                            type="button"
+                        >
+                            −
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="outputConsole"
+                    class="output-console"
+                >
+
+                    <div class="console-line console-info">
+
+                        <span class="console-time">
+                            [WebBlox]
+                        </span>
+
+                        <span>
+                            Studio initialized.
+                        </span>
+
+                    </div>
+
+                    <div class="console-line console-info">
+
+                        <span class="console-time">
+                            [System]
+                        </span>
+
+                        <span>
+                            Ready to create.
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </section>
+
+
+
+        <!-- ====================================================
+             RIGHT SIDEBAR
+             ==================================================== -->
+
+        <aside
+            id="propertiesPanel"
+            class="studio-panel properties-panel"
+        >
+
+            <div class="panel-header">
+
+                <div class="panel-title">
+                    Properties
+                </div>
+
+                <div class="panel-actions">
+
+                    <button
+                        id="propertySearchButton"
+                        class="panel-action-button"
+                        type="button"
+                        title="Search properties"
+                    >
+                        ⌕
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- SELECTED OBJECT -->
+
+            <div
+                id="selectedObjectHeader"
+                class="selected-object-header"
+            >
+
+                <div
+                    id="selectedObjectIcon"
+                    class="selected-object-icon"
+                >
+                    ■
+                </div>
+
+                <div class="selected-object-info">
+
+                    <strong id="selectedObjectName">
+                        Nothing selected
+                    </strong>
+
+                    <span id="selectedObjectType">
+                        Select an object
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <!-- PROPERTY SEARCH -->
+
+            <div
+                id="propertySearch"
+                class="property-search hidden"
+            >
+
+                <input
+                    id="propertySearchInput"
+                    type="text"
+                    placeholder="Filter properties..."
+                    autocomplete="off"
+                >
+
+            </div>
+
+
+            <!-- PROPERTIES -->
+
+            <div
+                id="propertiesContent"
+                class="properties-content"
+            >
+
+                <!-- TRANSFORM -->
+
+                <section
+                    class="property-section"
+                    data-property-section="transform"
+                >
+
+                    <div class="property-section-header">
+
+                        <span>
+                            Transform
+                        </span>
+
+                        <span>
+                            ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Position
+                        </label>
+
+                        <div class="vector-input">
+
+                            <input
+                                id="positionX"
+                                type="number"
+                                value="0"
+                                step="1"
+                                data-property="position.x"
+                            >
+
+                            <input
+                                id="positionY"
+                                type="number"
+                                value="0"
+                                step="1"
+                                data-property="position.y"
+                            >
+
+                            <input
+                                id="positionZ"
+                                type="number"
+                                value="0"
+                                step="1"
+                                data-property="position.z"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Rotation
+                        </label>
+
+                        <div class="vector-input">
+
+                            <input
+                                id="rotationX"
+                                type="number"
+                                value="0"
+                                step="1"
+                                data-property="rotation.x"
+                            >
+
+                            <input
+                                id="rotationY"
+                                type="number"
+                                value="0"
+                                step="1"
+                                data-property="rotation.y"
+                            >
+
+                            <input
+                                id="rotationZ"
+                                type="number"
+                                value="0"
+                                step="1"
+                                data-property="rotation.z"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Size
+                        </label>
+
+                        <div class="vector-input">
+
+                            <input
+                                id="sizeX"
+                                type="number"
+                                value="4"
+                                min="0.1"
+                                step="1"
+                                data-property="size.x"
+                            >
+
+                            <input
+                                id="sizeY"
+                                type="number"
+                                value="1"
+                                min="0.1"
+                                step="1"
+                                data-property="size.y"
+                            >
+
+                            <input
+                                id="sizeZ"
+                                type="number"
+                                value="4"
+                                min="0.1"
+                                step="1"
+                                data-property="size.z"
+                            >
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- APPEARANCE -->
+
+                <section
+                    class="property-section"
+                    data-property-section="appearance"
+                >
+
+                    <div class="property-section-header">
+
+                        <span>
+                            Appearance
+                        </span>
+
+                        <span>
+                            ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Color
+                        </label>
+
+                        <div class="color-property">
+
+                            <input
+                                id="objectColor"
+                                type="color"
+                                value="#808080"
+                                data-property="color"
+                            >
+
+                            <span id="objectColorValue">
+                                #808080
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Material
+                        </label>
+
+                        <select
+                            id="objectMaterial"
+                            data-property="material"
+                        >
+
+                            <option value="Plastic">
+                                Plastic
+                            </option>
+
+                            <option value="SmoothPlastic">
+                                Smooth Plastic
+                            </option>
+
+                            <option value="Metal">
+                                Metal
+                            </option>
+
+                            <option value="Glass">
+                                Glass
+                            </option>
+
+                            <option value="Wood">
+                                Wood
+                            </option>
+
+                            <option value="Concrete">
+                                Concrete
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </section>
+
+
+                <!-- BEHAVIOR -->
+
+                <section
+                    class="property-section"
+                    data-property-section="behavior"
+                >
+
+                    <div class="property-section-header">
+
+                        <span>
+                            Behavior
+                        </span>
+
+                        <span>
+                            ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="property-row property-toggle-row">
+
+                        <label>
+                            Anchored
+                        </label>
+
+                        <label class="toggle">
+
+                            <input
+                                id="objectAnchored"
+                                type="checkbox"
+                                checked
+                                data-property="anchored"
+                            >
+
+                            <span class="toggle-slider"></span>
+
+                        </label>
+
+                    </div>
+
+
+                    <div class="property-row property-toggle-row">
+
+                        <label>
+                            Can Collide
+                        </label>
+
+                        <label class="toggle">
+
+                            <input
+                                id="objectCanCollide"
+                                type="checkbox"
+                                checked
+                                data-property="canCollide"
+                            >
+
+                            <span class="toggle-slider"></span>
+
+                        </label>
+
+                    </div>
+
+
+                    <div class="property-row property-toggle-row">
+
+                        <label>
+                            Cast Shadow
+                        </label>
+
+                        <label class="toggle">
+
+                            <input
+                                id="objectCastShadow"
+                                type="checkbox"
+                                checked
+                                data-property="castShadow"
+                            >
+
+                            <span class="toggle-slider"></span>
+
+                        </label>
+
+                    </div>
+
+                </section>
+
+
+                <!-- DATA -->
+
+                <section
+                    class="property-section"
+                    data-property-section="data"
+                >
+
+                    <div class="property-section-header">
+
+                        <span>
+                            Data
+                        </span>
+
+                        <span>
+                            ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Name
+                        </label>
+
+                        <input
+                            id="objectName"
+                            type="text"
+                            value="Part"
+                            data-property="name"
+                        >
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Class
+                        </label>
+
+                        <input
+                            id="objectClass"
+                            type="text"
+                            value="Part"
+                            disabled
+                        >
+
+                    </div>
+
+                </section>
+
+            </div>
+
+
+            <!-- NOTHING SELECTED -->
+
+            <div
+                id="noSelectionMessage"
+                class="no-selection-message hidden"
+            >
+
+                <div class="no-selection-icon">
+                    ◇
+                </div>
+
+                <strong>
+                    Nothing selected
+                </strong>
+
+                <span>
+                    Select an object in the viewport
+                    or Explorer to view its properties.
+                </span>
+
+            </div>
 
         </aside>
 
     </main>
 
+
+
+    <!-- ========================================================
+         STATUS BAR
+         ======================================================== -->
+
+    <footer class="studio-statusbar">
+
+        <div class="status-left">
+
+            <span
+                id="connectionStatus"
+                class="connection-status connected"
+            >
+                ● Connected
+            </span>
+
+            <span class="status-divider">
+                |
+            </span>
+
+            <span id="gameStatus">
+                Unsaved
+            </span>
+
+        </div>
+
+
+        <div class="status-center">
+
+            <span id="studioMessage">
+                Ready
+            </span>
+
+        </div>
+
+
+        <div class="status-right">
+
+            <span>
+                WebBlox Studio
+            </span>
+
+            <span class="status-divider">
+                |
+            </span>
+
+            <span id="studioVersion">
+                v0.1.0
+            </span>
+
+        </div>
+
+    </footer>
+
+
+
+    <!-- ========================================================
+         FILE MENU
+         ======================================================== -->
+
+    <div
+        id="fileMenu"
+        class="dropdown-menu hidden"
+    >
+
+        <button
+            type="button"
+            data-action="new"
+        >
+            <span>＋</span>
+            New Game
+        </button>
+
+        <button
+            type="button"
+            data-action="open"
+        >
+            <span>□</span>
+            Open Game
+        </button>
+
+        <button
+            type="button"
+            data-action="save"
+        >
+            <span>▣</span>
+            Save
+        </button>
+
+        <div class="dropdown-separator"></div>
+
+        <button
+            type="button"
+            data-action="publish"
+        >
+            <span>↑</span>
+            Publish to WebBlox
+        </button>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         EDIT MENU
+         ======================================================== -->
+
+    <div
+        id="editMenu"
+        class="dropdown-menu hidden"
+    >
+
+        <button
+            type="button"
+            data-action="undo"
+        >
+            <span>↶</span>
+            Undo
+        </button>
+
+        <button
+            type="button"
+            data-action="redo"
+        >
+            <span>↷</span>
+            Redo
+        </button>
+
+        <div class="dropdown-separator"></div>
+
+        <button
+            type="button"
+            data-action="duplicate"
+        >
+            <span>⧉</span>
+            Duplicate
+        </button>
+
+        <button
+            type="button"
+            data-action="delete"
+        >
+            <span>⌫</span>
+            Delete
+        </button>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         VIEW MENU
+         ======================================================== -->
+
+    <div
+        id="viewMenu"
+        class="dropdown-menu hidden"
+    >
+
+        <button
+            type="button"
+            data-action="toggleExplorer"
+        >
+            <span>▤</span>
+            Explorer
+        </button>
+
+        <button
+            type="button"
+            data-action="toggleProperties"
+        >
+            <span>☷</span>
+            Properties
+        </button>
+
+        <button
+            type="button"
+            data-action="toggleOutput"
+        >
+            <span>▰</span>
+            Output
+        </button>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         MODEL MENU
+         ======================================================== -->
+
+    <div
+        id="modelMenu"
+        class="dropdown-menu hidden"
+    >
+
+        <button
+            type="button"
+            data-action="insertPart"
+        >
+            <span>■</span>
+            Insert Part
+        </button>
+
+        <button
+            type="button"
+            data-action="insertSpawn"
+        >
+            <span>◆</span>
+            Insert Spawn
+        </button>
+
+        <button
+            type="button"
+            data-action="insertModel"
+        >
+            <span>◇</span>
+            Insert Model
+        </button>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         TEST MENU
+         ======================================================== -->
+
+    <div
+        id="testMenu"
+        class="dropdown-menu hidden"
+    >
+
+        <button
+            type="button"
+            data-action="play"
+        >
+            <span>▶</span>
+            Play
+        </button>
+
+        <button
+            type="button"
+            data-action="stop"
+        >
+            <span>■</span>
+            Stop
+        </button>
+
+        <div class="dropdown-separator"></div>
+
+        <button
+            type="button"
+            data-action="testHere"
+        >
+            <span>⌖</span>
+            Play Here
+        </button>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         NEW GAME MODAL
+         ======================================================== -->
+
+    <div
+        id="newGameModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-backdrop"></div>
+
+        <div class="modal-card">
+
+            <div class="modal-card-header">
+
+                <div>
+                    <h2>
+                        Create New Game
+                    </h2>
+
+                    <p>
+                        Start a new WebBlox project.
+                    </p>
+                </div>
+
+                <button
+                    class="modal-close"
+                    data-close-modal="newGameModal"
+                    type="button"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div class="modal-card-content">
+
+                <label class="modal-field">
+
+                    <span>
+                        Game Name
+                    </span>
+
+                    <input
+                        id="newGameName"
+                        type="text"
+                        placeholder="My Awesome Game"
+                        maxlength="100"
+                    >
+
+                </label>
+
+
+                <label class="modal-field">
+
+                    <span>
+                        Description
+                    </span>
+
+                    <textarea
+                        id="newGameDescription"
+                        placeholder="Describe your game..."
+                        maxlength="500"
+                    ></textarea>
+
+                </label>
+
+            </div>
+
+
+            <div class="modal-card-footer">
+
+                <button
+                    class="secondary-button"
+                    data-close-modal="newGameModal"
+                    type="button"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    id="createGameConfirm"
+                    class="primary-button"
+                    type="button"
+                >
+                    Create Game
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         PUBLISH MODAL
+         ======================================================== -->
+
+    <div
+        id="publishModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-backdrop"></div>
+
+        <div class="modal-card">
+
+            <div class="modal-card-header">
+
+                <div>
+                    <h2>
+                        Publish Game
+                    </h2>
+
+                    <p>
+                        Publish your game to WebBlox Games.
+                    </p>
+                </div>
+
+                <button
+                    class="modal-close"
+                    data-close-modal="publishModal"
+                    type="button"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div class="publish-preview">
+
+                <div
+                    id="publishGameIcon"
+                    class="publish-game-icon"
+                >
+                    W
+                </div>
+
+                <div>
+
+                    <strong id="publishGameName">
+                        My WebBlox Game
+                    </strong>
+
+                    <span id="publishGameDescription">
+                        Your game description
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="publish-warning">
+
+                <span>
+                    ℹ
+                </span>
+
+                <p>
+                    Publishing will make this game
+                    available in WebBlox Games.
+                </p>
+
+            </div>
+
+
+            <div class="modal-card-footer">
+
+                <button
+                    class="secondary-button"
+                    data-close-modal="publishModal"
+                    type="button"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    id="publishConfirmButton"
+                    class="primary-button"
+                    type="button"
+                >
+                    Publish Game
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         CONTEXT MENU
+         ======================================================== -->
+
+    <div
+        id="contextMenu"
+        class="context-menu hidden"
+    >
+
+        <button
+            type="button"
+            data-context-action="select"
+        >
+            Select
+        </button>
+
+        <button
+            type="button"
+            data-context-action="duplicate"
+        >
+            Duplicate
+        </button>
+
+        <button
+            type="button"
+            data-context-action="rename"
+        >
+            Rename
+        </button>
+
+        <div class="dropdown-separator"></div>
+
+        <button
+            type="button"
+            data-context-action="delete"
+        >
+            Delete
+        </button>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         TOAST
+         ======================================================== -->
+
+    <div
+        id="toastContainer"
+        class="toast-container"
+        aria-live="polite"
+    ></div>
+
+
+
+    <!-- ========================================================
+         LOADING SCREEN
+         ======================================================== -->
+
+    <div
+        id="studioLoading"
+        class="studio-loading"
+    >
+
+        <div class="loading-logo">
+            W
+        </div>
+
+        <div class="loading-title">
+            WebBlox Studio
+        </div>
+
+        <div class="loading-subtitle">
+            Loading editor...
+        </div>
+
+        <div class="loading-bar">
+
+            <div
+                id="loadingProgress"
+                class="loading-progress"
+            ></div>
+
+        </div>
+
+    </div>
+
+
 </div>
 
+
+<!-- ============================================================
+     STUDIO JAVASCRIPT
+     ============================================================ -->
 
 <script src="studio.js"></script>
 
 </body>
-
 </html>
