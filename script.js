@@ -2,16 +2,11 @@
 
 /* ============================================================
    WebBlox
-   Roblox Experience Frontend
+   Player + Studio Bridge
    ============================================================ */
 
 const API_BASE =
     "https://webblox-backend.onrender.com";
-
-
-const STUDIO_URL =
-    "studio/";
-
 
 const API = {
 
@@ -31,6 +26,88 @@ const API = {
 
 
 /* ============================================================
+   WEBBLOX URLS
+   ============================================================ */
+
+const WEBBLOX_ROOT =
+    new URL(
+        "./",
+        window.location.href
+    );
+
+const STUDIO_URL =
+    new URL(
+        "studio/",
+        WEBBLOX_ROOT
+    ).href;
+
+
+/* ============================================================
+   STUDIO PROJECT STORAGE
+   ============================================================ */
+
+const STUDIO_PROJECT_KEY =
+    "webblox_studio_project";
+
+const STUDIO_TEST_KEY =
+    "webblox_studio_test";
+
+
+function saveStudioProject(project) {
+
+    try {
+
+        localStorage.setItem(
+            STUDIO_PROJECT_KEY,
+            JSON.stringify(project)
+        );
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "[WebBlox] Could not save Studio project:",
+            error
+        );
+
+        return false;
+
+    }
+
+}
+
+
+function getStudioProject() {
+
+    try {
+
+        const saved =
+            localStorage.getItem(
+                STUDIO_PROJECT_KEY
+            );
+
+        if (!saved) {
+            return null;
+        }
+
+        return JSON.parse(saved);
+
+    } catch (error) {
+
+        console.error(
+            "[WebBlox] Could not load Studio project:",
+            error
+        );
+
+        return null;
+
+    }
+
+}
+
+
+/* ============================================================
    DOM
    ============================================================ */
 
@@ -46,14 +123,14 @@ const discoverButton =
 const favoritesButton =
     document.getElementById("favoritesButton");
 
+const homeButton =
+    document.getElementById("homeButton");
+
 const studioButton =
     document.getElementById("studioButton");
 
 const heroStudioButton =
     document.getElementById("heroStudioButton");
-
-const homeButton =
-    document.getElementById("homeButton");
 
 const exploreButton =
     document.getElementById("exploreButton");
@@ -102,6 +179,23 @@ const retryButton =
 
 
 /* ============================================================
+   TEST MODE DOM
+   ============================================================ */
+
+const testGameScreen =
+    document.getElementById("testGameScreen");
+
+const testGameName =
+    document.getElementById("testGameName");
+
+const testGameViewport =
+    document.getElementById("testGameViewport");
+
+const exitTestButton =
+    document.getElementById("exitTestButton");
+
+
+/* ============================================================
    MODAL
    ============================================================ */
 
@@ -145,18 +239,6 @@ let currentGame = null;
 
 
 /* ============================================================
-   STUDIO
-   ============================================================ */
-
-function openStudio() {
-
-    window.location.href =
-        STUDIO_URL;
-
-}
-
-
-/* ============================================================
    FAVORITES
    ============================================================ */
 
@@ -184,12 +266,7 @@ function getFavorites() {
             ? parsed
             : [];
 
-    } catch (error) {
-
-        console.error(
-            "[WebBlox] Favorites error:",
-            error
-        );
+    } catch {
 
         return [];
 
@@ -210,7 +287,7 @@ function saveFavorites(favorites) {
     } catch (error) {
 
         console.error(
-            "[WebBlox] Could not save favorites:",
+            "[WebBlox] Favorites error:",
             error
         );
 
@@ -309,7 +386,7 @@ function toggleFavorite(game) {
 
 
 /* ============================================================
-   NORMALIZE GAME
+   NORMALIZE
    ============================================================ */
 
 function normalizeGame(game) {
@@ -411,10 +488,6 @@ function normalizeGame(game) {
 }
 
 
-/* ============================================================
-   CLEAN GAME NAME
-   ============================================================ */
-
 function cleanGameName(name) {
 
     if (
@@ -444,10 +517,6 @@ function cleanGameName(name) {
 
 }
 
-
-/* ============================================================
-   CLEAN CREATOR
-   ============================================================ */
 
 function cleanCreatorName(name) {
 
@@ -481,15 +550,10 @@ function cleanCreatorName(name) {
 
 
 /* ============================================================
-   API FETCH
+   API
    ============================================================ */
 
 async function apiFetch(url) {
-
-    console.log(
-        "[WebBlox] Request:",
-        url
-    );
 
     let response;
 
@@ -508,12 +572,7 @@ async function apiFetch(url) {
                 }
             );
 
-    } catch (error) {
-
-        console.error(
-            "[WebBlox] Network error:",
-            error
-        );
+    } catch {
 
         throw new Error(
             "Could not connect to the WebBlox backend."
@@ -523,11 +582,6 @@ async function apiFetch(url) {
 
     const text =
         await response.text();
-
-    console.log(
-        "[WebBlox] HTTP:",
-        response.status
-    );
 
     if (!text) {
 
@@ -554,12 +608,7 @@ async function apiFetch(url) {
         data =
             JSON.parse(text);
 
-    } catch (error) {
-
-        console.error(
-            "[WebBlox] JSON error:",
-            text
-        );
+    } catch {
 
         throw new Error(
             "The backend returned invalid JSON."
@@ -594,7 +643,7 @@ async function apiFetch(url) {
 
 
 /* ============================================================
-   LOAD HOME
+   HOME
    ============================================================ */
 
 async function loadHome() {
@@ -659,11 +708,6 @@ async function loadHome() {
 
     } catch (error) {
 
-        console.error(
-            "[WebBlox] Home error:",
-            error
-        );
-
         recommendedGamesContainer.innerHTML =
             "";
 
@@ -680,7 +724,7 @@ async function loadHome() {
 
 
 /* ============================================================
-   RENDER GAMES
+   RENDER
    ============================================================ */
 
 function renderGames(
@@ -731,10 +775,6 @@ function renderGames(
 
 }
 
-
-/* ============================================================
-   CREATE GAME CARD
-   ============================================================ */
 
 function createGameCard(game) {
 
@@ -813,11 +853,6 @@ function createGameCard(game) {
 
     favoriteButton.className =
         "favorite-button";
-
-    favoriteButton.setAttribute(
-        "aria-label",
-        "Favorite"
-    );
 
     favoriteButton.innerHTML =
         isFavorite(game)
@@ -1054,13 +1089,11 @@ async function searchGames() {
 
     }
 
-
     showDiscover();
 
     searchSection.classList.remove(
         "hidden"
     );
-
 
     searchGamesContainer.innerHTML = `
         <div class="loading-card">
@@ -1069,28 +1102,21 @@ async function searchGames() {
         </div>
     `;
 
-
     searchStatus.textContent =
         'Searching Roblox for "' +
         query +
         '"...';
 
-
     try {
-
-        const url =
-            API.search +
-            "?q=" +
-            encodeURIComponent(
-                query
-            );
-
 
         const data =
             await apiFetch(
-                url
+                API.search +
+                "?q=" +
+                encodeURIComponent(
+                    query
+                )
             );
-
 
         const games =
             Array.isArray(
@@ -1103,7 +1129,6 @@ async function searchGames() {
                     ? data.results
                     : [];
 
-
         searchStatus.textContent =
             games.length +
             (
@@ -1112,26 +1137,18 @@ async function searchGames() {
                     : " experiences found"
             );
 
-
         renderGames(
             searchGamesContainer,
             games,
             "No Roblox experiences matched your search."
         );
 
-
         searchSection.scrollIntoView({
             behavior: "smooth",
             block: "start"
         });
 
-
     } catch (error) {
-
-        console.error(
-            "[WebBlox] Search error:",
-            error
-        );
 
         searchStatus.textContent =
             "Search failed";
@@ -1148,10 +1165,6 @@ async function searchGames() {
 
 }
 
-
-/* ============================================================
-   CLEAR SEARCH
-   ============================================================ */
 
 function clearSearch() {
 
@@ -1232,7 +1245,6 @@ function renderFavorites() {
 
     }
 
-
     favorites.forEach(
         game => {
 
@@ -1249,7 +1261,7 @@ function renderFavorites() {
 
 
 /* ============================================================
-   DISCOVER PAGE
+   DISCOVER
    ============================================================ */
 
 function showDiscover() {
@@ -1273,10 +1285,6 @@ function showDiscover() {
 }
 
 
-/* ============================================================
-   HOME
-   ============================================================ */
-
 function goHome() {
 
     showDiscover();
@@ -1293,10 +1301,6 @@ function goHome() {
 }
 
 
-/* ============================================================
-   SEE ALL
-   ============================================================ */
-
 function showAllGames() {
 
     showDiscover();
@@ -1310,7 +1314,29 @@ function showAllGames() {
 
 
 /* ============================================================
-   OPEN GAME
+   STUDIO NAVIGATION
+   ============================================================ */
+
+function openStudio() {
+
+    /*
+       This is intentionally relative to the WebBlox root.
+
+       From:
+       https://lcrazyness.github.io/WebBlox/
+
+       it opens:
+       https://lcrazyness.github.io/WebBlox/studio/
+    */
+
+    window.location.href =
+        STUDIO_URL;
+
+}
+
+
+/* ============================================================
+   GAME MODAL
    ============================================================ */
 
 function openGame(game) {
@@ -1318,56 +1344,36 @@ function openGame(game) {
     currentGame =
         normalizeGame(game);
 
-
     modalTitle.textContent =
         currentGame.name;
-
 
     modalCreator.textContent =
         "By " +
         currentGame.creator;
 
-
     modalDescription.textContent =
         currentGame.description ||
         "No description available.";
-
 
     modalPlayers.textContent =
         formatNumber(
             currentGame.playing
         );
 
-
     modalVisits.textContent =
         formatNumber(
             currentGame.visits
         );
-
 
     modalImage.src =
         getThumbnail(
             currentGame
         );
 
-
     modalImage.alt =
         currentGame.name;
 
-
-    modalImage.onerror =
-        function() {
-
-            this.src =
-                createPlaceholder(
-                    currentGame.name
-                );
-
-        };
-
-
     updateModalFavoriteButton();
-
 
     playButton.onclick =
         function() {
@@ -1377,7 +1383,6 @@ function openGame(game) {
             );
 
         };
-
 
     gameModal.classList.remove(
         "hidden"
@@ -1407,7 +1412,7 @@ function closeGame() {
 
 
 /* ============================================================
-   PLAY GAME
+   PLAY ROBLOX GAME
    ============================================================ */
 
 function playGame(game) {
@@ -1416,10 +1421,8 @@ function playGame(game) {
         return;
     }
 
-
     let placeId =
         game.placeId;
-
 
     if (
         !placeId &&
@@ -1431,8 +1434,9 @@ function playGame(game) {
 
     }
 
-
-    if (!placeId) {
+    if (
+        !placeId
+    ) {
 
         if (
             game.robloxUrl
@@ -1448,7 +1452,6 @@ function playGame(game) {
 
         }
 
-
         alert(
             "This experience does not have a Roblox place ID."
         );
@@ -1457,13 +1460,11 @@ function playGame(game) {
 
     }
 
-
     const url =
         "https://www.roblox.com/games/" +
         encodeURIComponent(
             placeId
         );
-
 
     window.open(
         url,
@@ -1475,7 +1476,7 @@ function playGame(game) {
 
 
 /* ============================================================
-   MODAL FAVORITE
+   MODAL FAVORITES
    ============================================================ */
 
 function updateModalFavoriteButton() {
@@ -1612,6 +1613,181 @@ function showLoading(
 
 
 /* ============================================================
+   TEST MODE
+   ============================================================ */
+
+function shouldStartTestMode() {
+
+    const params =
+        new URLSearchParams(
+            window.location.search
+        );
+
+    return (
+        params.get("play") === "1"
+    );
+
+}
+
+
+function startTestMode() {
+
+    const project =
+        getStudioProject();
+
+    if (!project) {
+
+        console.warn(
+            "[WebBlox] No Studio project found."
+        );
+
+        return;
+
+    }
+
+    discoverPage.classList.add(
+        "hidden"
+    );
+
+    favoritesPage.classList.add(
+        "hidden"
+    );
+
+    errorSection.classList.add(
+        "hidden"
+    );
+
+    testGameScreen.classList.remove(
+        "hidden"
+    );
+
+    testGameName.textContent =
+        project.name ||
+        "WebBlox Game";
+
+    document.body.classList.add(
+        "test-mode"
+    );
+
+    buildTestWorld(
+        project
+    );
+
+}
+
+
+function stopTestMode() {
+
+    testGameScreen.classList.add(
+        "hidden"
+    );
+
+    document.body.classList.remove(
+        "test-mode"
+    );
+
+    window.history.replaceState(
+        {},
+        document.title,
+        WEBBLOX_ROOT.pathname
+    );
+
+}
+
+
+function buildTestWorld(project) {
+
+    testGameViewport
+        .querySelectorAll(
+            ".studio-test-part"
+        )
+        .forEach(
+            element =>
+                element.remove()
+        );
+
+    const parts =
+        Array.isArray(
+            project.parts
+        )
+            ? project.parts
+            : [];
+
+    parts.forEach(
+        part => {
+
+            const element =
+                document.createElement(
+                    "div"
+                );
+
+            element.className =
+                "studio-test-part";
+
+            const x =
+                Number(part.x) || 0;
+
+            const y =
+                Number(part.y) || 0;
+
+            const z =
+                Number(part.z) || 0;
+
+            const sizeX =
+                Number(part.sizeX) || 4;
+
+            const sizeY =
+                Number(part.sizeY) || 1;
+
+            const sizeZ =
+                Number(part.sizeZ) || 4;
+
+            element.style.width =
+                Math.max(
+                    20,
+                    sizeX * 18
+                ) +
+                "px";
+
+            element.style.height =
+                Math.max(
+                    10,
+                    sizeY * 18
+                ) +
+                "px";
+
+            element.style.left =
+                "calc(50% + " +
+                (
+                    x * 18
+                ) +
+                "px)";
+
+            element.style.top =
+                "calc(50% + " +
+                (
+                    z * 18
+                ) +
+                "px)";
+
+            element.style.transform =
+                "translate(-50%, -50%)";
+
+            element.title =
+                part.name ||
+                "Part";
+
+            testGameViewport.appendChild(
+                element
+            );
+
+        }
+    );
+
+}
+
+
+/* ============================================================
    NUMBER FORMAT
    ============================================================ */
 
@@ -1619,7 +1795,6 @@ function formatNumber(number) {
 
     number =
         Number(number) || 0;
-
 
     if (
         number >= 1000000000
@@ -1637,7 +1812,6 @@ function formatNumber(number) {
 
     }
 
-
     if (
         number >= 1000000
     ) {
@@ -1654,7 +1828,6 @@ function formatNumber(number) {
 
     }
 
-
     if (
         number >= 1000
     ) {
@@ -1670,7 +1843,6 @@ function formatNumber(number) {
             "K";
 
     }
-
 
     return number.toLocaleString();
 
@@ -1697,7 +1869,6 @@ function createPlaceholder(name) {
                 ""
             );
 
-
     return (
         "data:image/svg+xml;charset=UTF-8," +
         encodeURIComponent(
@@ -1706,7 +1877,6 @@ function createPlaceholder(name) {
                 xmlns="http://www.w3.org/2000/svg"
                 width="768"
                 height="432"
-                viewBox="0 0 768 432"
             >
                 <rect
                     width="768"
@@ -1734,7 +1904,7 @@ function createPlaceholder(name) {
 
 
 /* ============================================================
-   ESCAPE HTML
+   ESCAPE
    ============================================================ */
 
 function escapeHTML(value) {
@@ -1806,6 +1976,10 @@ function setupEvents() {
         }
     );
 
+
+    /*
+       PLAYER -> STUDIO
+    */
 
     studioButton.addEventListener(
         "click",
@@ -1933,12 +2107,25 @@ function setupEvents() {
     );
 
 
+    exitTestButton.addEventListener(
+        "click",
+        function() {
+
+            stopTestMode();
+
+        }
+    );
+
+
     document.addEventListener(
         "keydown",
         function(event) {
 
             if (
-                event.key === "Escape"
+                event.key === "Escape" &&
+                testGameScreen.classList.contains(
+                    "hidden"
+                )
             ) {
 
                 closeGame();
@@ -1955,34 +2142,16 @@ function setupEvents() {
    START
    ============================================================ */
 
-console.log(
-    "===================================="
-);
-
-console.log(
-    "[WebBlox] Starting WebBlox..."
-);
-
-console.log(
-    "[WebBlox] Frontend:",
-    window.location.href
-);
-
-console.log(
-    "[WebBlox] Backend:",
-    API_BASE
-);
-
-console.log(
-    "[WebBlox] Studio:",
-    STUDIO_URL
-);
-
-console.log(
-    "===================================="
-);
-
-
 setupEvents();
 
-loadHome();
+if (
+    shouldStartTestMode()
+) {
+
+    startTestMode();
+
+} else {
+
+    loadHome();
+
+}
