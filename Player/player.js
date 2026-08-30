@@ -52,6 +52,14 @@
 
         camera: null,
 
+        cameraSettings: {
+            distance: 10,
+
+            height: 4,
+
+            smoothing: 0.12
+        },
+
         renderer: null,
 
         viewport: null,
@@ -74,6 +82,12 @@
 
         grounded: false,
 
+        moving: false,
+
+        sprinting: false,
+
+        animationTime: 0,
+
         keys: new Set(),
 
         mouse: {
@@ -86,14 +100,6 @@
             lastX: 0,
 
             lastY: 0
-        },
-
-        camera: {
-            distance: 10,
-
-            height: 4,
-
-            smoothing: 0.12
         },
 
         runtimeObjects: [],
@@ -293,12 +299,239 @@
 
 
     // ============================================================
+    // CHARACTER PART HELPERS (R15-style, merged from character.js)
+    // ============================================================
+
+    function createRoundedPart(
+        THREE,
+        name,
+        size,
+        color,
+        position,
+        parent
+    ) {
+
+        const geometry =
+            new THREE.CapsuleGeometry(
+                Math.min(size.x, size.z) * 0.38,
+                Math.max(
+                    0.1,
+                    size.y -
+                    Math.min(size.x, size.z) * 0.76
+                ),
+                6,
+                12
+            );
+
+        const material =
+            makePlayerMaterial(
+                THREE,
+                color
+            );
+
+        const mesh =
+            new THREE.Mesh(
+                geometry,
+                material
+            );
+
+        mesh.name = name;
+
+        mesh.position.set(
+            position.x,
+            position.y,
+            position.z
+        );
+
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        mesh.userData.characterPart = true;
+        mesh.userData.characterPartName = name;
+
+        parent.add(mesh);
+
+        return mesh;
+    }
+
+
+    function createBaconHair(THREE, head) {
+
+        const hair =
+            new THREE.Group();
+
+        hair.name = "BaconHair";
+
+        const baconColors = [
+            "#5b351f",
+            "#7a4727",
+            "#8f542d",
+            "#62351f",
+            "#9a5a31"
+        ];
+
+        for (let i = 0; i < 9; i++) {
+
+            const angle =
+                (Math.PI * 2 / 9) * i;
+
+            const radius = 0.68;
+
+            const strip =
+                new THREE.Mesh(
+                    new THREE.BoxGeometry(
+                        0.20,
+                        0.95,
+                        0.38
+                    ),
+                    makePlayerMaterial(
+                        THREE,
+                        baconColors[i % baconColors.length]
+                    )
+                );
+
+            strip.position.set(
+                Math.cos(angle) * radius,
+                0.58,
+                Math.sin(angle) * radius
+            );
+
+            strip.rotation.z =
+                Math.sin(angle) * 0.35;
+
+            strip.rotation.y =
+                angle;
+
+            strip.castShadow = true;
+
+            hair.add(strip);
+        }
+
+        for (let i = 0; i < 5; i++) {
+
+            const strip =
+                new THREE.Mesh(
+                    new THREE.BoxGeometry(
+                        0.25,
+                        0.85,
+                        0.42
+                    ),
+                    makePlayerMaterial(
+                        THREE,
+                        baconColors[(i + 2) % baconColors.length]
+                    )
+                );
+
+            strip.position.set(
+                (i - 2) * 0.25,
+                0.9,
+                -0.15
+            );
+
+            strip.rotation.z =
+                (i - 2) * 0.12;
+
+            strip.rotation.x =
+                -0.25;
+
+            strip.castShadow = true;
+
+            hair.add(strip);
+        }
+
+        head.add(hair);
+
+        return hair;
+    }
+
+
+    function createFace(THREE, head) {
+
+        const face =
+            new THREE.Group();
+
+        face.name = "Face";
+
+        const eyeMaterial =
+            makePlayerMaterial(
+                THREE,
+                "#111111"
+            );
+
+        const eyeGeometry =
+            new THREE.SphereGeometry(
+                0.10,
+                12,
+                8
+            );
+
+        const leftEye =
+            new THREE.Mesh(
+                eyeGeometry,
+                eyeMaterial
+            );
+
+        leftEye.position.set(
+            -0.30,
+            0.15,
+            0.80
+        );
+
+        const rightEye =
+            new THREE.Mesh(
+                eyeGeometry,
+                eyeMaterial
+            );
+
+        rightEye.position.set(
+            0.30,
+            0.15,
+            0.80
+        );
+
+        face.add(leftEye);
+        face.add(rightEye);
+
+        const smile =
+            new THREE.Mesh(
+                new THREE.TorusGeometry(
+                    0.22,
+                    0.035,
+                    6,
+                    16,
+                    Math.PI
+                ),
+                makePlayerMaterial(
+                    THREE,
+                    "#222222"
+                )
+            );
+
+        smile.position.set(
+            0,
+            -0.18,
+            0.80
+        );
+
+        smile.rotation.x =
+            Math.PI / 2;
+
+        face.add(smile);
+
+        head.add(face);
+
+        return face;
+    }
+
+
+    // ============================================================
     // CREATE CHARACTER
     // ============================================================
 
     function createCharacter() {
 
-        const THREE = getThree();
+        const THREE =
+            getThree();
 
         destroyCharacter();
 
@@ -313,30 +546,38 @@
 
 
         // --------------------------------------------------------
-        // Body
+        // Colors
         // --------------------------------------------------------
 
-        const body =
-            new THREE.Mesh(
-                new THREE.BoxGeometry(
-                    2,
-                    2.5,
-                    1.2
-                ),
-                makePlayerMaterial(
-                    THREE,
-                    "#3b82f6"
-                )
+        const skin = "#f2c29b";
+        const shirt = "#3b82f6";
+        const pants = "#303030";
+        const shoe = "#202020";
+
+
+        // --------------------------------------------------------
+        // Torso
+        // --------------------------------------------------------
+
+        const lowerTorso =
+            createRoundedPart(
+                THREE,
+                "LowerTorso",
+                { x: 1.8, y: 0.85, z: 1.0 },
+                shirt,
+                { x: 0, y: 2.65, z: 0 },
+                root
             );
 
-        body.position.y =
-            1.75;
-
-        body.castShadow = true;
-
-        body.receiveShadow = true;
-
-        root.add(body);
+        const upperTorso =
+            createRoundedPart(
+                THREE,
+                "UpperTorso",
+                { x: 2.0, y: 1.2, z: 1.05 },
+                shirt,
+                { x: 0, y: 3.55, z: 0 },
+                root
+            );
 
 
         // --------------------------------------------------------
@@ -344,138 +585,159 @@
         // --------------------------------------------------------
 
         const head =
-            new THREE.Mesh(
-                new THREE.BoxGeometry(
-                    1.7,
-                    1.7,
-                    1.7
-                ),
-                makePlayerMaterial(
-                    THREE,
-                    "#f2c29b"
-                )
+            createRoundedPart(
+                THREE,
+                "Head",
+                { x: 1.75, y: 1.75, z: 1.75 },
+                skin,
+                { x: 0, y: 4.95, z: 0 },
+                root
             );
 
-        head.position.y =
-            3.85;
+        head.userData.isHead = true;
 
-        head.castShadow = true;
-
-        head.receiveShadow = true;
-
-        root.add(head);
+        createFace(THREE, head);
+        createBaconHair(THREE, head);
 
 
         // --------------------------------------------------------
         // Left arm
         // --------------------------------------------------------
 
-        const leftArm =
-            new THREE.Mesh(
-                new THREE.BoxGeometry(
-                    0.65,
-                    2.2,
-                    0.65
-                ),
-                makePlayerMaterial(
-                    THREE,
-                    "#3b82f6"
-                )
+        const leftUpperArm =
+            createRoundedPart(
+                THREE,
+                "LeftUpperArm",
+                { x: 0.55, y: 1.05, z: 0.55 },
+                skin,
+                { x: -1.25, y: 3.65, z: 0 },
+                root
             );
 
-        leftArm.position.set(
-            -1.35,
-            1.8,
-            0
-        );
+        const leftLowerArm =
+            createRoundedPart(
+                THREE,
+                "LeftLowerArm",
+                { x: 0.50, y: 1.05, z: 0.50 },
+                skin,
+                { x: -1.25, y: 2.60, z: 0 },
+                root
+            );
 
-        leftArm.castShadow = true;
-
-        root.add(leftArm);
+        const leftHand =
+            createRoundedPart(
+                THREE,
+                "LeftHand",
+                { x: 0.55, y: 0.55, z: 0.55 },
+                skin,
+                { x: -1.25, y: 1.85, z: 0 },
+                root
+            );
 
 
         // --------------------------------------------------------
         // Right arm
         // --------------------------------------------------------
 
-        const rightArm =
-            new THREE.Mesh(
-                new THREE.BoxGeometry(
-                    0.65,
-                    2.2,
-                    0.65
-                ),
-                makePlayerMaterial(
-                    THREE,
-                    "#3b82f6"
-                )
+        const rightUpperArm =
+            createRoundedPart(
+                THREE,
+                "RightUpperArm",
+                { x: 0.55, y: 1.05, z: 0.55 },
+                skin,
+                { x: 1.25, y: 3.65, z: 0 },
+                root
             );
 
-        rightArm.position.set(
-            1.35,
-            1.8,
-            0
-        );
+        const rightLowerArm =
+            createRoundedPart(
+                THREE,
+                "RightLowerArm",
+                { x: 0.50, y: 1.05, z: 0.50 },
+                skin,
+                { x: 1.25, y: 2.60, z: 0 },
+                root
+            );
 
-        rightArm.castShadow = true;
-
-        root.add(rightArm);
+        const rightHand =
+            createRoundedPart(
+                THREE,
+                "RightHand",
+                { x: 0.55, y: 0.55, z: 0.55 },
+                skin,
+                { x: 1.25, y: 1.85, z: 0 },
+                root
+            );
 
 
         // --------------------------------------------------------
         // Left leg
         // --------------------------------------------------------
 
-        const leftLeg =
-            new THREE.Mesh(
-                new THREE.BoxGeometry(
-                    0.75,
-                    2.3,
-                    0.75
-                ),
-                makePlayerMaterial(
-                    THREE,
-                    "#202020"
-                )
+        const leftUpperLeg =
+            createRoundedPart(
+                THREE,
+                "LeftUpperLeg",
+                { x: 0.75, y: 1.15, z: 0.75 },
+                pants,
+                { x: -0.48, y: 1.65, z: 0 },
+                root
             );
 
-        leftLeg.position.set(
-            -0.5,
-            -0.55,
-            0
-        );
+        const leftLowerLeg =
+            createRoundedPart(
+                THREE,
+                "LeftLowerLeg",
+                { x: 0.65, y: 1.15, z: 0.65 },
+                pants,
+                { x: -0.48, y: 0.55, z: 0 },
+                root
+            );
 
-        leftLeg.castShadow = true;
-
-        root.add(leftLeg);
+        const leftFoot =
+            createRoundedPart(
+                THREE,
+                "LeftFoot",
+                { x: 0.75, y: 0.45, z: 1.15 },
+                shoe,
+                { x: -0.48, y: 0.08, z: 0.20 },
+                root
+            );
 
 
         // --------------------------------------------------------
         // Right leg
         // --------------------------------------------------------
 
-        const rightLeg =
-            new THREE.Mesh(
-                new THREE.BoxGeometry(
-                    0.75,
-                    2.3,
-                    0.75
-                ),
-                makePlayerMaterial(
-                    THREE,
-                    "#202020"
-                )
+        const rightUpperLeg =
+            createRoundedPart(
+                THREE,
+                "RightUpperLeg",
+                { x: 0.75, y: 1.15, z: 0.75 },
+                pants,
+                { x: 0.48, y: 1.65, z: 0 },
+                root
             );
 
-        rightLeg.position.set(
-            0.5,
-            -0.55,
-            0
-        );
+        const rightLowerLeg =
+            createRoundedPart(
+                THREE,
+                "RightLowerLeg",
+                { x: 0.65, y: 1.15, z: 0.65 },
+                pants,
+                { x: 0.48, y: 0.55, z: 0 },
+                root
+            );
 
-        rightLeg.castShadow = true;
-
-        root.add(rightLeg);
+        const rightFoot =
+            createRoundedPart(
+                THREE,
+                "RightFoot",
+                { x: 0.75, y: 0.45, z: 1.15 },
+                shoe,
+                { x: 0.48, y: 0.08, z: 0.20 },
+                root
+            );
 
 
         // --------------------------------------------------------
@@ -493,14 +755,42 @@
             root;
 
         state.characterParts = [
-            body,
+            lowerTorso,
+            upperTorso,
             head,
-            leftArm,
-            rightArm,
-            leftLeg,
-            rightLeg
+            leftUpperArm,
+            leftLowerArm,
+            leftHand,
+            rightUpperArm,
+            rightLowerArm,
+            rightHand,
+            leftUpperLeg,
+            leftLowerLeg,
+            leftFoot,
+            rightUpperLeg,
+            rightLowerLeg,
+            rightFoot
         ];
 
+        /*
+         * Named references, used by
+         * updateCharacterAnimation() for
+         * walk / idle / jump limb swing.
+         */
+
+        root.userData.bodyParts = {
+            upperTorso,
+            leftUpperArm,
+            rightUpperArm,
+            leftLowerArm,
+            rightLowerArm,
+            leftUpperLeg,
+            rightUpperLeg,
+            leftLowerLeg,
+            rightLowerLeg
+        };
+
+        root.userData.height = 5.4;
 
         state.scene.add(root);
 
@@ -1178,7 +1468,7 @@
 
 
         if (
-            state.character.position.y <
+            state.character.position.y 
             floorY
         ) {
 
@@ -1450,6 +1740,21 @@
 
 
         /*
+         * Reset per-frame animation flags.
+         * Set to true below only if the
+         * character actually has input.
+         */
+
+        state.moving =
+            false;
+
+        state.sprinting =
+            state.keys.has(
+                "shift"
+            );
+
+
+        /*
          * IMPORTANT:
          *
          * W = forward
@@ -1505,6 +1810,10 @@
             forward !== 0 ||
             right !== 0
         ) {
+
+            state.moving =
+                true;
+
 
             const length =
                 Math.hypot(
@@ -1640,7 +1949,7 @@
 
 
             while (
-                difference <
+                difference 
                 -Math.PI
             ) {
                 difference +=
@@ -1706,6 +2015,203 @@
 
 
     // ============================================================
+    // ANIMATION (walk / idle / jump limb swing)
+    //
+    // Merged from the old Player/animations.js module and
+    // adapted to read directly from this file's own `state`
+    // instead of a separate PlayerSystem namespace.
+    // ============================================================
+
+    function resetPartRotation(part) {
+
+        if (!part) {
+            return;
+        }
+
+        part.rotation.x = 0;
+        part.rotation.y = 0;
+        part.rotation.z = 0;
+    }
+
+
+    function updateCharacterAnimation(delta) {
+
+        const character =
+            state.character;
+
+        if (
+            !character ||
+            !character.userData.bodyParts
+        ) {
+            return;
+        }
+
+        state.animationTime +=
+            delta;
+
+        const parts =
+            character.userData.bodyParts;
+
+        let animState =
+            "Idle";
+
+        if (!state.grounded) {
+
+            animState =
+                state.velocity.y > 1
+                    ? "Jumping"
+                    : "Freefall";
+
+        } else if (state.moving) {
+
+            animState =
+                state.sprinting
+                    ? "Running"
+                    : "Walking";
+        }
+
+
+        Object.values(parts)
+            .forEach(
+                resetPartRotation
+            );
+
+
+        const speed =
+            state.sprinting
+                ? 11
+                : 8;
+
+        const swing =
+            Math.sin(
+                state.animationTime *
+                speed
+            );
+
+        const walkAmount =
+            state.sprinting
+                ? 0.65
+                : 0.45;
+
+
+        if (
+            animState === "Walking" ||
+            animState === "Running"
+        ) {
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.x =
+                    swing * walkAmount;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.x =
+                    -swing * walkAmount;
+            }
+
+            if (parts.leftLowerArm) {
+                parts.leftLowerArm.rotation.x =
+                    swing * 0.18;
+            }
+
+            if (parts.rightLowerArm) {
+                parts.rightLowerArm.rotation.x =
+                    -swing * 0.18;
+            }
+
+            if (parts.leftUpperLeg) {
+                parts.leftUpperLeg.rotation.x =
+                    -swing * walkAmount;
+            }
+
+            if (parts.rightUpperLeg) {
+                parts.rightUpperLeg.rotation.x =
+                    swing * walkAmount;
+            }
+
+            if (parts.leftLowerLeg) {
+                parts.leftLowerLeg.rotation.x =
+                    Math.max(0, swing) * 0.18;
+            }
+
+            if (parts.rightLowerLeg) {
+                parts.rightLowerLeg.rotation.x =
+                    Math.max(0, -swing) * 0.18;
+            }
+        }
+
+        else if (animState === "Idle") {
+
+            const breathing =
+                Math.sin(
+                    state.animationTime * 2
+                ) * 0.025;
+
+            if (parts.upperTorso) {
+                parts.upperTorso.rotation.x =
+                    breathing;
+            }
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.z =
+                    0.03;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.z =
+                    -0.03;
+            }
+        }
+
+        else if (animState === "Jumping") {
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.x =
+                    -0.8;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.x =
+                    -0.8;
+            }
+
+            if (parts.leftUpperLeg) {
+                parts.leftUpperLeg.rotation.x =
+                    0.25;
+            }
+
+            if (parts.rightUpperLeg) {
+                parts.rightUpperLeg.rotation.x =
+                    0.25;
+            }
+        }
+
+        else if (animState === "Freefall") {
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.x =
+                    -0.35;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.x =
+                    -0.35;
+            }
+
+            if (parts.leftUpperLeg) {
+                parts.leftUpperLeg.rotation.x =
+                    -0.15;
+            }
+
+            if (parts.rightUpperLeg) {
+                parts.rightUpperLeg.rotation.x =
+                    -0.15;
+            }
+        }
+    }
+
+
+    // ============================================================
     // CAMERA
     // ============================================================
 
@@ -1733,7 +2239,7 @@
 
         const horizontal =
             Math.cos(pitch) *
-            state.camera.distance;
+            state.cameraSettings.distance;
 
 
         const desiredX =
@@ -1744,10 +2250,10 @@
 
         const desiredY =
             state.character.position.y +
-            state.camera.height +
+            state.cameraSettings.height +
             (
                 Math.sin(pitch) *
-                state.camera.distance
+                state.cameraSettings.distance
             );
 
 
@@ -1865,6 +2371,8 @@
         updateMovement(delta);
 
         updateGravity(delta);
+
+        updateCharacterAnimation(delta);
 
         updateCamera(delta);
 
