@@ -92,6 +92,17 @@ button {
     background: #ffffff;
 }
 
+.studio-project-name {
+    color: #cfcfcf;
+    font-size: 13px;
+    font-weight: 600;
+    padding-left: 12px;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .studio-brand-icon {
     width: 30px;
     height: 30px;
