@@ -961,28 +961,28 @@
     }
 
     function updateStudioTitle(project) {
-        const candidates = [
-            "#projectTitle",
-            "#gameTitle",
-            ".studio-project-title",
-            "[data-project-title]"
-        ];
+        /*
+         * IMPORTANT: this used to also try a
+         * "[data-project-title]" selector as a
+         * fallback. That is unsafe — enterStudio()
+         * sets a data-project-title attribute on
+         * <body> itself for bookkeeping, so that
+         * selector would match <body> and
+         * element.textContent = project.title
+         * would wipe out the entire page (every
+         * child of <body>, replaced by a single
+         * text node). Only ever target a real,
+         * dedicated title element by id.
+         */
 
-        for (
-            const selector
-            of candidates
-        ) {
-            const element =
-                document.querySelector(
-                    selector
-                );
+        const element =
+            document.getElementById(
+                "projectTitle"
+            );
 
-            if (element) {
-                element.textContent =
-                    project.title;
-
-                break;
-            }
+        if (element) {
+            element.textContent =
+                project.title;
         }
 
         document.title =
