@@ -798,6 +798,7 @@
     }
 
 
+
     // ============================================================
     // DESTROY CHARACTER
     // ============================================================
@@ -1468,7 +1469,7 @@
 
 
         if (
-            state.character.position.y 
+            state.character.position.y <
             floorY
         ) {
 
@@ -1949,7 +1950,7 @@
 
 
             while (
-                difference 
+                difference <
                 -Math.PI
             ) {
                 difference +=
