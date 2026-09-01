@@ -122,15 +122,13 @@
     // CONSTANTS
     // ============================================================
 
-    const PLAYER_HEIGHT = 5;
+    const PLAYER_HEIGHT = 6.15;
 
-    const PLAYER_WIDTH = 2;
+    const PLAYER_WIDTH = 1.8;
 
-    const PLAYER_DEPTH = 1.5;
+    const PLAYER_DEPTH = 1.0;
 
-    const MOVE_SPEED = 9;
-
-    const RUN_SPEED = 16;
+    const MOVE_SPEED = 12;
 
     const JUMP_POWER = 11;
 
@@ -141,6 +139,14 @@
     const MIN_PITCH = -75;
 
     const MAX_PITCH = 35;
+
+    const MIN_CAMERA_DISTANCE = 0;
+
+    const MAX_CAMERA_DISTANCE = 20;
+
+    const FIRST_PERSON_DISTANCE = 1.6;
+
+    const ZOOM_STEP = 0.0015;
 
 
     // ============================================================
@@ -556,6 +562,26 @@
 
 
         // --------------------------------------------------------
+        // Proportions (feet at y=0, stacked upward)
+        // --------------------------------------------------------
+
+        const footHeight = 0.45;
+        const lowerLegLen = 0.9;
+        const upperLegLen = 1.0;
+        const lowerTorsoHeight = 0.85;
+        const upperTorsoHeight = 1.2;
+        const upperArmLen = 0.9;
+        const lowerArmLen = 0.85;
+
+        const hipY = footHeight + lowerLegLen + upperLegLen;
+        const lowerTorsoTop = hipY + lowerTorsoHeight;
+        const upperTorsoTop = lowerTorsoTop + upperTorsoHeight;
+        const shoulderY = lowerTorsoTop + upperTorsoHeight * 0.62;
+        const hipX = 0.48;
+        const shoulderX = 1.25;
+
+
+        // --------------------------------------------------------
         // Torso
         // --------------------------------------------------------
 
@@ -563,9 +589,9 @@
             createRoundedPart(
                 THREE,
                 "LowerTorso",
-                { x: 1.8, y: 0.85, z: 1.0 },
+                { x: 1.8, y: lowerTorsoHeight, z: 1.0 },
                 shirt,
-                { x: 0, y: 2.65, z: 0 },
+                { x: 0, y: hipY + lowerTorsoHeight / 2, z: 0 },
                 root
             );
 
@@ -573,9 +599,9 @@
             createRoundedPart(
                 THREE,
                 "UpperTorso",
-                { x: 2.0, y: 1.2, z: 1.05 },
+                { x: 2.0, y: upperTorsoHeight, z: 1.05 },
                 shirt,
-                { x: 0, y: 3.55, z: 0 },
+                { x: 0, y: lowerTorsoTop + upperTorsoHeight / 2, z: 0 },
                 root
             );
 
@@ -590,7 +616,7 @@
                 "Head",
                 { x: 1.75, y: 1.75, z: 1.75 },
                 skin,
-                { x: 0, y: 4.95, z: 0 },
+                { x: 0, y: upperTorsoTop + 0.875, z: 0 },
                 root
             );
 
@@ -601,143 +627,218 @@
 
 
         // --------------------------------------------------------
+        // Limb helper
+        //
+        // Builds a real joint hierarchy instead of loose,
+        // independently-positioned capsules: a pivot Group sits
+        // at the joint (shoulder / hip / elbow / knee), and the
+        // limb segment mesh hangs *below* that pivot. Rotating
+        // the pivot then swings the limb the way a real joint
+        // would, instead of spinning a capsule around its own
+        // middle and tearing it away from the body.
+        // --------------------------------------------------------
+
+        function createPivot(name, position, parent) {
+
+            const pivot =
+                new THREE.Group();
+
+            pivot.name = name;
+
+            pivot.position.set(
+                position.x,
+                position.y,
+                position.z
+            );
+
+            parent.add(pivot);
+
+            return pivot;
+        }
+
+
+        // --------------------------------------------------------
         // Left arm
         // --------------------------------------------------------
 
-        const leftUpperArm =
-            createRoundedPart(
-                THREE,
-                "LeftUpperArm",
-                { x: 0.55, y: 1.05, z: 0.55 },
-                skin,
-                { x: -1.25, y: 3.65, z: 0 },
+        const leftShoulder =
+            createPivot(
+                "LeftShoulder",
+                { x: -shoulderX, y: shoulderY, z: 0 },
                 root
             );
 
-        const leftLowerArm =
-            createRoundedPart(
-                THREE,
-                "LeftLowerArm",
-                { x: 0.50, y: 1.05, z: 0.50 },
-                skin,
-                { x: -1.25, y: 2.60, z: 0 },
-                root
+        createRoundedPart(
+            THREE,
+            "LeftUpperArm",
+            { x: 0.55, y: upperArmLen, z: 0.55 },
+            skin,
+            { x: 0, y: -upperArmLen / 2, z: 0 },
+            leftShoulder
+        );
+
+        const leftElbow =
+            createPivot(
+                "LeftElbow",
+                { x: 0, y: -upperArmLen, z: 0 },
+                leftShoulder
             );
 
-        const leftHand =
-            createRoundedPart(
-                THREE,
-                "LeftHand",
-                { x: 0.55, y: 0.55, z: 0.55 },
-                skin,
-                { x: -1.25, y: 1.85, z: 0 },
-                root
-            );
+        createRoundedPart(
+            THREE,
+            "LeftLowerArm",
+            { x: 0.50, y: lowerArmLen, z: 0.50 },
+            skin,
+            { x: 0, y: -lowerArmLen / 2, z: 0 },
+            leftElbow
+        );
+
+        createRoundedPart(
+            THREE,
+            "LeftHand",
+            { x: 0.55, y: 0.55, z: 0.55 },
+            skin,
+            { x: 0, y: -lowerArmLen - 0.22, z: 0 },
+            leftElbow
+        );
 
 
         // --------------------------------------------------------
         // Right arm
         // --------------------------------------------------------
 
-        const rightUpperArm =
-            createRoundedPart(
-                THREE,
-                "RightUpperArm",
-                { x: 0.55, y: 1.05, z: 0.55 },
-                skin,
-                { x: 1.25, y: 3.65, z: 0 },
+        const rightShoulder =
+            createPivot(
+                "RightShoulder",
+                { x: shoulderX, y: shoulderY, z: 0 },
                 root
             );
 
-        const rightLowerArm =
-            createRoundedPart(
-                THREE,
-                "RightLowerArm",
-                { x: 0.50, y: 1.05, z: 0.50 },
-                skin,
-                { x: 1.25, y: 2.60, z: 0 },
-                root
+        createRoundedPart(
+            THREE,
+            "RightUpperArm",
+            { x: 0.55, y: upperArmLen, z: 0.55 },
+            skin,
+            { x: 0, y: -upperArmLen / 2, z: 0 },
+            rightShoulder
+        );
+
+        const rightElbow =
+            createPivot(
+                "RightElbow",
+                { x: 0, y: -upperArmLen, z: 0 },
+                rightShoulder
             );
 
-        const rightHand =
-            createRoundedPart(
-                THREE,
-                "RightHand",
-                { x: 0.55, y: 0.55, z: 0.55 },
-                skin,
-                { x: 1.25, y: 1.85, z: 0 },
-                root
-            );
+        createRoundedPart(
+            THREE,
+            "RightLowerArm",
+            { x: 0.50, y: lowerArmLen, z: 0.50 },
+            skin,
+            { x: 0, y: -lowerArmLen / 2, z: 0 },
+            rightElbow
+        );
+
+        createRoundedPart(
+            THREE,
+            "RightHand",
+            { x: 0.55, y: 0.55, z: 0.55 },
+            skin,
+            { x: 0, y: -lowerArmLen - 0.22, z: 0 },
+            rightElbow
+        );
 
 
         // --------------------------------------------------------
         // Left leg
         // --------------------------------------------------------
 
-        const leftUpperLeg =
-            createRoundedPart(
-                THREE,
-                "LeftUpperLeg",
-                { x: 0.75, y: 1.15, z: 0.75 },
-                pants,
-                { x: -0.48, y: 1.65, z: 0 },
+        const leftHip =
+            createPivot(
+                "LeftHip",
+                { x: -hipX, y: hipY, z: 0 },
                 root
             );
 
-        const leftLowerLeg =
-            createRoundedPart(
-                THREE,
-                "LeftLowerLeg",
-                { x: 0.65, y: 1.15, z: 0.65 },
-                pants,
-                { x: -0.48, y: 0.55, z: 0 },
-                root
+        createRoundedPart(
+            THREE,
+            "LeftUpperLeg",
+            { x: 0.75, y: upperLegLen, z: 0.75 },
+            pants,
+            { x: 0, y: -upperLegLen / 2, z: 0 },
+            leftHip
+        );
+
+        const leftKnee =
+            createPivot(
+                "LeftKnee",
+                { x: 0, y: -upperLegLen, z: 0 },
+                leftHip
             );
 
-        const leftFoot =
-            createRoundedPart(
-                THREE,
-                "LeftFoot",
-                { x: 0.75, y: 0.45, z: 1.15 },
-                shoe,
-                { x: -0.48, y: 0.08, z: 0.20 },
-                root
-            );
+        createRoundedPart(
+            THREE,
+            "LeftLowerLeg",
+            { x: 0.65, y: lowerLegLen, z: 0.65 },
+            pants,
+            { x: 0, y: -lowerLegLen / 2, z: 0 },
+            leftKnee
+        );
+
+        createRoundedPart(
+            THREE,
+            "LeftFoot",
+            { x: 0.75, y: footHeight, z: 1.15 },
+            shoe,
+            { x: 0, y: -lowerLegLen - footHeight / 2, z: 0.20 },
+            leftKnee
+        );
 
 
         // --------------------------------------------------------
         // Right leg
         // --------------------------------------------------------
 
-        const rightUpperLeg =
-            createRoundedPart(
-                THREE,
-                "RightUpperLeg",
-                { x: 0.75, y: 1.15, z: 0.75 },
-                pants,
-                { x: 0.48, y: 1.65, z: 0 },
+        const rightHip =
+            createPivot(
+                "RightHip",
+                { x: hipX, y: hipY, z: 0 },
                 root
             );
 
-        const rightLowerLeg =
-            createRoundedPart(
-                THREE,
-                "RightLowerLeg",
-                { x: 0.65, y: 1.15, z: 0.65 },
-                pants,
-                { x: 0.48, y: 0.55, z: 0 },
-                root
+        createRoundedPart(
+            THREE,
+            "RightUpperLeg",
+            { x: 0.75, y: upperLegLen, z: 0.75 },
+            pants,
+            { x: 0, y: -upperLegLen / 2, z: 0 },
+            rightHip
+        );
+
+        const rightKnee =
+            createPivot(
+                "RightKnee",
+                { x: 0, y: -upperLegLen, z: 0 },
+                rightHip
             );
 
-        const rightFoot =
-            createRoundedPart(
-                THREE,
-                "RightFoot",
-                { x: 0.75, y: 0.45, z: 1.15 },
-                shoe,
-                { x: 0.48, y: 0.08, z: 0.20 },
-                root
-            );
+        createRoundedPart(
+            THREE,
+            "RightLowerLeg",
+            { x: 0.65, y: lowerLegLen, z: 0.65 },
+            pants,
+            { x: 0, y: -lowerLegLen / 2, z: 0 },
+            rightKnee
+        );
+
+        createRoundedPart(
+            THREE,
+            "RightFoot",
+            { x: 0.75, y: footHeight, z: 1.15 },
+            shoe,
+            { x: 0, y: -lowerLegLen - footHeight / 2, z: 0.20 },
+            rightKnee
+        );
 
 
         // --------------------------------------------------------
@@ -754,43 +855,40 @@
         state.character =
             root;
 
-        state.characterParts = [
-            lowerTorso,
-            upperTorso,
-            head,
-            leftUpperArm,
-            leftLowerArm,
-            leftHand,
-            rightUpperArm,
-            rightLowerArm,
-            rightHand,
-            leftUpperLeg,
-            leftLowerLeg,
-            leftFoot,
-            rightUpperLeg,
-            rightLowerLeg,
-            rightFoot
-        ];
+        state.characterParts = [];
+
+        root.traverse(child => {
+            if (child.isMesh) {
+                state.characterParts.push(child);
+            }
+        });
 
         /*
          * Named references, used by
          * updateCharacterAnimation() for
          * walk / idle / jump limb swing.
+         *
+         * These now point at the *pivot groups*
+         * (shoulder / elbow / hip / knee), not the
+         * meshes themselves, so rotating them swings
+         * the limb from its joint like a real rig.
          */
 
         root.userData.bodyParts = {
             upperTorso,
-            leftUpperArm,
-            rightUpperArm,
-            leftLowerArm,
-            rightLowerArm,
-            leftUpperLeg,
-            rightUpperLeg,
-            leftLowerLeg,
-            rightLowerLeg
+            leftUpperArm: leftShoulder,
+            rightUpperArm: rightShoulder,
+            leftLowerArm: leftElbow,
+            rightLowerArm: rightElbow,
+            leftUpperLeg: leftHip,
+            rightUpperLeg: rightHip,
+            leftLowerLeg: leftKnee,
+            rightLowerLeg: rightKnee
         };
 
-        root.userData.height = 5.4;
+        root.userData.head = head;
+
+        root.userData.height = upperTorsoTop + 1.75;
 
         state.scene.add(root);
 
@@ -1627,6 +1725,29 @@
 
 
     // ============================================================
+    // ZOOM (scroll wheel) — first/third person, like Roblox
+    // ============================================================
+
+    function mouseWheel(event) {
+
+        if (!state.running) {
+            return;
+        }
+
+        event.preventDefault();
+
+        state.cameraSettings.distance =
+            clamp(
+                state.cameraSettings.distance +
+                (event.deltaY * ZOOM_STEP * state.cameraSettings.distance) +
+                (event.deltaY * ZOOM_STEP * 2),
+                MIN_CAMERA_DISTANCE,
+                MAX_CAMERA_DISTANCE
+            );
+    }
+
+
+    // ============================================================
     // SETUP INPUT
     // ============================================================
 
@@ -1669,6 +1790,12 @@
                 "click",
                 viewportClick
             );
+
+            state.viewport.addEventListener(
+                "wheel",
+                mouseWheel,
+                { passive: false }
+            );
         }
 
 
@@ -1710,6 +1837,11 @@
                 "click",
                 viewportClick
             );
+
+            state.viewport.removeEventListener(
+                "wheel",
+                mouseWheel
+            );
         }
 
 
@@ -1748,11 +1880,6 @@
 
         state.moving =
             false;
-
-        state.sprinting =
-            state.keys.has(
-                "shift"
-            );
 
 
         /*
@@ -1866,16 +1993,8 @@
         }
 
 
-        const running =
-            state.keys.has(
-                "shift"
-            );
-
-
         const speed =
-            running
-                ? RUN_SPEED
-                : MOVE_SPEED;
+            MOVE_SPEED;
 
 
         const oldX =
@@ -2066,9 +2185,7 @@
         } else if (state.moving) {
 
             animState =
-                state.sprinting
-                    ? "Running"
-                    : "Walking";
+                "Walking";
         }
 
 
@@ -2079,9 +2196,7 @@
 
 
         const speed =
-            state.sprinting
-                ? 11
-                : 8;
+            8;
 
         const swing =
             Math.sin(
@@ -2090,14 +2205,11 @@
             );
 
         const walkAmount =
-            state.sprinting
-                ? 0.65
-                : 0.45;
+            0.45;
 
 
         if (
-            animState === "Walking" ||
-            animState === "Running"
+            animState === "Walking"
         ) {
 
             if (parts.leftUpperArm) {
@@ -2236,6 +2348,64 @@
             degToRad(
                 state.mouse.pitch
             );
+
+
+        const isFirstPerson =
+            state.cameraSettings.distance <=
+            FIRST_PERSON_DISTANCE;
+
+
+        if (state.character) {
+            state.character.visible =
+                !isFirstPerson;
+        }
+
+
+        if (isFirstPerson) {
+
+            const headHeight =
+                state.character.userData.height
+                    ? state.character.userData.height - 0.9
+                    : 4.8;
+
+            const eyeX =
+                state.character.position.x;
+
+            const eyeY =
+                state.character.position.y +
+                headHeight;
+
+            const eyeZ =
+                state.character.position.z;
+
+            state.camera.position.set(
+                eyeX,
+                eyeY,
+                eyeZ
+            );
+
+            const lookX =
+                eyeX -
+                Math.sin(yaw) *
+                Math.cos(pitch);
+
+            const lookY =
+                eyeY +
+                Math.sin(pitch);
+
+            const lookZ =
+                eyeZ -
+                Math.cos(yaw) *
+                Math.cos(pitch);
+
+            state.camera.lookAt(
+                lookX,
+                lookY,
+                lookZ
+            );
+
+            return;
+        }
 
 
         const horizontal =
