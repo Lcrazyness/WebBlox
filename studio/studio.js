@@ -1607,6 +1607,8 @@
 
         updateExplorerSelection();
 
+        updateGizmoVisibility();
+
 
         if (studioMessage) {
 
@@ -1628,12 +1630,721 @@
 
         updateExplorerSelection();
 
+        updateGizmoVisibility();
+
 
         if (studioMessage) {
 
             studioMessage.textContent =
                 "Nothing selected";
         }
+    }
+
+
+    // ============================================================
+    // TRANSFORM GIZMO
+    //
+    // Visible arrow/scale/rotate handles shown on the selected
+    // object whenever Move, Scale, or Rotate is active. Each
+    // handle is tagged with the axis it controls so dragging it
+    // moves/scales/rotates only along that one axis. Clicking
+    // the object itself (not a handle) still falls back to the
+    // old free-drag behavior.
+    // ============================================================
+
+    let gizmo = null;
+
+    let gizmoGroups = {
+        move: null,
+        scale: null,
+        rotate: null
+    };
+
+    const AXIS_COLORS = {
+        x: 0xff4444,
+        y: 0x44ff66,
+        z: 0x4488ff
+    };
+
+    const AXIS_VECTORS = {
+        x: { x: 1, y: 0, z: 0 },
+        y: { x: 0, y: 1, z: 0 },
+        z: { x: 0, y: 0, z: 1 }
+    };
+
+    const GIZMO_ARM_LENGTH = 3.4;
+
+
+    function buildMoveHandle(axis) {
+
+        const group =
+            new THREE.Group();
+
+        const color =
+            AXIS_COLORS[axis];
+
+        const shaft =
+            new THREE.Mesh(
+                new THREE.CylinderGeometry(
+                    0.06,
+                    0.06,
+                    GIZMO_ARM_LENGTH * 0.78,
+                    8
+                ),
+                new THREE.MeshBasicMaterial({
+                    color,
+                    depthTest: false
+                })
+            );
+
+        shaft.position.y =
+            GIZMO_ARM_LENGTH * 0.39;
+
+        const tip =
+            new THREE.Mesh(
+                new THREE.ConeGeometry(
+                    0.22,
+                    0.55,
+                    10
+                ),
+                new THREE.MeshBasicMaterial({
+                    color,
+                    depthTest: false
+                })
+            );
+
+        tip.position.y =
+            GIZMO_ARM_LENGTH * 0.78 +
+            0.27;
+
+        group.add(shaft);
+        group.add(tip);
+
+        group.renderOrder = 999;
+
+        orientHandleGroup(
+            group,
+            axis
+        );
+
+        group.userData.gizmoAxis =
+            axis;
+
+        group.userData.gizmoMode =
+            "move";
+
+        group.userData.gizmoHitRadius =
+            0.35;
+
+        group.userData.gizmoLength =
+            GIZMO_ARM_LENGTH;
+
+        return group;
+    }
+
+
+    function buildScaleHandle(axis) {
+
+        const group =
+            new THREE.Group();
+
+        const color =
+            AXIS_COLORS[axis];
+
+        const shaft =
+            new THREE.Mesh(
+                new THREE.CylinderGeometry(
+                    0.06,
+                    0.06,
+                    GIZMO_ARM_LENGTH * 0.78,
+                    8
+                ),
+                new THREE.MeshBasicMaterial({
+                    color,
+                    depthTest: false
+                })
+            );
+
+        shaft.position.y =
+            GIZMO_ARM_LENGTH * 0.39;
+
+        /*
+         * Cube tip instead of a cone — this is what
+         * visually tells Scale apart from Move.
+         */
+
+        const tip =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    0.36,
+                    0.36,
+                    0.36
+                ),
+                new THREE.MeshBasicMaterial({
+                    color,
+                    depthTest: false
+                })
+            );
+
+        tip.position.y =
+            GIZMO_ARM_LENGTH * 0.78 +
+            0.18;
+
+        group.add(shaft);
+        group.add(tip);
+
+        group.renderOrder = 999;
+
+        orientHandleGroup(
+            group,
+            axis
+        );
+
+        group.userData.gizmoAxis =
+            axis;
+
+        group.userData.gizmoMode =
+            "scale";
+
+        group.userData.gizmoHitRadius =
+            0.35;
+
+        group.userData.gizmoLength =
+            GIZMO_ARM_LENGTH;
+
+        return group;
+    }
+
+
+    function buildRotateHandle(axis) {
+
+        /*
+         * Rotate handles are full rings around the axis,
+         * not arrows — this is the "should look different"
+         * requirement. A ring around the X axis lies in the
+         * Y-Z plane, so we build it flat and then rotate the
+         * whole ring to stand on the right plane.
+         */
+
+        const color =
+            AXIS_COLORS[axis];
+
+        const ring =
+            new THREE.Mesh(
+                new THREE.TorusGeometry(
+                    GIZMO_ARM_LENGTH * 0.62,
+                    0.05,
+                    8,
+                    48
+                ),
+                new THREE.MeshBasicMaterial({
+                    color,
+                    depthTest: false
+                })
+            );
+
+        if (axis === "x") {
+
+            ring.rotation.y =
+                Math.PI / 2;
+
+        } else if (axis === "y") {
+
+            ring.rotation.x =
+                Math.PI / 2;
+        }
+
+        /*
+         * z ring needs no extra rotation — a torus is
+         * already built flat in the X-Y plane, which is
+         * exactly the ring a Z-axis rotation needs.
+         */
+
+        ring.renderOrder = 999;
+
+        ring.userData.gizmoAxis =
+            axis;
+
+        ring.userData.gizmoMode =
+            "rotate";
+
+        ring.userData.gizmoHitRadius =
+            0.4;
+
+        ring.userData.gizmoLength =
+            GIZMO_ARM_LENGTH * 0.62;
+
+        return ring;
+    }
+
+
+    function orientHandleGroup(group, axis) {
+
+        /*
+         * Handles are authored pointing up the local
+         * +Y axis. Rotate that into +X or +Z as needed.
+         */
+
+        if (axis === "x") {
+
+            group.rotation.z =
+                -Math.PI / 2;
+
+        } else if (axis === "z") {
+
+            group.rotation.x =
+                Math.PI / 2;
+        }
+    }
+
+
+    function createGizmo() {
+
+        if (!THREE || !scene) {
+            return;
+        }
+
+        gizmo =
+            new THREE.Group();
+
+        gizmo.name =
+            "TransformGizmo";
+
+        gizmo.visible =
+            false;
+
+        gizmo.renderOrder = 999;
+
+        const moveGroup =
+            new THREE.Group();
+
+        const scaleGroup =
+            new THREE.Group();
+
+        const rotateGroup =
+            new THREE.Group();
+
+        ["x", "y", "z"].forEach(
+            axis => {
+
+                moveGroup.add(
+                    buildMoveHandle(axis)
+                );
+
+                scaleGroup.add(
+                    buildScaleHandle(axis)
+                );
+
+                rotateGroup.add(
+                    buildRotateHandle(axis)
+                );
+            }
+        );
+
+        gizmo.add(moveGroup);
+        gizmo.add(scaleGroup);
+        gizmo.add(rotateGroup);
+
+        gizmoGroups.move = moveGroup;
+        gizmoGroups.scale = scaleGroup;
+        gizmoGroups.rotate = rotateGroup;
+
+        scene.add(gizmo);
+    }
+
+
+    function updateGizmoVisibility() {
+
+        if (!gizmo) {
+            return;
+        }
+
+        const object =
+            state.selectedId
+                ? state.objects.get(
+                    state.selectedId
+                )
+                : null;
+
+        const shouldShow =
+            !!object &&
+            (
+                state.tool === "move" ||
+                state.tool === "scale" ||
+                state.tool === "rotate"
+            );
+
+        gizmo.visible =
+            shouldShow;
+
+        if (!shouldShow) {
+            return;
+        }
+
+        gizmoGroups.move.visible =
+            state.tool === "move";
+
+        gizmoGroups.scale.visible =
+            state.tool === "scale";
+
+        gizmoGroups.rotate.visible =
+            state.tool === "rotate";
+
+        updateGizmoPosition();
+    }
+
+
+    function updateGizmoPosition() {
+
+        if (
+            !gizmo ||
+            !gizmo.visible
+        ) {
+            return;
+        }
+
+        const object =
+            state.objects.get(
+                state.selectedId
+            );
+
+        if (!object) {
+            return;
+        }
+
+        gizmo.position.set(
+            object.position?.x || 0,
+            object.position?.y || 0,
+            object.position?.z || 0
+        );
+
+        /*
+         * Keep the gizmo a roughly constant size on
+         * screen no matter how far the editor camera is.
+         */
+
+        const distance =
+            camera
+                ? camera.position.distanceTo(
+                    gizmo.position
+                )
+                : 24;
+
+        const scale =
+            clamp(
+                distance / 24,
+                0.4,
+                3
+            );
+
+        gizmo.scale.set(
+            scale,
+            scale,
+            scale
+        );
+    }
+
+
+    function getGizmoHandleFromViewport(event) {
+
+        if (
+            !gizmo ||
+            !gizmo.visible ||
+            !raycaster ||
+            !camera ||
+            !canvas
+        ) {
+            return null;
+        }
+
+        const activeGroup =
+            gizmoGroups[state.tool];
+
+        if (!activeGroup) {
+            return null;
+        }
+
+        const rect =
+            canvas.getBoundingClientRect();
+
+        if (
+            rect.width <= 0 ||
+            rect.height <= 0
+        ) {
+            return null;
+        }
+
+        mouseVector.x =
+            (
+                (event.clientX - rect.left) /
+                rect.width
+            ) * 2 - 1;
+
+        mouseVector.y =
+            -(
+                (event.clientY - rect.top) /
+                rect.height
+            ) * 2 + 1;
+
+        raycaster.setFromCamera(
+            mouseVector,
+            camera
+        );
+
+        const hits =
+            raycaster.intersectObjects(
+                activeGroup.children,
+                true
+            );
+
+        if (!hits.length) {
+            return null;
+        }
+
+        let current =
+            hits[0].object;
+
+        while (current) {
+
+            if (current.userData?.gizmoAxis) {
+
+                return {
+                    axis: current.userData.gizmoAxis,
+                    mode: current.userData.gizmoMode
+                };
+            }
+
+            current =
+                current.parent;
+        }
+
+        return null;
+    }
+
+
+    function beginGizmoTransform(event, axis, mode) {
+
+        const object =
+            state.objects.get(
+                state.selectedId
+            );
+
+        if (!object) {
+            return;
+        }
+
+        saveHistory();
+
+        state.mouse.draggingObject =
+            true;
+
+        state.mouse.gizmoAxis =
+            axis;
+
+        state.mouse.gizmoModeAtStart =
+            mode;
+
+        state.mouse.dragStartX =
+            event.clientX;
+
+        state.mouse.dragStartY =
+            event.clientY;
+
+        state.mouse.objectStart =
+            cloneObject(
+                object
+            );
+
+        /*
+         * Project the axis into screen space once, at
+         * drag start, so we can turn 2D mouse movement
+         * into a single 1D "along this axis" amount.
+         */
+
+        const worldPos =
+            new THREE.Vector3(
+                object.position?.x || 0,
+                object.position?.y || 0,
+                object.position?.z || 0
+            );
+
+        const axisVec =
+            AXIS_VECTORS[axis];
+
+        const worldPosOffset =
+            worldPos.clone().add(
+                new THREE.Vector3(
+                    axisVec.x,
+                    axisVec.y,
+                    axisVec.z
+                )
+            );
+
+        const rect =
+            canvas.getBoundingClientRect();
+
+        const screenA =
+            worldPos.clone().project(
+                camera
+            );
+
+        const screenB =
+            worldPosOffset.clone().project(
+                camera
+            );
+
+        let screenDirX =
+            (screenB.x - screenA.x) *
+            rect.width;
+
+        let screenDirY =
+            -(screenB.y - screenA.y) *
+            rect.height;
+
+        const screenLength =
+            Math.hypot(
+                screenDirX,
+                screenDirY
+            );
+
+        if (screenLength < 0.0001) {
+
+            /*
+             * Axis is pointing straight at/away from
+             * the camera (edge-on) — fall back to a
+             * vertical-drag convention so it still does
+             * something reasonable instead of nothing.
+             */
+
+            screenDirX = 0;
+            screenDirY = -1;
+
+        } else {
+
+            screenDirX /= screenLength;
+            screenDirY /= screenLength;
+        }
+
+        state.mouse.gizmoScreenDir = {
+            x: screenDirX,
+            y: screenDirY
+        };
+
+        if (canvas) {
+
+            canvas.style.cursor =
+                "grabbing";
+        }
+    }
+
+
+    function applyGizmoTransform(event) {
+
+        const object =
+            state.objects.get(
+                state.selectedId
+            );
+
+        const start =
+            state.mouse.objectStart;
+
+        const axis =
+            state.mouse.gizmoAxis;
+
+        const screenDir =
+            state.mouse.gizmoScreenDir;
+
+        if (
+            !object ||
+            !start ||
+            !axis ||
+            !screenDir
+        ) {
+            return false;
+        }
+
+        const dx =
+            event.clientX -
+            state.mouse.dragStartX;
+
+        const dy =
+            event.clientY -
+            state.mouse.dragStartY;
+
+        const dragAmount =
+            dx * screenDir.x +
+            dy * screenDir.y;
+
+        const distanceFactor =
+            (state.camera.distance || 24) / 24;
+
+
+        if (state.mouse.gizmoModeAtStart === "move") {
+
+            const moved =
+                dragAmount *
+                0.04 *
+                distanceFactor;
+
+            object.position[axis] =
+                start.position[axis] +
+                moved;
+
+            if (state.snapEnabled) {
+
+                object.position[axis] =
+                    snap(
+                        object.position[axis]
+                    );
+            }
+
+        } else if (state.mouse.gizmoModeAtStart === "scale") {
+
+            const grown =
+                dragAmount *
+                0.03 *
+                distanceFactor;
+
+            object.size[axis] =
+                Math.max(
+                    0.1,
+                    start.size[axis] +
+                        grown
+                );
+
+            if (state.snapEnabled) {
+
+                object.size[axis] =
+                    Math.max(
+                        0.1,
+                        snap(
+                            object.size[axis],
+                            0.5
+                        )
+                    );
+            }
+
+        } else if (state.mouse.gizmoModeAtStart === "rotate") {
+
+            const turned =
+                dragAmount *
+                0.5;
+
+            object.rotation[axis] =
+                start.rotation[axis] +
+                turned;
+
+            if (state.snapEnabled) {
+
+                object.rotation[axis] =
+                    snap(
+                        object.rotation[axis],
+                        15
+                    );
+            }
+        }
+
+        return true;
     }
 
 
@@ -2192,6 +2903,15 @@
         state.mouse.objectStart =
             null;
 
+        state.mouse.gizmoAxis =
+            null;
+
+        state.mouse.gizmoModeAtStart =
+            null;
+
+        state.mouse.gizmoScreenDir =
+            null;
+
 
         if (canvas) {
 
@@ -2339,6 +3059,40 @@
         }
 
 
+        /*
+         * Gizmo handles take priority over normal
+         * object picking — if the click landed on a
+         * visible Move/Scale/Rotate handle, drag that
+         * axis instead of re-selecting or free-dragging.
+         */
+
+        if (
+            state.selectedId &&
+            (
+                state.tool === "move" ||
+                state.tool === "scale" ||
+                state.tool === "rotate"
+            )
+        ) {
+
+            const handle =
+                getGizmoHandleFromViewport(
+                    event
+                );
+
+            if (handle) {
+
+                beginGizmoTransform(
+                    event,
+                    handle.axis,
+                    handle.mode
+                );
+
+                return;
+            }
+        }
+
+
         const id =
             getObjectFromViewport(
                 event
@@ -2427,6 +3181,48 @@
         if (
             !state.mouse.draggingObject
         ) {
+            return;
+        }
+
+
+        /*
+         * Dragging a gizmo handle uses its own
+         * axis-constrained math instead of the free
+         * screen-space drag below.
+         */
+
+        if (state.mouse.gizmoAxis) {
+
+            const object =
+                state.objects.get(
+                    state.selectedId
+                );
+
+            if (!object) {
+                return;
+            }
+
+            const applied =
+                applyGizmoTransform(
+                    event
+                );
+
+            if (applied) {
+
+                updateMeshFromObject(
+                    object
+                );
+
+                updateProperties();
+
+                state.game.saved =
+                    false;
+
+                updateGameStatus();
+
+                updateGizmoPosition();
+            }
+
             return;
         }
 
@@ -2641,6 +3437,8 @@
 
 
         updateGameStatus();
+
+        updateGizmoPosition();
     }
 
 
@@ -4650,6 +5448,9 @@
                     ? "default"
                     : "crosshair";
         }
+
+
+        updateGizmoVisibility();
     }
 
 
@@ -5897,6 +6698,9 @@
 
 
         createGrid();
+
+
+        createGizmo();
 
 
         setup3DInput();
