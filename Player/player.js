@@ -14,10 +14,11 @@
  * - Provides WebBloxPlayer.stop()
  * - WASD movement is corrected.
  * - Space = jump.
- * - Shift = run.
+ * - Scroll wheel = zoom (first/third person).
  * - Basic part collision.
  * - Character follows spawn.
  * - Third-person runtime camera.
+ * - P = settings menu (sensitivity / graphics).
  */
 
 (() => {
@@ -88,6 +89,31 @@
 
         animationTime: 0,
 
+        /*
+         * Dev-configurable defaults (StarterPlayer in
+         * Studio) and end-user preferences (in-game
+         * Settings menu). start() merges in
+         * options.game.starterPlayer over these.
+         */
+        settings: {
+
+            walkSpeed: 12,
+
+            jumpPower: 11,
+
+            firstPersonLocked: false,
+
+            allowZoom: true,
+
+            hotkeysEnabled: true,
+
+            scriptable: true,
+
+            sensitivity: 1,
+
+            graphicsQuality: "high"
+        },
+
         keys: new Set(),
 
         mouse: {
@@ -128,10 +154,6 @@
 
     const PLAYER_DEPTH = 1.0;
 
-    const MOVE_SPEED = 12;
-
-    const JUMP_POWER = 11;
-
     const GRAVITY = 30;
 
     const CAMERA_SENSITIVITY = 0.18;
@@ -152,6 +174,62 @@
     // ============================================================
     // HELPERS
     // ============================================================
+
+    // ============================================================
+    // LOCAL PREFERENCES (sensitivity / graphics quality)
+    //
+    // These are the PLAYER's own choice, stored per-browser,
+    // separate from the developer's StarterPlayer defaults.
+    // ============================================================
+
+    const PREFS_KEY =
+        "webblox_player_preferences";
+
+
+    function loadLocalPreferences() {
+
+        try {
+
+            const raw =
+                window.localStorage?.getItem(
+                    PREFS_KEY
+                );
+
+            if (!raw) {
+                return {};
+            }
+
+            const parsed =
+                JSON.parse(raw);
+
+            return (
+                parsed &&
+                typeof parsed === "object"
+            )
+                ? parsed
+                : {};
+
+        } catch {
+
+            return {};
+        }
+    }
+
+
+    function saveLocalPreferences(prefs) {
+
+        try {
+
+            window.localStorage?.setItem(
+                PREFS_KEY,
+                JSON.stringify(prefs)
+            );
+
+        } catch {
+            // Storage unavailable (private mode, etc) — ignore.
+        }
+    }
+
 
     function log(message) {
 
@@ -317,16 +395,22 @@
         parent
     ) {
 
+        /*
+         * Classic blocky Roblox look: plain boxes,
+         * not rounded capsules. The extra JOINT_OVERLAP
+         * on the height makes each part poke slightly
+         * into its neighbor at the joint so there's
+         * never a visible gap or seam, even if a
+         * position is off by a hair.
+         */
+
+        const JOINT_OVERLAP = 0.10;
+
         const geometry =
-            new THREE.CapsuleGeometry(
-                Math.min(size.x, size.z) * 0.38,
-                Math.max(
-                    0.1,
-                    size.y -
-                    Math.min(size.x, size.z) * 0.76
-                ),
-                6,
-                12
+            new THREE.BoxGeometry(
+                size.x,
+                size.y + JOINT_OVERLAP,
+                size.z
             );
 
         const material =
@@ -453,6 +537,12 @@
 
     function createFace(THREE, head) {
 
+        /*
+         * Blocky Roblox-style decal face: flat
+         * boxes instead of spheres/torus, so it
+         * matches the rest of the boxy character.
+         */
+
         const face =
             new THREE.Group();
 
@@ -465,10 +555,10 @@
             );
 
         const eyeGeometry =
-            new THREE.SphereGeometry(
-                0.10,
-                12,
-                8
+            new THREE.BoxGeometry(
+                0.16,
+                0.20,
+                0.05
             );
 
         const leftEye =
@@ -480,7 +570,7 @@
         leftEye.position.set(
             -0.30,
             0.15,
-            0.80
+            0.87
         );
 
         const rightEye =
@@ -492,7 +582,7 @@
         rightEye.position.set(
             0.30,
             0.15,
-            0.80
+            0.87
         );
 
         face.add(leftEye);
@@ -500,12 +590,10 @@
 
         const smile =
             new THREE.Mesh(
-                new THREE.TorusGeometry(
-                    0.22,
-                    0.035,
-                    6,
-                    16,
-                    Math.PI
+                new THREE.BoxGeometry(
+                    0.42,
+                    0.08,
+                    0.05
                 ),
                 makePlayerMaterial(
                     THREE,
@@ -515,12 +603,9 @@
 
         smile.position.set(
             0,
-            -0.18,
-            0.80
+            -0.20,
+            0.87
         );
-
-        smile.rotation.x =
-            Math.PI / 2;
 
         face.add(smile);
 
@@ -1626,12 +1711,21 @@
         ) {
 
             state.velocity.y =
-                JUMP_POWER;
+                state.settings.jumpPower;
 
             state.grounded =
                 false;
 
             log("Jump.");
+        }
+
+
+        if (
+            key === "p" &&
+            state.settings.hotkeysEnabled
+        ) {
+
+            toggleSettingsMenu();
         }
     }
 
@@ -1682,14 +1776,18 @@
             );
 
 
+        const sensitivity =
+            CAMERA_SENSITIVITY *
+            state.settings.sensitivity;
+
         state.mouse.yaw -=
             movementX *
-            CAMERA_SENSITIVITY;
+            sensitivity;
 
 
         state.mouse.pitch -=
             movementY *
-            CAMERA_SENSITIVITY;
+            sensitivity;
 
 
         state.mouse.pitch =
@@ -1734,6 +1832,20 @@
             return;
         }
 
+        if (
+            !state.settings.allowZoom ||
+            state.settings.firstPersonLocked
+        ) {
+
+            /*
+             * Still preventDefault so the page
+             * itself doesn't scroll while playing.
+             */
+            event.preventDefault();
+
+            return;
+        }
+
         event.preventDefault();
 
         state.cameraSettings.distance =
@@ -1744,6 +1856,321 @@
                 MIN_CAMERA_DISTANCE,
                 MAX_CAMERA_DISTANCE
             );
+    }
+
+
+    // ============================================================
+    // SETTINGS MENU (press P)
+    //
+    // Self-contained HTML/CSS overlay — sensitivity, graphics
+    // quality, and a read-only hotkey reference. Built at
+    // runtime so no separate CSS/HTML file is needed.
+    // ============================================================
+
+    let settingsMenuEl = null;
+
+
+    function buildSettingsMenu() {
+
+        if (settingsMenuEl) {
+            return settingsMenuEl;
+        }
+
+        const overlay =
+            document.createElement("div");
+
+        overlay.id =
+            "webbloxSettingsMenu";
+
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.55);
+            z-index: 999999;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        `;
+
+        const panel =
+            document.createElement("div");
+
+        panel.style.cssText = `
+            width: 340px;
+            max-width: 90vw;
+            background: #1c1c1f;
+            border: 1px solid #333;
+            border-radius: 10px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+            color: #eee;
+            overflow: hidden;
+        `;
+
+        panel.innerHTML = `
+            <div style="
+                padding: 14px 16px;
+                border-bottom: 1px solid #2c2c2f;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            ">
+                <strong style="font-size: 14px;">Settings</strong>
+                <button id="webbloxSettingsClose" style="
+                    background: none; border: none; color: #999;
+                    font-size: 18px; cursor: pointer; line-height: 1;
+                ">&times;</button>
+            </div>
+
+            <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 16px;">
+
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; color:#ccc; margin-bottom:6px;">
+                        <span>Mouse Sensitivity</span>
+                        <span id="webbloxSensitivityValue">1.0x</span>
+                    </div>
+                    <input id="webbloxSensitivitySlider" type="range" min="0.2" max="3" step="0.05" value="1"
+                        style="width: 100%;">
+                </div>
+
+                <div>
+                    <div style="font-size:12px; color:#ccc; margin-bottom:6px;">Graphics Quality</div>
+                    <select id="webbloxGraphicsSelect" style="
+                        width: 100%; padding: 6px 8px; background:#111; color:#eee;
+                        border: 1px solid #333; border-radius: 6px; font-size: 12px;
+                    ">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+
+                <div>
+                    <div style="font-size:12px; color:#ccc; margin-bottom:6px;">Hotkeys</div>
+                    <div id="webbloxHotkeyList" style="
+                        font-size: 11.5px; color: #999; line-height: 1.9;
+                        background: #141416; border: 1px solid #2a2a2d;
+                        border-radius: 6px; padding: 8px 10px;
+                    "></div>
+                </div>
+
+            </div>
+        `;
+
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener(
+            "click",
+            event => {
+
+                if (event.target === overlay) {
+                    closeSettingsMenu();
+                }
+            }
+        );
+
+        overlay.querySelector(
+            "#webbloxSettingsClose"
+        ).addEventListener(
+            "click",
+            closeSettingsMenu
+        );
+
+        const slider =
+            overlay.querySelector(
+                "#webbloxSensitivitySlider"
+            );
+
+        const sensitivityLabel =
+            overlay.querySelector(
+                "#webbloxSensitivityValue"
+            );
+
+        slider.addEventListener(
+            "input",
+            () => {
+
+                const value =
+                    parseFloat(
+                        slider.value
+                    );
+
+                state.settings.sensitivity =
+                    value;
+
+                sensitivityLabel.textContent =
+                    `${value.toFixed(2)}x`;
+
+                persistPreferences();
+            }
+        );
+
+        const graphicsSelect =
+            overlay.querySelector(
+                "#webbloxGraphicsSelect"
+            );
+
+        graphicsSelect.addEventListener(
+            "change",
+            () => {
+
+                state.settings.graphicsQuality =
+                    graphicsSelect.value;
+
+                applyGraphicsQuality();
+
+                persistPreferences();
+            }
+        );
+
+        settingsMenuEl =
+            overlay;
+
+        return overlay;
+    }
+
+
+    function persistPreferences() {
+
+        saveLocalPreferences({
+
+            sensitivity:
+                state.settings.sensitivity,
+
+            graphicsQuality:
+                state.settings.graphicsQuality
+        });
+    }
+
+
+    function applyGraphicsQuality() {
+
+        if (!state.renderer) {
+            return;
+        }
+
+        const quality =
+            state.settings.graphicsQuality;
+
+        if (quality === "low") {
+
+            state.renderer.shadowMap.enabled = false;
+
+            state.renderer.setPixelRatio(1);
+
+        } else if (quality === "medium") {
+
+            state.renderer.shadowMap.enabled = true;
+
+            state.renderer.setPixelRatio(
+                Math.min(1.5, window.devicePixelRatio || 1)
+            );
+
+        } else {
+
+            state.renderer.shadowMap.enabled = true;
+
+            state.renderer.setPixelRatio(
+                Math.min(2, window.devicePixelRatio || 1)
+            );
+        }
+    }
+
+
+    function toggleSettingsMenu() {
+
+        const overlay =
+            buildSettingsMenu();
+
+        const isOpen =
+            overlay.style.display === "flex";
+
+        if (isOpen) {
+
+            closeSettingsMenu();
+
+        } else {
+
+            openSettingsMenu();
+        }
+    }
+
+
+    function openSettingsMenu() {
+
+        const overlay =
+            buildSettingsMenu();
+
+        overlay.querySelector(
+            "#webbloxSensitivitySlider"
+        ).value =
+            state.settings.sensitivity;
+
+        overlay.querySelector(
+            "#webbloxSensitivityValue"
+        ).textContent =
+            `${state.settings.sensitivity.toFixed(2)}x`;
+
+        overlay.querySelector(
+            "#webbloxGraphicsSelect"
+        ).value =
+            state.settings.graphicsQuality;
+
+        const hotkeyList =
+            overlay.querySelector(
+                "#webbloxHotkeyList"
+            );
+
+        const hotkeys = [
+            ["W A S D", "Move"],
+            ["Space", "Jump"],
+            ["Scroll", state.settings.allowZoom ? "Zoom / first person" : "Disabled by this game"],
+            ["P", "Settings"]
+        ];
+
+        hotkeyList.innerHTML =
+            hotkeys.map(
+                ([key, action]) =>
+                    `<div style="display:flex; justify-content:space-between;">
+                        <span>${key}</span><span>${action}</span>
+                    </div>`
+            ).join("");
+
+        overlay.style.display =
+            "flex";
+
+        if (document.pointerLockElement) {
+
+            try {
+                document.exitPointerLock();
+            } catch {
+                // Ignore.
+            }
+        }
+    }
+
+
+    function closeSettingsMenu() {
+
+        if (!settingsMenuEl) {
+            return;
+        }
+
+        settingsMenuEl.style.display =
+            "none";
+    }
+
+
+    function destroySettingsMenu() {
+
+        if (settingsMenuEl) {
+
+            settingsMenuEl.remove();
+
+            settingsMenuEl =
+                null;
+        }
     }
 
 
@@ -1967,14 +2394,19 @@
              * Correct third-person directions.
              *
              * Forward points in the direction
-             * the camera is facing.
+             * the camera is facing. The camera sits
+             * BEHIND that direction (position uses
+             * -sin/-cos of yaw), so movement must use
+             * the negated sin/cos here too, or W drives
+             * the character toward the camera instead
+             * of away from it.
              */
 
             moveX =
-                (
+                -(
                     Math.sin(yaw) *
                     forward
-                ) +
+                ) -
                 (
                     Math.cos(yaw) *
                     right
@@ -1982,10 +2414,10 @@
 
 
             moveZ =
-                (
+                -(
                     Math.cos(yaw) *
                     forward
-                ) -
+                ) +
                 (
                     Math.sin(yaw) *
                     right
@@ -1994,7 +2426,7 @@
 
 
         const speed =
-            MOVE_SPEED;
+            state.settings.walkSpeed;
 
 
         const oldX =
@@ -2687,6 +3119,64 @@
             {};
 
 
+        /*
+         * Merge dev-set StarterPlayer defaults over our
+         * built-in defaults. A locally saved sensitivity/
+         * graphics preference (if the settings menu has
+         * been opened before) still wins for those two
+         * user-facing fields, since those are the
+         * player's own choice, not the developer's.
+         */
+
+        const starterPlayer =
+            state.game.starterPlayer ||
+            {};
+
+        const savedPrefs =
+            loadLocalPreferences();
+
+        state.settings = {
+
+            walkSpeed:
+                Number.isFinite(starterPlayer.walkSpeed)
+                    ? starterPlayer.walkSpeed
+                    : state.settings.walkSpeed,
+
+            jumpPower:
+                Number.isFinite(starterPlayer.jumpPower)
+                    ? starterPlayer.jumpPower
+                    : state.settings.jumpPower,
+
+            firstPersonLocked:
+                starterPlayer.firstPersonLocked === true,
+
+            allowZoom:
+                starterPlayer.allowZoom !== false,
+
+            hotkeysEnabled:
+                starterPlayer.hotkeysEnabled !== false,
+
+            scriptable:
+                starterPlayer.scriptable !== false,
+
+            sensitivity:
+                savedPrefs.sensitivity ??
+                state.settings.sensitivity,
+
+            graphicsQuality:
+                savedPrefs.graphicsQuality ??
+                state.settings.graphicsQuality
+        };
+
+        if (
+            state.settings.firstPersonLocked
+        ) {
+
+            state.cameraSettings.distance =
+                FIRST_PERSON_DISTANCE;
+        }
+
+
         state.objects =
             Array.isArray(
                 options.objects
@@ -2786,6 +3276,8 @@
 
         attachInput();
 
+        applyGraphicsQuality();
+
 
         log(
             `Playing "${state.game.name || "Untitled Game"}".`
@@ -2793,7 +3285,7 @@
 
 
         log(
-            "WASD = move | Space = jump | Shift = run"
+            "WASD = move | Space = jump | Scroll = zoom | P = settings"
         );
 
 
@@ -2861,6 +3353,9 @@
 
 
         detachInput();
+
+        closeSettingsMenu();
+        destroySettingsMenu();
 
 
         /*
