@@ -1,81 +1,88 @@
 /*
- * ============================================================
  * WebBlox Player Animations
- * Stage 3C
  *
- * Blocky Roblox-style animations
+ * Stage 3C
+ * CLASSIC BLOCKY ANIMATION SYSTEM
  *
  * States:
- * - Idle
- * - Walking
- * - Running
- * - Jumping
- * - Falling
- * - Landing
- * - Death
- * ============================================================
+ *
+ * Idle
+ * Walking
+ * Running
+ * Jumping
+ * Freefall
+ *
+ * Designed for the WebBlox blocky character hierarchy.
  */
 
 (() => {
 
     "use strict";
 
-
     const PlayerSystem =
         window.WebBloxPlayer =
             window.WebBloxPlayer || {};
 
-
     const Animations = {};
-
 
     let time = 0;
 
-    let lastState =
+    let previousState =
         "Idle";
 
-
-    /* ============================================================
-       SETUP
-       ============================================================ */
+    /*
+     * ============================================================
+     * SETUP
+     * ============================================================
+     */
 
     function setup() {
 
         time = 0;
 
-        lastState =
+        previousState =
             "Idle";
+
     }
 
-
-    /* ============================================================
-       FIND PART
-       ============================================================ */
+    /*
+     * ============================================================
+     * FIND PART
+     * ============================================================
+     */
 
     function findPart(
         character,
         name
     ) {
 
-        if (
-            character?.userData
-                ?.bodyParts?.[name]
-        ) {
-
-            return character
-                .userData
-                .bodyParts[name];
+        if (!character) {
+            return null;
         }
 
-        return character?.getObjectByName(
+        const bodyParts =
+            character.userData
+                ?.bodyParts;
+
+        if (
+            bodyParts &&
+            bodyParts[name]
+        ) {
+            return bodyParts[name];
+        }
+
+        return character.getObjectByName(
             name
         );
     }
 
-
-    /* ============================================================
-       RESET
-       ============================================================ */
+    /*
+     * ============================================================
+     * ROTATION RESET
+     *
+     * Only reset animation joints.
+     * ============================================================
+     */
 
     function resetPart(
         part
@@ -92,15 +99,16 @@
         part.rotation.z = 0;
     }
 
-
-    /* ============================================================
-       SMOOTH VALUE
-       ============================================================ */
+    /*
+     * ============================================================
+     * SAFE LERP
+     * ============================================================
+     */
 
     function smooth(
         current,
         target,
-        speed
+        amount
     ) {
 
         return (
@@ -109,17 +117,16 @@
                 target -
                 current
             ) *
-            Math.min(
-                1,
-                speed
-            )
+            amount
         );
+
     }
 
-
-    /* ============================================================
-       UPDATE
-       ============================================================ */
+    /*
+     * ============================================================
+     * UPDATE
+     * ============================================================
+     */
 
     function update(
         delta
@@ -131,7 +138,6 @@
         if (!character) {
             return;
         }
-
 
         const runtime =
             character.userData
@@ -145,64 +151,66 @@
             character.userData
                 ?.bodyParts;
 
-
         if (
             !runtime ||
-            !humanoid ||
             !parts
         ) {
             return;
         }
 
-
         delta =
-            Math.min(
-                Math.max(
-                    Number(delta) || 0,
-                    0
-                ),
-                0.05
+            Math.max(
+                0,
+                Math.min(
+                    delta || 0,
+                    0.1
+                )
             );
-
 
         time += delta;
 
+        /*
+         * --------------------------------------------------------
+         * INPUT
+         * --------------------------------------------------------
+         */
 
-        /* ========================================================
-           INPUT
-           ======================================================== */
+        const input =
+            runtime.input ||
+            {};
 
         const moving =
-            Boolean(
-                runtime.input
-                    ?.moving
-            );
-
+            input.moving === true;
 
         const sprinting =
-            Boolean(
-                runtime.input
-                    ?.sprint
-            );
+            input.sprint === true;
 
+        /*
+         * --------------------------------------------------------
+         * VELOCITY
+         * --------------------------------------------------------
+         */
+
+        const velocity =
+            runtime.velocity ||
+            {};
 
         const velocityY =
             Number(
-                runtime.velocity
-                    ?.y
-            ) || 0;
+                velocity.y || 0
+            );
 
-
-        /* ========================================================
-           STATE
-           ======================================================== */
+        /*
+         * --------------------------------------------------------
+         * STATE
+         * --------------------------------------------------------
+         */
 
         let state =
             "Idle";
 
-
         if (
-            !runtime.grounded
+            runtime.grounded !== true
         ) {
 
             if (
@@ -215,7 +223,8 @@
             } else {
 
                 state =
-                    "Falling";
+                    "Freefall";
+
             }
 
         } else if (
@@ -226,339 +235,236 @@
                 sprinting
                     ? "Running"
                     : "Walking";
+
         }
 
-
-        if (
-            humanoid.state !==
-            state
-        ) {
+        if (humanoid) {
 
             humanoid.state =
                 state;
+
         }
 
+        /*
+         * --------------------------------------------------------
+         * JOINTS
+         * --------------------------------------------------------
+         */
 
-        /* ========================================================
-           PARTS
-           ======================================================== */
+        const leftArm =
+            findPart(
+                character,
+                "LeftUpperArm"
+            ) ||
+            parts.leftUpperArm;
+
+        const rightArm =
+            findPart(
+                character,
+                "RightUpperArm"
+            ) ||
+            parts.rightUpperArm;
+
+        const leftLeg =
+            findPart(
+                character,
+                "LeftUpperLeg"
+            ) ||
+            parts.leftUpperLeg;
+
+        const rightLeg =
+            findPart(
+                character,
+                "RightUpperLeg"
+            ) ||
+            parts.rightUpperLeg;
 
         const upperTorso =
             findPart(
                 character,
-                "upperTorso"
-            );
+                "UpperTorso"
+            ) ||
+            parts.upperTorso;
 
-
-        const lowerTorso =
+        const neck =
             findPart(
                 character,
-                "lowerTorso"
+                "Neck"
             );
 
+        /*
+         * --------------------------------------------------------
+         * RESET
+         * --------------------------------------------------------
+         */
 
-        const head =
-            findPart(
-                character,
-                "head"
-            );
-
-
-        const leftUpperArm =
-            findPart(
-                character,
-                "leftUpperArm"
-            );
-
-
-        const rightUpperArm =
-            findPart(
-                character,
-                "rightUpperArm"
-            );
-
-
-        const leftLowerArm =
-            findPart(
-                character,
-                "leftLowerArm"
-            );
-
-
-        const rightLowerArm =
-            findPart(
-                character,
-                "rightLowerArm"
-            );
-
-
-        const leftUpperLeg =
-            findPart(
-                character,
-                "leftUpperLeg"
-            );
-
-
-        const rightUpperLeg =
-            findPart(
-                character,
-                "rightUpperLeg"
-            );
-
-
-        const leftLowerLeg =
-            findPart(
-                character,
-                "leftLowerLeg"
-            );
-
-
-        const rightLowerLeg =
-            findPart(
-                character,
-                "rightLowerLeg"
-            );
-
-
-        /* ========================================================
-           RESET
-           ======================================================== */
-
-        [
-            upperTorso,
-            lowerTorso,
-            head,
-            leftUpperArm,
-            rightUpperArm,
-            leftLowerArm,
-            rightLowerArm,
-            leftUpperLeg,
-            rightUpperLeg,
-            leftLowerLeg,
-            rightLowerLeg
-        ].forEach(
-            resetPart
+        resetPart(
+            leftArm
         );
 
+        resetPart(
+            rightArm
+        );
 
-        /* ========================================================
-           IDLE
-           ======================================================== */
+        resetPart(
+            leftLeg
+        );
+
+        resetPart(
+            rightLeg
+        );
+
+        resetPart(
+            upperTorso
+        );
+
+        resetPart(
+            neck
+        );
+
+        /*
+         * --------------------------------------------------------
+         * IDLE
+         * --------------------------------------------------------
+         *
+         * Very small breathing movement.
+         */
 
         if (
             state === "Idle"
         ) {
 
-            const breathe =
+            const breathing =
                 Math.sin(
                     time * 2.0
                 ) *
                 0.018;
 
-
-            const headBob =
+            const armSway =
                 Math.sin(
-                    time * 2.0
+                    time * 1.7
                 ) *
-                0.008;
-
+                0.012;
 
             if (
                 upperTorso
             ) {
 
                 upperTorso.rotation.x =
-                    breathe;
-            }
+                    breathing;
 
+            }
 
             if (
-                lowerTorso
+                leftArm
             ) {
 
-                lowerTorso.rotation.x =
-                    breathe * 0.5;
-            }
+                leftArm.rotation.z =
+                    0.025 +
+                    armSway;
 
+            }
 
             if (
-                head
+                rightArm
             ) {
 
-                head.rotation.x =
-                    headBob;
+                rightArm.rotation.z =
+                    -0.025 -
+                    armSway;
+
             }
 
-
-            if (
-                leftUpperArm
-            ) {
-
-                leftUpperArm.rotation.z =
-                    0.025;
-            }
-
-
-            if (
-                rightUpperArm
-            ) {
-
-                rightUpperArm.rotation.z =
-                    -0.025;
-            }
-
+            previousState =
+                state;
 
             return;
         }
 
-
-        /* ========================================================
-           WALK / RUN
-           ======================================================== */
+        /*
+         * --------------------------------------------------------
+         * WALK / RUN
+         * --------------------------------------------------------
+         */
 
         if (
             state === "Walking" ||
             state === "Running"
         ) {
 
-            const frequency =
+            const animationSpeed =
                 state === "Running"
                     ? 11
-                    : 8;
-
+                    : 8.5;
 
             const amount =
                 state === "Running"
                     ? 0.72
                     : 0.48;
 
-
-            const swing =
+            const wave =
                 Math.sin(
                     time *
-                    frequency
+                    animationSpeed
                 );
 
-
-            const oppositeSwing =
+            const oppositeWave =
                 Math.sin(
                     time *
-                    frequency +
+                    animationSpeed +
                     Math.PI
                 );
 
-
             /*
-             * Arms
+             * Arms.
              */
 
             if (
-                leftUpperArm
+                leftArm
             ) {
 
-                leftUpperArm.rotation.x =
-                    swing *
+                leftArm.rotation.x =
+                    wave *
                     amount;
-            }
 
+            }
 
             if (
-                rightUpperArm
+                rightArm
             ) {
 
-                rightUpperArm.rotation.x =
-                    oppositeSwing *
+                rightArm.rotation.x =
+                    oppositeWave *
                     amount;
+
             }
 
-
             /*
-             * Lower arms follow
-             * the upper arm.
+             * Legs.
              */
 
             if (
-                leftLowerArm
+                leftLeg
             ) {
 
-                leftLowerArm.rotation.x =
-                    Math.max(
-                        0,
-                        swing
-                    ) *
-                    0.16;
-            }
-
-
-            if (
-                rightLowerArm
-            ) {
-
-                rightLowerArm.rotation.x =
-                    Math.max(
-                        0,
-                        oppositeSwing
-                    ) *
-                    0.16;
-            }
-
-
-            /*
-             * Legs
-             */
-
-            if (
-                leftUpperLeg
-            ) {
-
-                leftUpperLeg.rotation.x =
-                    -swing *
+                leftLeg.rotation.x =
+                    oppositeWave *
                     amount;
+
             }
 
-
             if (
-                rightUpperLeg
+                rightLeg
             ) {
 
-                rightUpperLeg.rotation.x =
-                    -oppositeSwing *
+                rightLeg.rotation.x =
+                    wave *
                     amount;
-            }
 
+            }
 
             /*
-             * Knees.
-             */
-
-            if (
-                leftLowerLeg
-            ) {
-
-                leftLowerLeg.rotation.x =
-                    Math.max(
-                        0,
-                        swing
-                    ) *
-                    0.25;
-            }
-
-
-            if (
-                rightLowerLeg
-            ) {
-
-                rightLowerLeg.rotation.x =
-                    Math.max(
-                        0,
-                        oppositeSwing
-                    ) *
-                    0.25;
-            }
-
-
-            /*
-             * Torso movement.
+             * Small torso movement.
              */
 
             if (
@@ -566,326 +472,256 @@
             ) {
 
                 upperTorso.rotation.y =
-                    swing *
-                    0.035;
+                    wave *
+                    0.025;
 
                 upperTorso.rotation.x =
-                    0.025;
+                    Math.abs(
+                        wave
+                    ) *
+                    0.018;
+
             }
 
-
             /*
-             * Head stays mostly
-             * stable.
+             * Running has a slightly stronger
+             * body bounce.
              */
 
             if (
-                head
+                state === "Running" &&
+                upperTorso
             ) {
 
-                head.rotation.y =
-                    swing *
-                    0.018;
+                upperTorso.position.y =
+                    Math.abs(
+                        Math.sin(
+                            time * 11
+                        )
+                    ) *
+                    0.035;
+
             }
 
+            previousState =
+                state;
 
             return;
         }
 
-
-        /* ========================================================
-           JUMP
-           ======================================================== */
+        /*
+         * --------------------------------------------------------
+         * JUMP
+         * --------------------------------------------------------
+         */
 
         if (
             state === "Jumping"
         ) {
 
             if (
-                upperTorso
+                leftArm
             ) {
 
-                upperTorso.rotation.x =
-                    -0.08;
-            }
-
-
-            if (
-                leftUpperArm
-            ) {
-
-                leftUpperArm.rotation.x =
+                leftArm.rotation.x =
                     -0.85;
+
+                leftArm.rotation.z =
+                    0.04;
+
             }
 
-
             if (
-                rightUpperArm
+                rightArm
             ) {
 
-                rightUpperArm.rotation.x =
+                rightArm.rotation.x =
                     -0.85;
-            }
 
+                rightArm.rotation.z =
+                    -0.04;
+
+            }
 
             if (
-                leftLowerArm
+                leftLeg
             ) {
 
-                leftLowerArm.rotation.x =
-                    -0.12;
-            }
+                leftLeg.rotation.x =
+                    0.18;
 
+            }
 
             if (
-                rightLowerArm
+                rightLeg
             ) {
 
-                rightLowerArm.rotation.x =
-                    -0.12;
+                rightLeg.rotation.x =
+                    0.18;
+
             }
-
-
-            if (
-                leftUpperLeg
-            ) {
-
-                leftUpperLeg.rotation.x =
-                    0.22;
-            }
-
-
-            if (
-                rightUpperLeg
-            ) {
-
-                rightUpperLeg.rotation.x =
-                    0.22;
-            }
-
-
-            if (
-                leftLowerLeg
-            ) {
-
-                leftLowerLeg.rotation.x =
-                    -0.10;
-            }
-
-
-            if (
-                rightLowerLeg
-            ) {
-
-                rightLowerLeg.rotation.x =
-                    -0.10;
-            }
-
-
-            return;
-        }
-
-
-        /* ========================================================
-           FALL
-           ======================================================== */
-
-        if (
-            state === "Falling"
-        ) {
 
             if (
                 upperTorso
             ) {
 
                 upperTorso.rotation.x =
-                    0.12;
+                    -0.035;
+
             }
 
-
-            if (
-                leftUpperArm
-            ) {
-
-                leftUpperArm.rotation.x =
-                    -0.48;
-            }
-
-
-            if (
-                rightUpperArm
-            ) {
-
-                rightUpperArm.rotation.x =
-                    -0.48;
-            }
-
-
-            if (
-                leftLowerArm
-            ) {
-
-                leftLowerArm.rotation.x =
-                    0.08;
-            }
-
-
-            if (
-                rightLowerArm
-            ) {
-
-                rightLowerArm.rotation.x =
-                    0.08;
-            }
-
-
-            if (
-                leftUpperLeg
-            ) {
-
-                leftUpperLeg.rotation.x =
-                    -0.18;
-            }
-
-
-            if (
-                rightUpperLeg
-            ) {
-
-                rightUpperLeg.rotation.x =
-                    -0.18;
-            }
-
+            previousState =
+                state;
 
             return;
         }
 
-
-        /* ========================================================
-           LANDING
-           ======================================================== */
+        /*
+         * --------------------------------------------------------
+         * FREEFALL
+         * --------------------------------------------------------
+         */
 
         if (
-            state === "Landing"
+            state === "Freefall"
         ) {
 
-            const landing =
-                Math.min(
-                    1,
-                    Math.max(
-                        0,
-                        Math.sin(
-                            time * 24
-                        )
-                    )
-                );
+            if (
+                leftArm
+            ) {
 
+                leftArm.rotation.x =
+                    -0.38;
+
+                leftArm.rotation.z =
+                    0.06;
+
+            }
+
+            if (
+                rightArm
+            ) {
+
+                rightArm.rotation.x =
+                    -0.38;
+
+                rightArm.rotation.z =
+                    -0.06;
+
+            }
+
+            if (
+                leftLeg
+            ) {
+
+                leftLeg.rotation.x =
+                    -0.15;
+
+            }
+
+            if (
+                rightLeg
+            ) {
+
+                rightLeg.rotation.x =
+                    -0.15;
+
+            }
 
             if (
                 upperTorso
             ) {
 
                 upperTorso.rotation.x =
-                    landing *
-                    0.12;
+                    -0.05;
+
             }
 
-
-            if (
-                leftUpperLeg
-            ) {
-
-                leftUpperLeg.rotation.x =
-                    landing *
-                    -0.10;
-            }
-
-
-            if (
-                rightUpperLeg
-            ) {
-
-                rightUpperLeg.rotation.x =
-                    landing *
-                    -0.10;
-            }
-
+            previousState =
+                state;
 
             return;
         }
 
-
-        /* ========================================================
-           DEATH
-           ======================================================== */
-
-        if (
-            state === "Dead"
-        ) {
-
-            if (
-                upperTorso
-            ) {
-
-                upperTorso.rotation.z =
-                    -1.25;
-            }
-
-
-            if (
-                head
-            ) {
-
-                head.rotation.z =
-                    -0.25;
-            }
-
-
-            if (
-                leftUpperArm
-            ) {
-
-                leftUpperArm.rotation.z =
-                    -0.75;
-            }
-
-
-            if (
-                rightUpperArm
-            ) {
-
-                rightUpperArm.rotation.z =
-                    0.75;
-            }
-
-
-            if (
-                leftUpperLeg
-            ) {
-
-                leftUpperLeg.rotation.z =
-                    -0.25;
-            }
-
-
-            if (
-                rightUpperLeg
-            ) {
-
-                rightUpperLeg.rotation.z =
-                    0.25;
-            }
-        }
-
-
-        lastState =
+        previousState =
             state;
+
     }
 
+    /*
+     * ============================================================
+     * STATE
+     * ============================================================
+     */
 
-    /* ============================================================
-       PUBLIC API
-       ============================================================ */
+    function getState(
+        character
+    ) {
+
+        return (
+            character
+                ?.userData
+                ?.humanoid
+                ?.state ||
+            "Idle"
+        );
+
+    }
+
+    /*
+     * ============================================================
+     * RESET
+     * ============================================================
+     */
+
+    function reset(
+        character
+    ) {
+
+        if (!character) {
+            return;
+        }
+
+        const parts =
+            character.userData
+                ?.bodyParts;
+
+        if (!parts) {
+            return;
+        }
+
+        Object.values(parts)
+            .forEach(
+                part => {
+
+                    if (
+                        part &&
+                        part.isObject3D
+                    ) {
+
+                        part.rotation.set(
+                            0,
+                            0,
+                            0
+                        );
+
+                    }
+
+                }
+            );
+
+        time = 0;
+
+        previousState =
+            "Idle";
+
+    }
+
+    /*
+     * ============================================================
+     * PUBLIC API
+     * ============================================================
+     */
 
     Animations.setup =
         setup;
@@ -893,32 +729,19 @@
     Animations.update =
         update;
 
+    Animations.reset =
+        reset;
+
     Animations.getState =
-        character => {
+        getState;
 
-            return (
-                character
-                    ?.userData
-                    ?.humanoid
-                    ?.state ||
-                "Idle"
-            );
-        };
+    Animations.getPreviousState =
+        () => previousState;
 
+    Animations.getTime =
+        () => time;
 
     PlayerSystem.animations =
         Animations;
-
-
-    /*
-     * Automatically initialize.
-     */
-
-    setup();
-
-
-    console.log(
-        "[WebBlox Player] Blocky animations loaded."
-    );
 
 })();
