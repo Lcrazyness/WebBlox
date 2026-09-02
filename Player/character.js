@@ -1,596 +1,2365 @@
 /*
+ * ============================================================
  * WebBlox Player Character System
+ * Stage 3C
  *
- * Stage 3B - COMPLETE ROBLOX-STYLE IMPLEMENTATION
+ * BLOCKY CHARACTER EDITION
  *
- * PRESERVED:
- * - All original R15 character creation
- * - Bacon hair and face
- * - All body parts and joints
- * - Original destruction logic
- *
- * ADDED:
- * - R6 character support
- * - Complete Humanoid controller
- * - Character state machine
- * - Physics simulation
- * - Animation framework
- * - Scripting integration
+ * Features:
+ * - Classic Roblox-style blocky body
+ * - No Bacon Hair
+ * - No hat
+ * - Connected limbs
+ * - Proper limb pivot hierarchy
+ * - R15-compatible body part names
+ * - Humanoid
+ * - Movement
+ * - Jumping
+ * - Sprinting
+ * - Falling
+ * - Character states
+ * - Animation compatibility
+ * - Runtime data
  * - Character events
+ * - Custom colors
+ * ============================================================
  */
 
 (() => {
     "use strict";
 
-    if (!window.WebBloxPlayer) {
-        window.WebBloxPlayer = {};
-    }
+    window.WebBloxPlayer =
+        window.WebBloxPlayer || {};
 
-    const PlayerSystem = window.WebBloxPlayer;
+    const PlayerSystem =
+        window.WebBloxPlayer;
+
     let THREE = null;
 
+
+    /* ============================================================
+       THREE
+       ============================================================ */
+
     function getThree() {
+
         if (window.THREE) {
             THREE = window.THREE;
             return THREE;
         }
+
         return null;
     }
 
-    function makeMaterial(color, roughness = 0.8) {
+
+    /* ============================================================
+       MATERIAL
+       ============================================================ */
+
+    function makeMaterial(
+        color,
+        roughness = 0.78
+    ) {
+
         return new THREE.MeshStandardMaterial({
-            color: new THREE.Color(color),
+
+            color:
+                new THREE.Color(color),
+
             roughness,
+
             metalness: 0
+
         });
+
     }
 
-    function createPart(name, size, color, position, parent) {
-        const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
-        const material = makeMaterial(color);
-        const mesh = new THREE.Mesh(geometry, material);
+
+    /* ============================================================
+       BLOCK
+       ============================================================ */
+
+    function createBlock(
+        name,
+        size,
+        color,
+        position,
+        parent,
+        options = {}
+    ) {
+
+        const geometry =
+            new THREE.BoxGeometry(
+                size.x,
+                size.y,
+                size.z
+            );
+
+        const material =
+            makeMaterial(
+                color,
+                options.roughness || 0.78
+            );
+
+        const mesh =
+            new THREE.Mesh(
+                geometry,
+                material
+            );
 
         mesh.name = name;
-        mesh.position.set(position.x, position.y, position.z);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        mesh.userData.characterPart = true;
-        mesh.userData.characterPartName = name;
 
-        parent.add(mesh);
-        return mesh;
-    }
-
-    function createRoundedPart(name, size, color, position, parent) {
-        const geometry = new THREE.CapsuleGeometry(
-            Math.min(size.x, size.z) * 0.38,
-            Math.max(0.1, size.y - Math.min(size.x, size.z) * 0.76),
-            6,
-            12
+        mesh.position.set(
+            position.x || 0,
+            position.y || 0,
+            position.z || 0
         );
 
-        const material = makeMaterial(color);
-        const mesh = new THREE.Mesh(geometry, material);
-
-        mesh.name = name;
-        mesh.position.set(position.x, position.y, position.z);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
+
         mesh.userData.characterPart = true;
-        mesh.userData.characterPartName = name;
+
+        mesh.userData.characterPartName =
+            name;
+
+        if (options.renderOrder !== undefined) {
+            mesh.renderOrder =
+                options.renderOrder;
+        }
 
         parent.add(mesh);
+
         return mesh;
     }
 
-    function createBaconHair(head, skinColor) {
-        const hair = new THREE.Group();
-        hair.name = "BaconHair";
-        hair.userData.characterAccessory = true;
 
-        const baconColors = ["#5b351f", "#7a4727", "#8f542d", "#62351f", "#9a5a31"];
+    /* ============================================================
+       PIVOT
+       ============================================================ */
 
-        for (let i = 0; i < 9; i++) {
-            const angle = (Math.PI * 2 / 9) * i;
-            const radius = 0.68;
+    function createPivot(
+        name,
+        position,
+        parent
+    ) {
 
-            const stripGeometry = new THREE.BoxGeometry(0.20, 0.95, 0.38);
-            const stripMaterial = makeMaterial(baconColors[i % baconColors.length], 0.9);
-            const strip = new THREE.Mesh(stripGeometry, stripMaterial);
+        const pivot =
+            new THREE.Group();
 
-            strip.position.set(Math.cos(angle) * radius, 0.58, Math.sin(angle) * radius);
-            strip.rotation.z = Math.sin(angle) * 0.35;
-            strip.rotation.y = angle;
-            strip.castShadow = true;
+        pivot.name = name;
 
-            hair.add(strip);
-        }
+        pivot.position.set(
+            position.x || 0,
+            position.y || 0,
+            position.z || 0
+        );
 
-        for (let i = 0; i < 5; i++) {
-            const stripGeometry = new THREE.BoxGeometry(0.25, 0.85, 0.42);
-            const stripMaterial = makeMaterial(baconColors[(i + 2) % baconColors.length]);
-            const strip = new THREE.Mesh(stripGeometry, stripMaterial);
+        pivot.userData.characterPart = true;
 
-            strip.position.set((i - 2) * 0.25, 0.9, -0.15);
-            strip.rotation.z = (i - 2) * 0.12;
-            strip.rotation.x = -0.25;
-            strip.castShadow = true;
+        pivot.userData.characterPartName =
+            name;
 
-            hair.add(strip);
-        }
+        parent.add(pivot);
 
-        head.add(hair);
-        return hair;
+        return pivot;
     }
 
-    function createFace(head) {
-        const face = new THREE.Group();
+
+    /* ============================================================
+       FACE
+       ============================================================ */
+
+    function createFace(
+        head,
+        skinColor
+    ) {
+
+        const face =
+            new THREE.Group();
+
         face.name = "Face";
 
-        const eyeMaterial = makeMaterial("#111111");
-        const eyeGeometry = new THREE.SphereGeometry(0.10, 12, 8);
+        face.userData.characterAccessory =
+            false;
 
-        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        leftEye.position.set(-0.30, 0.15, 0.80);
+        /*
+         * Face is slightly in front
+         * of the head.
+         */
 
-        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        rightEye.position.set(0.30, 0.15, 0.80);
+        const eyeMaterial =
+            makeMaterial(
+                "#111111",
+                0.9
+            );
+
+        const eyeGeometry =
+            new THREE.BoxGeometry(
+                0.14,
+                0.14,
+                0.035
+            );
+
+
+        const leftEye =
+            new THREE.Mesh(
+                eyeGeometry,
+                eyeMaterial
+            );
+
+        leftEye.name =
+            "LeftEye";
+
+        leftEye.position.set(
+            -0.28,
+            0.12,
+            0.515
+        );
+
+
+        const rightEye =
+            new THREE.Mesh(
+                eyeGeometry,
+                eyeMaterial
+            );
+
+        rightEye.name =
+            "RightEye";
+
+        rightEye.position.set(
+            0.28,
+            0.12,
+            0.515
+        );
+
+
+        /*
+         * Simple classic Roblox-style
+         * smile made from a thin box.
+         */
+
+        const mouthGeometry =
+            new THREE.BoxGeometry(
+                0.30,
+                0.045,
+                0.035
+            );
+
+        const mouthMaterial =
+            makeMaterial(
+                "#111111",
+                0.9
+            );
+
+        const mouth =
+            new THREE.Mesh(
+                mouthGeometry,
+                mouthMaterial
+            );
+
+        mouth.name =
+            "Smile";
+
+        mouth.position.set(
+            0,
+            -0.18,
+            0.515
+        );
+
 
         face.add(leftEye);
         face.add(rightEye);
+        face.add(mouth);
 
-        const smileMaterial = makeMaterial("#222222");
-        const smileGeometry = new THREE.TorusGeometry(0.22, 0.035, 6, 16, Math.PI);
-        const smile = new THREE.Mesh(smileGeometry, smileMaterial);
-
-        smile.position.set(0, -0.18, 0.80);
-        smile.rotation.x = Math.PI / 2;
-
-        face.add(smile);
         head.add(face);
 
         return face;
     }
 
-    /**
-     * ============================================================
-     * CHARACTER ANIMATOR
-     * ============================================================
-     */
-    class CharacterAnimator {
+
+    /* ============================================================
+       HUMANOID
+       ============================================================ */
+
+    class Humanoid {
+
         constructor(character) {
-            this.character = character;
-            this.animations = new Map();
-            this.playing = new Map();
-            this.currentState = "Idle";
-            this.blendDuration = 0.2;
-            this.currentBlend = 0;
+
+            this.character =
+                character;
+
+            this.health = 100;
+
+            this.maxHealth = 100;
+
+            this.walkSpeed = 16;
+
+            this.sprintSpeed = 24;
+
+            this.jumpPower = 50;
+
+            this.gravity = 196.2;
+
+            this.autoRotate = true;
+
+            this.state = "Idle";
+
+            this.moveDirection = {
+                x: 0,
+                y: 0,
+                z: 0
+            };
+
+            this.velocity = {
+                x: 0,
+                y: 0,
+                z: 0
+            };
+
+            this.isGrounded = false;
+
+            this.isSprinting = false;
+
+            this.events =
+                new Map();
         }
 
-        loadAnimation(name, keyframes) {
-            this.animations.set(name, keyframes);
-        }
 
-        play(name, options = {}) {
-            if (!this.animations.has(name)) {
-                console.warn(`[WebBlox] Animation "${name}" not found`);
+        setState(newState) {
+
+            if (
+                this.state ===
+                newState
+            ) {
                 return;
             }
 
-            this.playing.set(name, {
-                keyframes: this.animations.get(name),
-                time: 0,
-                duration: options.duration || 1,
-                loop: options.loop !== false,
-                speed: options.speed || 1,
-                weight: options.weight || 1,
-                blendDuration: options.blendDuration || this.blendDuration
-            });
-        }
+            const oldState =
+                this.state;
 
-        stop(name) {
-            this.playing.delete(name);
-        }
+            this.state =
+                newState;
 
-        stopAll() {
-            this.playing.clear();
-        }
+            this.emit(
+                "StateChanged",
+                {
+                    from:
+                        oldState,
 
-        update(deltaTime) {
-            for (const [name, anim] of this.playing) {
-                anim.time += deltaTime * anim.speed;
-
-                if (anim.loop) {
-                    anim.time %= anim.duration;
-                } else if (anim.time >= anim.duration) {
-                    this.playing.delete(name);
+                    to:
+                        newState
                 }
+            );
+
+            if (
+                this.character
+                    .userData
+                    .animator
+            ) {
+
+                this.character
+                    .userData
+                    .animator
+                    .setStateAnimation(
+                        newState
+                    );
             }
         }
 
-        setStateAnimation(state) {
-            this.currentState = state;
-            this.stopAll();
-
-            const stateAnimations = {
-                "Idle": { name: "Idle", loop: true },
-                "Walking": { name: "Walk", loop: true },
-                "Running": { name: "Run", loop: true },
-                "Jumping": { name: "Jump", loop: false },
-                "Falling": { name: "Fall", loop: true },
-                "Landing": { name: "Land", loop: false },
-                "Dead": { name: "Death", loop: false }
-            };
-
-            if (stateAnimations[state]) {
-                this.play(stateAnimations[state].name, stateAnimations[state]);
-            }
-        }
-    }
-
-    /**
-     * ============================================================
-     * HUMANOID CONTROLLER
-     * ============================================================
-     */
-    class Humanoid {
-        constructor(character) {
-            this.character = character;
-
-            // Properties
-            this.health = 100;
-            this.maxHealth = 100;
-            this.walkSpeed = 16;
-            this.sprintSpeed = 24;
-            this.jumpPower = 50;
-            this.gravity = 196.2;
-            this.autoRotate = true;
-            this.state = "Idle";
-
-            // Movement
-            this.moveDirection = { x: 0, y: 0, z: 0 };
-            this.velocity = { x: 0, y: 0, z: 0 };
-            this.isGrounded = false;
-            this.isSprinting = false;
-
-            // Events
-            this.events = new Map();
-        }
-
-        setState(newState) {
-            if (this.state !== newState) {
-                const oldState = this.state;
-                this.state = newState;
-                this.emit("StateChanged", { from: oldState, to: newState });
-
-                if (this.character.userData.animator) {
-                    this.character.userData.animator.setStateAnimation(newState);
-                }
-            }
-        }
 
         move(direction) {
-            this.moveDirection = { ...direction };
 
-            if (direction.x !== 0 || direction.z !== 0) {
-                if (this.state === "Idle") {
-                    this.setState("Walking");
+            const x =
+                Number(
+                    direction?.x
+                ) || 0;
+
+            const y =
+                Number(
+                    direction?.y
+                ) || 0;
+
+            const z =
+                Number(
+                    direction?.z
+                ) || 0;
+
+            this.moveDirection = {
+                x,
+                y,
+                z
+            };
+
+            const moving =
+                Math.abs(x) > 0.001 ||
+                Math.abs(z) > 0.001;
+
+            if (!moving) {
+
+                if (
+                    this.state ===
+                        "Walking" ||
+                    this.state ===
+                        "Running"
+                ) {
+
+                    this.setState(
+                        "Idle"
+                    );
                 }
+
+                return;
+            }
+
+            if (
+                this.isSprinting
+            ) {
+
+                this.setState(
+                    "Running"
+                );
+
             } else {
-                if (this.state === "Walking" || this.state === "Running") {
-                    this.setState("Idle");
-                }
+
+                this.setState(
+                    "Walking"
+                );
             }
         }
+
 
         jump() {
-            if (this.isGrounded && this.state !== "Dead") {
-                const jumpVelocity = Math.sqrt(2 * this.gravity * (this.jumpPower / 100));
-                this.velocity.y = jumpVelocity;
-                this.isGrounded = false;
-                this.setState("Jumping");
-                this.emit("Jumped");
+
+            if (
+                !this.isGrounded
+            ) {
+                return;
             }
+
+            if (
+                this.state ===
+                "Dead"
+            ) {
+                return;
+            }
+
+            const jumpVelocity =
+                Math.sqrt(
+                    2 *
+                    this.gravity *
+                    (
+                        this.jumpPower /
+                        100
+                    )
+                );
+
+            this.velocity.y =
+                jumpVelocity;
+
+            this.isGrounded =
+                false;
+
+            this.setState(
+                "Jumping"
+            );
+
+            this.emit(
+                "Jumped"
+            );
         }
+
 
         sprint(enabled) {
-            this.isSprinting = enabled;
-            if (enabled && (this.state === "Walking")) {
-                this.setState("Running");
-            } else if (!enabled && this.state === "Running") {
-                this.setState("Walking");
+
+            this.isSprinting =
+                Boolean(
+                    enabled
+                );
+
+            const moving =
+                Math.abs(
+                    this.moveDirection.x
+                ) > 0.001 ||
+                Math.abs(
+                    this.moveDirection.z
+                ) > 0.001;
+
+            if (!moving) {
+
+                this.setState(
+                    "Idle"
+                );
+
+                return;
             }
+
+            this.setState(
+                this.isSprinting
+                    ? "Running"
+                    : "Walking"
+            );
         }
+
 
         takeDamage(amount) {
-            this.health = Math.max(0, this.health - amount);
-            this.emit("HealthChanged", this.health);
 
-            if (this.health <= 0) {
-                this.setState("Dead");
-                this.emit("Died");
+            amount =
+                Number(amount) || 0;
+
+            this.health =
+                Math.max(
+                    0,
+                    this.health -
+                    amount
+                );
+
+            this.emit(
+                "HealthChanged",
+                this.health
+            );
+
+            if (
+                this.health <= 0
+            ) {
+
+                this.setState(
+                    "Dead"
+                );
+
+                this.emit(
+                    "Died"
+                );
             }
         }
 
+
         heal(amount) {
-            this.health = Math.min(this.maxHealth, this.health + amount);
-            this.emit("HealthChanged", this.health);
+
+            amount =
+                Number(amount) || 0;
+
+            this.health =
+                Math.min(
+                    this.maxHealth,
+                    this.health +
+                    amount
+                );
+
+            this.emit(
+                "HealthChanged",
+                this.health
+            );
         }
 
+
         getState() {
+
             return this.state;
         }
 
-        emit(event, data) {
-            if (!this.events.has(event)) {
-                this.events.set(event, []);
+
+        emit(
+            event,
+            data
+        ) {
+
+            if (
+                !this.events.has(
+                    event
+                )
+            ) {
+
+                this.events.set(
+                    event,
+                    []
+                );
             }
-            this.events.get(event).forEach(callback => callback(data));
-        }
 
-        on(event, callback) {
-            if (!this.events.has(event)) {
-                this.events.set(event, []);
-            }
-            this.events.get(event).push(callback);
-        }
-    }
+            const listeners =
+                this.events.get(
+                    event
+                );
 
-    /**
-     * ============================================================
-     * CHARACTER UPDATE
-     * ============================================================
-     */
-    function updateCharacterPhysics(character, deltaTime) {
-        const humanoid = character.userData.humanoid;
-        const runtime = character.userData.runtime;
+            listeners.forEach(
+                callback => {
 
-        // Apply gravity
-        if (!humanoid.isGrounded) {
-            humanoid.velocity.y -= humanoid.gravity * deltaTime;
-        } else {
-            if (humanoid.velocity.y < 0) {
-                humanoid.velocity.y = 0;
-            }
-        }
+                    try {
 
-        // Apply movement
-        const speed = humanoid.isSprinting ? humanoid.sprintSpeed : humanoid.walkSpeed;
-        humanoid.velocity.x = humanoid.moveDirection.x * speed;
-        humanoid.velocity.z = humanoid.moveDirection.z * speed;
+                        callback(
+                            data
+                        );
 
-        // Update position
-        const position = character.position;
-        position.x += humanoid.velocity.x * deltaTime;
-        position.y += humanoid.velocity.y * deltaTime;
-        position.z += humanoid.velocity.z * deltaTime;
+                    } catch (
+                        error
+                    ) {
 
-        // Floor collision
-        if (position.y < 0) {
-            position.y = 0;
-            humanoid.velocity.y = 0;
-            humanoid.isGrounded = true;
-
-            if (humanoid.state === "Jumping" || humanoid.state === "Falling") {
-                humanoid.setState("Landing");
-                setTimeout(() => {
-                    if (humanoid.moveDirection.x !== 0 || humanoid.moveDirection.z !== 0) {
-                        humanoid.setState("Walking");
-                    } else {
-                        humanoid.setState("Idle");
+                        console.error(
+                            "[WebBlox Player] Event error:",
+                            error
+                        );
                     }
-                }, 200);
+                }
+            );
+        }
+
+
+        on(
+            event,
+            callback
+        ) {
+
+            if (
+                typeof callback !==
+                "function"
+            ) {
+                return;
             }
+
+            if (
+                !this.events.has(
+                    event
+                )
+            ) {
+
+                this.events.set(
+                    event,
+                    []
+                );
+            }
+
+            this.events
+                .get(event)
+                .push(callback);
+        }
+    }
+
+
+    /* ============================================================
+       ANIMATOR
+       ============================================================ */
+
+    class CharacterAnimator {
+
+        constructor(
+            character
+        ) {
+
+            this.character =
+                character;
+
+            this.animations =
+                new Map();
+
+            this.playing =
+                new Map();
+
+            this.currentState =
+                "Idle";
+
+            this.blendDuration =
+                0.15;
+
+            this.currentAnimation =
+                null;
+        }
+
+
+        loadAnimation(
+            name,
+            keyframes
+        ) {
+
+            this.animations.set(
+                name,
+                Array.isArray(
+                    keyframes
+                )
+                    ? keyframes
+                    : []
+            );
+        }
+
+
+        play(
+            name,
+            options = {}
+        ) {
+
+            if (
+                !this.animations.has(
+                    name
+                )
+            ) {
+
+                console.warn(
+                    `[WebBlox] Animation "${name}" not found`
+                );
+
+                return;
+            }
+
+            this.stopAll();
+
+            this.currentAnimation =
+                name;
+
+            this.playing.set(
+                name,
+                {
+
+                    keyframes:
+                        this.animations.get(
+                            name
+                        ),
+
+                    time: 0,
+
+                    duration:
+                        options.duration ||
+                        1,
+
+                    loop:
+                        options.loop !==
+                        false,
+
+                    speed:
+                        options.speed ||
+                        1,
+
+                    weight:
+                        options.weight ||
+                        1
+                }
+            );
+        }
+
+
+        stop(
+            name
+        ) {
+
+            this.playing.delete(
+                name
+            );
+
+            if (
+                this.currentAnimation ===
+                name
+            ) {
+
+                this.currentAnimation =
+                    null;
+            }
+        }
+
+
+        stopAll() {
+
+            this.playing.clear();
+
+            this.currentAnimation =
+                null;
+        }
+
+
+        update(
+            deltaTime
+        ) {
+
+            for (
+                const [
+                    name,
+                    animation
+                ]
+                of this.playing
+            ) {
+
+                animation.time +=
+                    deltaTime *
+                    animation.speed;
+
+                if (
+                    animation.loop
+                ) {
+
+                    animation.time %=
+                        animation.duration;
+
+                } else if (
+                    animation.time >=
+                    animation.duration
+                ) {
+
+                    this.playing.delete(
+                        name
+                    );
+
+                    if (
+                        this.currentAnimation ===
+                        name
+                    ) {
+
+                        this.currentAnimation =
+                            null;
+                    }
+                }
+            }
+        }
+
+
+        setStateAnimation(
+            state
+        ) {
+
+            this.currentState =
+                state;
+
+            const animations = {
+
+                Idle: {
+                    name: "Idle",
+                    loop: true,
+                    speed: 1
+                },
+
+                Walking: {
+                    name: "Walk",
+                    loop: true,
+                    speed: 1
+                },
+
+                Running: {
+                    name: "Run",
+                    loop: true,
+                    speed: 1
+                },
+
+                Jumping: {
+                    name: "Jump",
+                    loop: false,
+                    speed: 1
+                },
+
+                Freefall: {
+                    name: "Fall",
+                    loop: true,
+                    speed: 1
+                },
+
+                Falling: {
+                    name: "Fall",
+                    loop: true,
+                    speed: 1
+                },
+
+                Landing: {
+                    name: "Land",
+                    loop: false,
+                    speed: 1
+                },
+
+                Dead: {
+                    name: "Death",
+                    loop: false,
+                    speed: 1
+                }
+            };
+
+            const animation =
+                animations[state];
+
+            if (
+                !animation
+            ) {
+                return;
+            }
+
+            if (
+                this.animations.has(
+                    animation.name
+                )
+            ) {
+
+                this.play(
+                    animation.name,
+                    animation
+                );
+            }
+        }
+    }
+
+
+    /* ============================================================
+       PHYSICS
+       ============================================================ */
+
+    function updateCharacterPhysics(
+        character,
+        deltaTime
+    ) {
+
+        const humanoid =
+            character
+                .userData
+                .humanoid;
+
+        if (!humanoid) {
+            return;
+        }
+
+        deltaTime =
+            Math.min(
+                Math.max(
+                    Number(
+                        deltaTime
+                    ) || 0,
+                    0
+                ),
+                0.05
+            );
+
+
+        /*
+         * Gravity
+         */
+
+        if (
+            !humanoid.isGrounded
+        ) {
+
+            humanoid.velocity.y -=
+                humanoid.gravity *
+                deltaTime;
+
         } else {
-            humanoid.isGrounded = false;
-            if (humanoid.state === "Idle" || humanoid.state === "Walking" || humanoid.state === "Running") {
-                humanoid.setState("Falling");
+
+            if (
+                humanoid.velocity.y <
+                0
+            ) {
+
+                humanoid.velocity.y =
+                    0;
+            }
+        }
+
+
+        /*
+         * Movement
+         */
+
+        let moveX =
+            humanoid
+                .moveDirection
+                .x;
+
+        let moveZ =
+            humanoid
+                .moveDirection
+                .z;
+
+
+        const magnitude =
+            Math.sqrt(
+                moveX * moveX +
+                moveZ * moveZ
+            );
+
+
+        if (
+            magnitude > 1
+        ) {
+
+            moveX /=
+                magnitude;
+
+            moveZ /=
+                magnitude;
+        }
+
+
+        const speed =
+            humanoid
+                .isSprinting
+                ? humanoid.sprintSpeed
+                : humanoid.walkSpeed;
+
+
+        humanoid.velocity.x =
+            moveX * speed;
+
+        humanoid.velocity.z =
+            moveZ * speed;
+
+
+        /*
+         * Position
+         */
+
+        character.position.x +=
+            humanoid.velocity.x *
+            deltaTime;
+
+        character.position.y +=
+            humanoid.velocity.y *
+            deltaTime;
+
+        character.position.z +=
+            humanoid.velocity.z *
+            deltaTime;
+
+
+        /*
+         * Floor
+         */
+
+        if (
+            character.position.y <=
+            0
+        ) {
+
+            character.position.y =
+                0;
+
+            humanoid.velocity.y =
+                0;
+
+            const wasGrounded =
+                humanoid.isGrounded;
+
+            humanoid.isGrounded =
+                true;
+
+
+            if (
+                !wasGrounded &&
+                (
+                    humanoid.state ===
+                        "Jumping" ||
+                    humanoid.state ===
+                        "Falling" ||
+                    humanoid.state ===
+                        "Freefall"
+                )
+            ) {
+
+                humanoid.setState(
+                    "Landing"
+                );
+
+                setTimeout(
+                    () => {
+
+                        if (
+                            !character
+                                .userData
+                                .runtime
+                                ?.alive
+                        ) {
+                            return;
+                        }
+
+                        const moving =
+                            Math.abs(
+                                humanoid
+                                    .moveDirection
+                                    .x
+                            ) > 0.001 ||
+                            Math.abs(
+                                humanoid
+                                    .moveDirection
+                                    .z
+                            ) > 0.001;
+
+                        humanoid.setState(
+                            moving
+                                ? (
+                                    humanoid.isSprinting
+                                        ? "Running"
+                                        : "Walking"
+                                )
+                                : "Idle"
+                        );
+
+                    },
+                    120
+                );
+            }
+
+        } else {
+
+            humanoid.isGrounded =
+                false;
+
+            if (
+                humanoid.velocity.y <
+                -0.5
+            ) {
+
+                if (
+                    humanoid.state !==
+                    "Falling"
+                ) {
+
+                    humanoid.setState(
+                        "Falling"
+                    );
+                }
+
+            } else if (
+                humanoid.velocity.y >
+                0
+            ) {
+
+                if (
+                    humanoid.state !==
+                    "Jumping"
+                ) {
+
+                    humanoid.setState(
+                        "Jumping"
+                    );
+                }
             }
         }
     }
 
-    function updateCharacterRotation(character) {
-        const humanoid = character.userData.humanoid;
 
-        if (!humanoid.autoRotate) return;
+    /* ============================================================
+       CHARACTER ROTATION
+       ============================================================ */
 
-        const moveDir = humanoid.moveDirection;
-        if (moveDir.x !== 0 || moveDir.z !== 0) {
-            const angle = Math.atan2(moveDir.z, moveDir.x);
-            const body = character.getObjectByName("Body");
-            if (body) {
-                body.rotation.y = angle - Math.PI / 2;
-            }
+    function updateCharacterRotation(
+        character
+    ) {
+
+        const humanoid =
+            character
+                .userData
+                .humanoid;
+
+        if (
+            !humanoid ||
+            !humanoid.autoRotate
+        ) {
+            return;
         }
+
+        const x =
+            humanoid
+                .moveDirection
+                .x;
+
+        const z =
+            humanoid
+                .moveDirection
+                .z;
+
+        if (
+            Math.abs(x) <
+                0.001 &&
+            Math.abs(z) <
+                0.001
+        ) {
+            return;
+        }
+
+        const body =
+            character.getObjectByName(
+                "Body"
+            );
+
+        if (!body) {
+            return;
+        }
+
+        const angle =
+            Math.atan2(
+                x,
+                z
+            );
+
+        body.rotation.y =
+            angle;
     }
 
-    /**
-     * ============================================================
-     * CREATE CHARACTER
-     * ============================================================
-     */
-    function createCharacter(options = {}) {
-        const THREE_LOCAL = getThree();
 
-        if (!THREE_LOCAL) {
-            console.error("[WebBlox Player] Three.js is not loaded.");
+    /* ============================================================
+       CREATE CHARACTER
+       ============================================================ */
+
+    function createCharacter(
+        options = {}
+    ) {
+
+        const THREE_LOCAL =
+            getThree();
+
+        if (
+            !THREE_LOCAL
+        ) {
+
+            console.error(
+                "[WebBlox Player] Three.js is not loaded."
+            );
+
             return null;
         }
 
-        const character = new THREE_LOCAL.Group();
-        character.name = options.name || "Character";
-        character.userData.isCharacter = true;
-        character.userData.playerId = options.playerId || null;
-        character.userData.characterType = options.rigType || "R15";
 
-        // Humanoid data
-        const humanoid = {
-            name: "Humanoid",
-            rigType: options.rigType || "R15",
-            health: 100,
-            maxHealth: 100,
-            walkSpeed: options.walkSpeed || 16,
-            sprintSpeed: options.sprintSpeed || 24,
-            jumpPower: options.jumpPower || 50,
-            gravity: 196.2,
-            autoRotate: true,
-            state: "Idle",
-            moveDirection: { x: 0, y: 0, z: 0 },
-            velocity: { x: 0, y: 0, z: 0 },
-            isGrounded: false,
-            isSprinting: false
-        };
+        /*
+         * Character root
+         */
 
-        character.userData.humanoid = humanoid;
+        const character =
+            new THREE_LOCAL.Group();
 
-        // Colors
-        const skin = "#f2c7a5";
-        const shirt = options.shirtColor || "#4f78c7";
-        const pants = options.pantsColor || "#303030";
-        const shoe = "#202020";
+        character.name =
+            options.name ||
+            "Character";
 
-        // ========================================================
-        // R15 BODY (PRESERVED)
-        // ========================================================
-        const body = new THREE_LOCAL.Group();
-        body.name = "Body";
-        character.add(body);
+        character.userData.isCharacter =
+            true;
 
-        const lowerTorso = createRoundedPart("LowerTorso", { x: 1.8, y: 0.85, z: 1.0 }, shirt, { x: 0, y: 2.65, z: 0 }, body);
-        const upperTorso = createRoundedPart("UpperTorso", { x: 2.0, y: 1.2, z: 1.05 }, shirt, { x: 0, y: 3.55, z: 0 }, body);
-        const head = createRoundedPart("Head", { x: 1.75, y: 1.75, z: 1.75 }, skin, { x: 0, y: 4.95, z: 0 }, body);
+        character.userData.playerId =
+            options.playerId ||
+            null;
 
-        head.userData.isHead = true;
-        createFace(head);
-        createBaconHair(head, skin);
+        character.userData.characterType =
+            options.rigType ||
+            "R15";
 
-        // Arms
-        const leftUpperArm = createRoundedPart("LeftUpperArm", { x: 0.55, y: 1.05, z: 0.55 }, skin, { x: -1.25, y: 3.65, z: 0 }, body);
-        const leftLowerArm = createRoundedPart("LeftLowerArm", { x: 0.50, y: 1.05, z: 0.50 }, skin, { x: -1.25, y: 2.60, z: 0 }, body);
-        const leftHand = createRoundedPart("LeftHand", { x: 0.55, y: 0.55, z: 0.55 }, skin, { x: -1.25, y: 1.85, z: 0 }, body);
 
-        const rightUpperArm = createRoundedPart("RightUpperArm", { x: 0.55, y: 1.05, z: 0.55 }, skin, { x: 1.25, y: 3.65, z: 0 }, body);
-        const rightLowerArm = createRoundedPart("RightLowerArm", { x: 0.50, y: 1.05, z: 0.50 }, skin, { x: 1.25, y: 2.60, z: 0 }, body);
-        const rightHand = createRoundedPart("RightHand", { x: 0.55, y: 0.55, z: 0.55 }, skin, { x: 1.25, y: 1.85, z: 0 }, body);
+        /*
+         * Colors
+         */
 
-        // Legs
-        const leftUpperLeg = createRoundedPart("LeftUpperLeg", { x: 0.75, y: 1.15, z: 0.75 }, pants, { x: -0.48, y: 1.65, z: 0 }, body);
-        const leftLowerLeg = createRoundedPart("LeftLowerLeg", { x: 0.65, y: 1.15, z: 0.65 }, pants, { x: -0.48, y: 0.55, z: 0 }, body);
-        const leftFoot = createRoundedPart("LeftFoot", { x: 0.75, y: 0.45, z: 1.15 }, shoe, { x: -0.48, y: 0.08, z: 0.20 }, body);
+        const skin =
+            options.skinColor ||
+            "#d9a679";
 
-        const rightUpperLeg = createRoundedPart("RightUpperLeg", { x: 0.75, y: 1.15, z: 0.75 }, pants, { x: 0.48, y: 1.65, z: 0 }, body);
-        const rightLowerLeg = createRoundedPart("RightLowerLeg", { x: 0.65, y: 1.15, z: 0.65 }, pants, { x: 0.48, y: 0.55, z: 0 }, body);
-        const rightFoot = createRoundedPart("RightFoot", { x: 0.75, y: 0.45, z: 1.15 }, shoe, { x: 0.48, y: 0.08, z: 0.20 }, body);
+        const shirt =
+            options.shirtColor ||
+            "#3f78c5";
 
-        // Joints (PRESERVED)
-        character.userData.joints = {
-            waist: { parent: "LowerTorso", child: "UpperTorso" },
-            neck: { parent: "UpperTorso", child: "Head" },
-            leftShoulder: { parent: "UpperTorso", child: "LeftUpperArm" },
-            leftElbow: { parent: "LeftUpperArm", child: "LeftLowerArm" },
-            leftWrist: { parent: "LeftLowerArm", child: "LeftHand" },
-            rightShoulder: { parent: "UpperTorso", child: "RightUpperArm" },
-            rightElbow: { parent: "RightUpperArm", child: "RightLowerArm" },
-            rightWrist: { parent: "RightLowerArm", child: "RightHand" },
-            leftHip: { parent: "LowerTorso", child: "LeftUpperLeg" },
-            leftKnee: { parent: "LeftUpperLeg", child: "LeftLowerLeg" },
-            leftAnkle: { parent: "LeftLowerLeg", child: "LeftFoot" },
-            rightHip: { parent: "LowerTorso", child: "RightUpperLeg" },
-            rightKnee: { parent: "RightUpperLeg", child: "RightLowerLeg" },
-            rightAnkle: { parent: "RightLowerLeg", child: "RightFoot" }
-        };
+        const pants =
+            options.pantsColor ||
+            "#285080";
 
-        // Root part
-        const rootPart = new THREE_LOCAL.Object3D();
-        rootPart.name = "HumanoidRootPart";
-        rootPart.userData.isRootPart = true;
-        character.add(rootPart);
-        character.userData.rootPart = rootPart;
+        const shoe =
+            options.shoeColor ||
+            "#202020";
 
-        // Runtime state
-        character.userData.runtime = {
-            grounded: false,
-            velocity: { x: 0, y: 0, z: 0 },
-            spawnPosition: { x: 0, y: 0, z: 0 },
-            alive: true
-        };
 
-        // Body parts reference
+        /*
+         * Humanoid
+         */
+
+        const humanoid =
+            new Humanoid(
+                character
+            );
+
+        humanoid.walkSpeed =
+            Number(
+                options.walkSpeed ??
+                16
+            );
+
+        humanoid.sprintSpeed =
+            Number(
+                options.sprintSpeed ??
+                24
+            );
+
+        humanoid.jumpPower =
+            Number(
+                options.jumpPower ??
+                50
+            );
+
+        humanoid.gravity =
+            Number(
+                options.gravity ??
+                196.2
+            );
+
+        humanoid.autoRotate =
+            options.autoRotate !==
+            false;
+
+        character.userData.humanoid =
+            humanoid;
+
+
+        /*
+         * Body container
+         */
+
+        const body =
+            new THREE_LOCAL.Group();
+
+        body.name =
+            "Body";
+
+        character.add(
+            body
+        );
+
+
+        /* ========================================================
+           TORSO
+           ======================================================== */
+
+        const lowerTorso =
+            createBlock(
+                "LowerTorso",
+
+                {
+                    x: 1.95,
+                    y: 0.75,
+                    z: 1.05
+                },
+
+                shirt,
+
+                {
+                    x: 0,
+                    y: 2.35,
+                    z: 0
+                },
+
+                body
+            );
+
+
+        const upperTorso =
+            createBlock(
+                "UpperTorso",
+
+                {
+                    x: 2.05,
+                    y: 1.25,
+                    z: 1.08
+                },
+
+                shirt,
+
+                {
+                    x: 0,
+                    y: 3.35,
+                    z: 0
+                },
+
+                body
+            );
+
+
+        /*
+         * Tiny overlap between torso
+         * sections prevents visible gaps.
+         */
+
+        lowerTorso.position.y =
+            2.32;
+
+        upperTorso.position.y =
+            3.34;
+
+
+        /* ========================================================
+           HEAD
+           ======================================================== */
+
+        const head =
+            createBlock(
+                "Head",
+
+                {
+                    x: 1.72,
+                    y: 1.72,
+                    z: 1.72
+                },
+
+                skin,
+
+                {
+                    x: 0,
+                    y: 4.93,
+                    z: 0
+                },
+
+                body
+            );
+
+        head.userData.isHead =
+            true;
+
+        createFace(
+            head,
+            skin
+        );
+
+
+        /*
+         * NO BACON HAIR.
+         * NO HAT.
+         */
+
+
+        /* ========================================================
+           ARMS
+           ======================================================== */
+
+        /*
+         * Each limb gets a pivot.
+         *
+         * The pivot is placed at the joint.
+         * The actual block extends downward.
+         *
+         * This makes animations rotate from
+         * shoulders/elbows instead of from
+         * the center of each mesh.
+         */
+
+        const leftShoulder =
+            createPivot(
+                "LeftUpperArm",
+
+                {
+                    x: -1.05,
+                    y: 3.82,
+                    z: 0
+                },
+
+                body
+            );
+
+
+        const leftUpperArm =
+            createBlock(
+                "LeftUpperArmMesh",
+
+                {
+                    x: 0.62,
+                    y: 1.12,
+                    z: 0.72
+                },
+
+                skin,
+
+                {
+                    x: 0,
+                    y: -0.56,
+                    z: 0
+                },
+
+                leftShoulder
+            );
+
+
+        const leftElbow =
+            createPivot(
+                "LeftLowerArm",
+
+                {
+                    x: 0,
+                    y: -1.10,
+                    z: 0
+                },
+
+                leftShoulder
+            );
+
+
+        const leftLowerArm =
+            createBlock(
+                "LeftLowerArmMesh",
+
+                {
+                    x: 0.62,
+                    y: 1.08,
+                    z: 0.72
+                },
+
+                skin,
+
+                {
+                    x: 0,
+                    y: -0.54,
+                    z: 0
+                },
+
+                leftElbow
+            );
+
+
+        const leftHand =
+            createBlock(
+                "LeftHand",
+
+                {
+                    x: 0.66,
+                    y: 0.42,
+                    z: 0.76
+                },
+
+                skin,
+
+                {
+                    x: 0,
+                    y: -1.05,
+                    z: 0
+                },
+
+                leftElbow
+            );
+
+
+        /*
+         * RIGHT ARM
+         */
+
+        const rightShoulder =
+            createPivot(
+                "RightUpperArm",
+
+                {
+                    x: 1.05,
+                    y: 3.82,
+                    z: 0
+                },
+
+                body
+            );
+
+
+        const rightUpperArm =
+            createBlock(
+                "RightUpperArmMesh",
+
+                {
+                    x: 0.62,
+                    y: 1.12,
+                    z: 0.72
+                },
+
+                skin,
+
+                {
+                    x: 0,
+                    y: -0.56,
+                    z: 0
+                },
+
+                rightShoulder
+            );
+
+
+        const rightElbow =
+            createPivot(
+                "RightLowerArm",
+
+                {
+                    x: 0,
+                    y: -1.10,
+                    z: 0
+                },
+
+                rightShoulder
+            );
+
+
+        const rightLowerArm =
+            createBlock(
+                "RightLowerArmMesh",
+
+                {
+                    x: 0.62,
+                    y: 1.08,
+                    z: 0.72
+                },
+
+                skin,
+
+                {
+                    x: 0,
+                    y: -0.54,
+                    z: 0
+                },
+
+                rightElbow
+            );
+
+
+        const rightHand =
+            createBlock(
+                "RightHand",
+
+                {
+                    x: 0.66,
+                    y: 0.42,
+                    z: 0.76
+                },
+
+                skin,
+
+                {
+                    x: 0,
+                    y: -1.05,
+                    z: 0
+                },
+
+                rightElbow
+            );
+
+
+        /* ========================================================
+           LEGS
+           ======================================================== */
+
+        const leftHip =
+            createPivot(
+                "LeftUpperLeg",
+
+                {
+                    x: -0.50,
+                    y: 1.96,
+                    z: 0
+                },
+
+                body
+            );
+
+
+        const leftUpperLeg =
+            createBlock(
+                "LeftUpperLegMesh",
+
+                {
+                    x: 0.86,
+                    y: 1.05,
+                    z: 0.92
+                },
+
+                pants,
+
+                {
+                    x: 0,
+                    y: -0.525,
+                    z: 0
+                },
+
+                leftHip
+            );
+
+
+        const leftKnee =
+            createPivot(
+                "LeftLowerLeg",
+
+                {
+                    x: 0,
+                    y: -1.02,
+                    z: 0
+                },
+
+                leftHip
+            );
+
+
+        const leftLowerLeg =
+            createBlock(
+                "LeftLowerLegMesh",
+
+                {
+                    x: 0.86,
+                    y: 1.05,
+                    z: 0.92
+                },
+
+                pants,
+
+                {
+                    x: 0,
+                    y: -0.525,
+                    z: 0
+                },
+
+                leftKnee
+            );
+
+
+        const leftFoot =
+            createBlock(
+                "LeftFoot",
+
+                {
+                    x: 0.88,
+                    y: 0.38,
+                    z: 1.18
+                },
+
+                shoe,
+
+                {
+                    x: 0,
+                    y: -1.08,
+                    z: 0.10
+                },
+
+                leftKnee
+            );
+
+
+        /*
+         * RIGHT LEG
+         */
+
+        const rightHip =
+            createPivot(
+                "RightUpperLeg",
+
+                {
+                    x: 0.50,
+                    y: 1.96,
+                    z: 0
+                },
+
+                body
+            );
+
+
+        const rightUpperLeg =
+            createBlock(
+                "RightUpperLegMesh",
+
+                {
+                    x: 0.86,
+                    y: 1.05,
+                    z: 0.92
+                },
+
+                pants,
+
+                {
+                    x: 0,
+                    y: -0.525,
+                    z: 0
+                },
+
+                rightHip
+            );
+
+
+        const rightKnee =
+            createPivot(
+                "RightLowerLeg",
+
+                {
+                    x: 0,
+                    y: -1.02,
+                    z: 0
+                },
+
+                rightHip
+            );
+
+
+        const rightLowerLeg =
+            createBlock(
+                "RightLowerLegMesh",
+
+                {
+                    x: 0.86,
+                    y: 1.05,
+                    z: 0.92
+                },
+
+                pants,
+
+                {
+                    x: 0,
+                    y: -0.525,
+                    z: 0
+                },
+
+                rightKnee
+            );
+
+
+        const rightFoot =
+            createBlock(
+                "RightFoot",
+
+                {
+                    x: 0.88,
+                    y: 0.38,
+                    z: 1.18
+                },
+
+                shoe,
+
+                {
+                    x: 0,
+                    y: -1.08,
+                    z: 0.10
+                },
+
+                rightKnee
+            );
+
+
+        /* ========================================================
+           BODY PART REFERENCES
+           ======================================================== */
+
         character.userData.bodyParts = {
-            head, upperTorso, lowerTorso,
-            leftUpperArm, leftLowerArm, leftHand,
-            rightUpperArm, rightLowerArm, rightHand,
-            leftUpperLeg, leftLowerLeg, leftFoot,
-            rightUpperLeg, rightLowerLeg, rightFoot
+
+            head,
+
+            upperTorso,
+
+            lowerTorso,
+
+            leftUpperArm:
+                leftShoulder,
+
+            leftLowerArm:
+                leftElbow,
+
+            leftHand,
+
+            rightUpperArm:
+                rightShoulder,
+
+            rightLowerArm:
+                rightElbow,
+
+            rightHand,
+
+            leftUpperLeg:
+                leftHip,
+
+            leftLowerLeg:
+                leftKnee,
+
+            leftFoot,
+
+            rightUpperLeg:
+                rightHip,
+
+            rightLowerLeg:
+                rightKnee,
+
+            rightFoot
         };
 
-        character.userData.height = 5.4;
-        character.userData.width = 2.5;
-        character.userData.depth = 1.5;
 
-        // ========================================================
-        // NEW: Initialize Advanced Systems
-        // ========================================================
+        /*
+         * Direct mesh references are also stored.
+         * Useful for future editor/player systems.
+         */
 
-        // Create Humanoid controller
-        character.userData.humanoidController = new Humanoid(character);
-        Object.assign(character.userData.humanoid, {
-            move: (dir) => character.userData.humanoidController.move(dir),
-            jump: () => character.userData.humanoidController.jump(),
-            sprint: (enabled) => character.userData.humanoidController.sprint(enabled),
-            takeDamage: (amount) => character.userData.humanoidController.takeDamage(amount),
-            heal: (amount) => character.userData.humanoidController.heal(amount),
-            getState: () => character.userData.humanoidController.getState(),
-            on: (event, callback) => character.userData.humanoidController.on(event, callback)
-        });
+        character.userData.bodyMeshes = {
 
-        // Create Animator
-        character.userData.animator = new CharacterAnimator(character);
+            head,
 
-        // Setup default animations
-        character.userData.animator.loadAnimation("Idle", []);
-        character.userData.animator.loadAnimation("Walk", []);
-        character.userData.animator.loadAnimation("Run", []);
-        character.userData.animator.loadAnimation("Jump", []);
-        character.userData.animator.loadAnimation("Fall", []);
-        character.userData.animator.loadAnimation("Land", []);
-        character.userData.animator.loadAnimation("Death", []);
+            upperTorso,
 
-        // Add update method
-        character.update = function(deltaTime) {
-            updateCharacterPhysics(this, deltaTime);
-            updateCharacterRotation(this);
-            if (this.userData.animator) {
-                this.userData.animator.update(deltaTime);
+            lowerTorso,
+
+            leftUpperArm:
+                leftUpperArm,
+
+            leftLowerArm:
+                leftLowerArm,
+
+            leftHand,
+
+            rightUpperArm:
+                rightUpperArm,
+
+            rightLowerArm:
+                rightLowerArm,
+
+            rightHand,
+
+            leftUpperLeg:
+                leftUpperLeg,
+
+            leftLowerLeg:
+                leftLowerLeg,
+
+            leftFoot,
+
+            rightUpperLeg:
+                rightUpperLeg,
+
+            rightLowerLeg:
+                rightLowerLeg,
+
+            rightFoot
+        };
+
+
+        /* ========================================================
+           JOINT MAP
+           ======================================================== */
+
+        character.userData.joints = {
+
+            waist: {
+                parent:
+                    "LowerTorso",
+                child:
+                    "UpperTorso"
+            },
+
+            neck: {
+                parent:
+                    "UpperTorso",
+                child:
+                    "Head"
+            },
+
+            leftShoulder: {
+                parent:
+                    "UpperTorso",
+                child:
+                    "LeftUpperArm"
+            },
+
+            leftElbow: {
+                parent:
+                    "LeftUpperArm",
+                child:
+                    "LeftLowerArm"
+            },
+
+            leftWrist: {
+                parent:
+                    "LeftLowerArm",
+                child:
+                    "LeftHand"
+            },
+
+            rightShoulder: {
+                parent:
+                    "UpperTorso",
+                child:
+                    "RightUpperArm"
+            },
+
+            rightElbow: {
+                parent:
+                    "RightUpperArm",
+                child:
+                    "RightLowerArm"
+            },
+
+            rightWrist: {
+                parent:
+                    "RightLowerArm",
+                child:
+                    "RightHand"
+            },
+
+            leftHip: {
+                parent:
+                    "LowerTorso",
+                child:
+                    "LeftUpperLeg"
+            },
+
+            leftKnee: {
+                parent:
+                    "LeftUpperLeg",
+                child:
+                    "LeftLowerLeg"
+            },
+
+            leftAnkle: {
+                parent:
+                    "LeftLowerLeg",
+                child:
+                    "LeftFoot"
+            },
+
+            rightHip: {
+                parent:
+                    "LowerTorso",
+                child:
+                    "RightUpperLeg"
+            },
+
+            rightKnee: {
+                parent:
+                    "RightUpperLeg",
+                child:
+                    "RightLowerLeg"
+            },
+
+            rightAnkle: {
+                parent:
+                    "RightLowerLeg",
+                child:
+                    "RightFoot"
             }
         };
+
+
+        /* ========================================================
+           ROOT
+           ======================================================== */
+
+        const rootPart =
+            new THREE_LOCAL.Object3D();
+
+        rootPart.name =
+            "HumanoidRootPart";
+
+        rootPart.userData.isRootPart =
+            true;
+
+        character.add(
+            rootPart
+        );
+
+        character.userData.rootPart =
+            rootPart;
+
+
+        /* ========================================================
+           RUNTIME
+           ======================================================== */
+
+        character.userData.runtime = {
+
+            grounded: false,
+
+            velocity: {
+                x: 0,
+                y: 0,
+                z: 0
+            },
+
+            spawnPosition: {
+                x: 0,
+                y: 0,
+                z: 0
+            },
+
+            alive: true,
+
+            input: {
+                moving: false,
+                sprint: false
+            }
+        };
+
+
+        /*
+         * Dimensions.
+         */
+
+        character.userData.height =
+            5.7;
+
+        character.userData.width =
+            2.65;
+
+        character.userData.depth =
+            1.75;
+
+
+        /* ========================================================
+           CONTROLLERS
+           ======================================================== */
+
+        character.userData.humanoidController =
+            humanoid;
+
+
+        /*
+         * Keep the old public-style methods.
+         */
+
+        humanoid.move =
+            humanoid.move.bind(
+                humanoid
+            );
+
+        humanoid.jump =
+            humanoid.jump.bind(
+                humanoid
+            );
+
+        humanoid.sprint =
+            humanoid.sprint.bind(
+                humanoid
+            );
+
+
+        /* ========================================================
+           ANIMATOR
+           ======================================================== */
+
+        const animator =
+            new CharacterAnimator(
+                character
+            );
+
+        character.userData.animator =
+            animator;
+
+
+        /*
+         * These are registered so the
+         * external animations.js can
+         * control the actual joint groups.
+         */
+
+        animator.loadAnimation(
+            "Idle",
+            []
+        );
+
+        animator.loadAnimation(
+            "Walk",
+            []
+        );
+
+        animator.loadAnimation(
+            "Run",
+            []
+        );
+
+        animator.loadAnimation(
+            "Jump",
+            []
+        );
+
+        animator.loadAnimation(
+            "Fall",
+            []
+        );
+
+        animator.loadAnimation(
+            "Land",
+            []
+        );
+
+        animator.loadAnimation(
+            "Death",
+            []
+        );
+
+
+        /* ========================================================
+           UPDATE
+           ======================================================== */
+
+        character.update =
+            function(deltaTime) {
+
+                if (
+                    !this.userData
+                        .runtime
+                        .alive
+                ) {
+                    return;
+                }
+
+                updateCharacterPhysics(
+                    this,
+                    deltaTime
+                );
+
+                updateCharacterRotation(
+                    this
+                );
+
+                if (
+                    this.userData
+                        .animator
+                ) {
+
+                    this.userData
+                        .animator
+                        .update(
+                            deltaTime
+                        );
+                }
+
+                const runtime =
+                    this.userData
+                        .runtime;
+
+                runtime.grounded =
+                    this.userData
+                        .humanoid
+                        .isGrounded;
+
+                runtime.velocity = {
+                    x:
+                        this.userData
+                            .humanoid
+                            .velocity
+                            .x,
+
+                    y:
+                        this.userData
+                            .humanoid
+                            .velocity
+                            .y,
+
+                    z:
+                        this.userData
+                            .humanoid
+                            .velocity
+                            .z
+                };
+
+                runtime.input.moving =
+                    Math.abs(
+                        this.userData
+                            .humanoid
+                            .moveDirection
+                            .x
+                    ) > 0.001 ||
+                    Math.abs(
+                        this.userData
+                            .humanoid
+                            .moveDirection
+                            .z
+                    ) > 0.001;
+
+                runtime.input.sprint =
+                    this.userData
+                        .humanoid
+                        .isSprinting;
+            };
+
+
+        /*
+         * Start grounded.
+         */
+
+        humanoid.isGrounded =
+            true;
+
+        character.position.y =
+            Number(
+                options.spawnY ??
+                0
+            );
+
+        character.userData.runtime
+            .grounded =
+            true;
+
 
         return character;
     }
 
-    function destroyCharacter(character) {
-        if (!character) return;
 
-        character.traverse(child => {
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) {
-                if (Array.isArray(child.material)) {
-                    child.material.forEach(m => m.dispose());
-                } else {
-                    child.material.dispose();
+    /* ============================================================
+       DESTROY
+       ============================================================ */
+
+    function destroyCharacter(
+        character
+    ) {
+
+        if (!character) {
+            return;
+        }
+
+        if (
+            character.userData &&
+            character.userData.runtime
+        ) {
+
+            character.userData.runtime
+                .alive = false;
+        }
+
+        character.traverse(
+            child => {
+
+                if (
+                    child.geometry
+                ) {
+
+                    child.geometry.dispose();
+                }
+
+                if (
+                    child.material
+                ) {
+
+                    if (
+                        Array.isArray(
+                            child.material
+                        )
+                    ) {
+
+                        child.material.forEach(
+                            material => {
+
+                                if (
+                                    material &&
+                                    material.dispose
+                                ) {
+
+                                    material.dispose();
+                                }
+                            }
+                        );
+
+                    } else if (
+                        child.material.dispose
+                    ) {
+
+                        child.material.dispose();
+                    }
                 }
             }
-        });
+        );
 
-        if (character.parent) {
-            character.parent.remove(character);
+
+        if (
+            character.parent
+        ) {
+
+            character.parent.remove(
+                character
+            );
         }
     }
 
-    // Export public API
-    PlayerSystem.createCharacter = createCharacter;
-    PlayerSystem.destroyCharacter = destroyCharacter;
-    PlayerSystem.Humanoid = Humanoid;
-    PlayerSystem.CharacterAnimator = CharacterAnimator;
+
+    /* ============================================================
+       PUBLIC API
+       ============================================================ */
+
+    PlayerSystem.createCharacter =
+        createCharacter;
+
+    PlayerSystem.destroyCharacter =
+        destroyCharacter;
+
+    PlayerSystem.Humanoid =
+        Humanoid;
+
+    PlayerSystem.CharacterAnimator =
+        CharacterAnimator;
+
+
+    console.log(
+        "[WebBlox Player] Blocky character system loaded."
+    );
 
 })();
