@@ -1315,6 +1315,160 @@
 
                 </section>
 
+
+                <!-- STARTER PLAYER SETTINGS -->
+                <!-- Shown only when the StarterPlayer
+                     Explorer node is selected. These are
+                     dev-configurable defaults applied to
+                     every player when the game runs. -->
+
+                <section
+                    id="starterPlayerProperties"
+                    class="property-section hidden"
+                >
+
+                    <div class="property-section-header">
+
+                        <span>
+                            Character
+                        </span>
+
+                        <span>
+                            ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Walk Speed
+                        </label>
+
+                        <input
+                            id="spWalkSpeed"
+                            type="number"
+                            step="1"
+                            min="0"
+                            value="12"
+                        >
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Jump Power
+                        </label>
+
+                        <input
+                            id="spJumpPower"
+                            type="number"
+                            step="1"
+                            min="0"
+                            value="11"
+                        >
+
+                    </div>
+
+
+                    <div class="property-section-header">
+
+                        <span>
+                            Camera
+                        </span>
+
+                        <span>
+                            ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Lock First Person
+                        </label>
+
+                        <input
+                            id="spFirstPersonLocked"
+                            type="checkbox"
+                        >
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Allow Zoom
+                        </label>
+
+                        <input
+                            id="spAllowZoom"
+                            type="checkbox"
+                            checked
+                        >
+
+                    </div>
+
+
+                    <div class="property-section-header">
+
+                        <span>
+                            Controls &amp; Scripting
+                        </span>
+
+                        <span>
+                            ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Player Hotkeys Enabled
+                        </label>
+
+                        <input
+                            id="spHotkeysEnabled"
+                            type="checkbox"
+                            checked
+                        >
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Scriptable
+                        </label>
+
+                        <input
+                            id="spScriptable"
+                            type="checkbox"
+                            checked
+                        >
+
+                    </div>
+
+
+                    <div class="property-hint">
+                        Scriptable lets your scripts drive
+                        the character (position, speed,
+                        animations) via the Player API.
+                        Turn it off to lock movement to
+                        built-in controls only.
+                    </div>
+
+                </section>
+
             </div>
 
 
