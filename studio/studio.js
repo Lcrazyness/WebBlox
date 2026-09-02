@@ -90,7 +90,22 @@
             name: "Untitled Game",
             description: "",
             icon: "",
-            saved: false
+            saved: false,
+
+            /*
+             * Dev-configurable defaults applied to every
+             * player when the game runs — edited via the
+             * StarterPlayer node in the Explorer, read by
+             * Player/player.js at Play/Publish time.
+             */
+            starterPlayer: {
+                walkSpeed: 12,
+                jumpPower: 11,
+                firstPersonLocked: false,
+                allowZoom: true,
+                hotkeysEnabled: true,
+                scriptable: true
+            }
         },
 
         playing: false,
@@ -398,118 +413,82 @@
     const meshes = new Map();
 
 
-    function loadThree() {
+    /*
+     * Try several sources in order — a single CDN can be
+     * blocked by an ad-blocker, a corporate proxy, or just
+     * be temporarily down. Each one is a plain UMD build so
+     * it always exposes window.THREE the same way.
+     */
+    const THREE_SOURCES = [
+        "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js",
+        "https://unpkg.com/three@0.160.0/build/three.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js",
+        "https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"
+    ];
+
+    const THREE_LOAD_TIMEOUT_MS = 4000;
+
+
+    function loadScriptOnce(url, timeoutMs) {
 
         return new Promise((resolve, reject) => {
-
-            if (window.THREE) {
-
-                THREE =
-                    window.THREE;
-
-                resolve(THREE);
-
-                return;
-            }
-
-            const existing =
-                document.querySelector(
-                    "script[data-webblox-three]"
-                );
-
-            if (existing) {
-
-                if (existing.dataset.loaded === "true") {
-
-                    if (window.THREE) {
-
-                        THREE =
-                            window.THREE;
-
-                        resolve(THREE);
-
-                        return;
-                    }
-                }
-
-                existing.addEventListener(
-                    "load",
-                    () => {
-
-                        if (window.THREE) {
-
-                            THREE =
-                                window.THREE;
-
-                            resolve(THREE);
-
-                        } else {
-
-                            reject(
-                                new Error(
-                                    "Three.js loaded but window.THREE is unavailable."
-                                )
-                            );
-                        }
-
-                    },
-                    { once: true }
-                );
-
-                existing.addEventListener(
-                    "error",
-                    () => {
-
-                        reject(
-                            new Error(
-                                "Three.js failed to load."
-                            )
-                        );
-
-                    },
-                    { once: true }
-                );
-
-                return;
-            }
-
 
             const script =
                 document.createElement("script");
 
-            script.src =
-                "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
+            script.src = url;
 
-            script.dataset.webbloxThree =
-                "true";
+            let settled = false;
+
+            const timer =
+                setTimeout(
+                    () => {
+
+                        if (settled) {
+                            return;
+                        }
+
+                        settled = true;
+
+                        script.remove();
+
+                        reject(
+                            new Error(
+                                `Timed out loading ${url}`
+                            )
+                        );
+                    },
+                    timeoutMs
+                );
 
             script.onload = () => {
 
-                script.dataset.loaded =
-                    "true";
-
-                if (!window.THREE) {
-
-                    reject(
-                        new Error(
-                            "Three.js loaded but was unavailable."
-                        )
-                    );
-
+                if (settled) {
                     return;
                 }
 
-                THREE =
-                    window.THREE;
+                settled = true;
 
-                resolve(THREE);
+                clearTimeout(timer);
+
+                resolve();
             };
 
             script.onerror = () => {
 
+                if (settled) {
+                    return;
+                }
+
+                settled = true;
+
+                clearTimeout(timer);
+
+                script.remove();
+
                 reject(
                     new Error(
-                        "Unable to load Three.js from CDN."
+                        `Failed to load ${url}`
                     )
                 );
             };
@@ -518,6 +497,135 @@
                 script
             );
         });
+    }
+
+
+    async function loadThree() {
+
+        if (window.THREE) {
+
+            THREE =
+                window.THREE;
+
+            return THREE;
+        }
+
+        const existing =
+            document.querySelector(
+                "script[data-webblox-three]"
+            );
+
+        if (existing) {
+
+            /*
+             * Something already tried (maybe a previous
+             * initialize() run). Wait on it rather than
+             * starting a duplicate load.
+             */
+
+            if (
+                existing.dataset.loaded === "true" &&
+                window.THREE
+            ) {
+
+                THREE =
+                    window.THREE;
+
+                return THREE;
+            }
+
+            await new Promise((resolve, reject) => {
+
+                existing.addEventListener(
+                    "load",
+                    resolve,
+                    { once: true }
+                );
+
+                existing.addEventListener(
+                    "error",
+                    () => reject(
+                        new Error(
+                            "Three.js failed to load."
+                        )
+                    ),
+                    { once: true }
+                );
+            });
+
+            if (window.THREE) {
+
+                THREE =
+                    window.THREE;
+
+                return THREE;
+            }
+
+            throw new Error(
+                "Three.js loaded but window.THREE is unavailable."
+            );
+        }
+
+        let lastError = null;
+
+        for (
+            const url
+            of THREE_SOURCES
+        ) {
+
+            try {
+
+                log(
+                    `Loading Three.js from ${url}`
+                );
+
+                await loadScriptOnce(
+                    url,
+                    THREE_LOAD_TIMEOUT_MS
+                );
+
+                if (window.THREE) {
+
+                    THREE =
+                        window.THREE;
+
+                    const marker =
+                        document.createElement("script");
+
+                    marker.dataset.webbloxThree =
+                        "true";
+
+                    marker.dataset.loaded =
+                        "true";
+
+                    document.head.appendChild(
+                        marker
+                    );
+
+                    return THREE;
+                }
+
+                lastError =
+                    new Error(
+                        `${url} loaded but window.THREE was not created.`
+                    );
+
+            } catch (error) {
+
+                lastError = error;
+
+                log(
+                    `Three.js source failed (${url}): ${error.message}`
+                );
+            }
+        }
+
+        throw (
+            lastError ||
+            new Error(
+                "Unable to load Three.js from any source."
+            )
+        );
     }
 
 
@@ -1614,6 +1722,35 @@
 
             studioMessage.textContent =
                 `Selected ${object.name}`;
+        }
+    }
+
+
+    function selectStarterPlayer() {
+
+        state.selectedId =
+            "starterPlayer";
+
+
+        /*
+         * StarterPlayer has no 3D mesh — clear any
+         * viewport selection outline / gizmo, they'd
+         * be pointing at nothing.
+         */
+
+        updateSelectionVisual();
+
+        updateProperties();
+
+        updateExplorerSelection();
+
+        updateGizmoVisibility();
+
+
+        if (studioMessage) {
+
+            studioMessage.textContent =
+                "Selected StarterPlayer";
         }
     }
 
@@ -2750,7 +2887,18 @@
             );
 
 
-        state.camera.target.x +=
+        /*
+         * IMPORTANT: the camera sits at
+         * target + offset(sin,cos)*distance,
+         * so it looks in the OPPOSITE direction
+         * from (sin,cos). Using +sin/+cos directly
+         * as "forward" moves the target away from
+         * where the camera is looking (backward).
+         * Subtracting fixes it so W actually flies
+         * into the view instead of out of it.
+         */
+
+        state.camera.target.x -=
             (
                 forwardX *
                     forward +
@@ -2760,7 +2908,7 @@
             amount;
 
 
-        state.camera.target.z +=
+        state.camera.target.z -=
             (
                 forwardZ *
                     forward +
@@ -3726,6 +3874,12 @@
                                 selectObject(
                                     id
                                 );
+
+                            } else if (
+                                id === "starterPlayer"
+                            ) {
+
+                                selectStarterPlayer();
                             }
                         }
                     );
@@ -3797,7 +3951,221 @@
     }
 
 
+    let starterPlayerInputsWired = false;
+
+
+    function renderStarterPlayerProperties() {
+
+        const sp =
+            state.game.starterPlayer;
+
+
+        noSelectionMessage
+            ?.classList
+            .add(
+                "hidden"
+            );
+
+        document
+            .querySelectorAll(
+                "#propertiesContent [data-property-section]"
+            )
+            .forEach(
+                section => {
+
+                    section
+                        .classList
+                        .add(
+                            "hidden"
+                        );
+                }
+            );
+
+        const starterPlayerSection =
+            $("starterPlayerProperties");
+
+        if (starterPlayerSection) {
+
+            starterPlayerSection
+                .classList
+                .remove(
+                    "hidden"
+                );
+        }
+
+
+        if (selectedObjectName) {
+
+            selectedObjectName.textContent =
+                "StarterPlayer";
+        }
+
+        if (selectedObjectType) {
+
+            selectedObjectType.textContent =
+                "StarterPlayer";
+        }
+
+        if (selectedObjectIcon) {
+
+            selectedObjectIcon.textContent =
+                "☺";
+        }
+
+
+        setInput(
+            "spWalkSpeed",
+            sp.walkSpeed
+        );
+
+        setInput(
+            "spJumpPower",
+            sp.jumpPower
+        );
+
+        setChecked(
+            "spFirstPersonLocked",
+            sp.firstPersonLocked
+        );
+
+        setChecked(
+            "spAllowZoom",
+            sp.allowZoom
+        );
+
+        setChecked(
+            "spHotkeysEnabled",
+            sp.hotkeysEnabled
+        );
+
+        setChecked(
+            "spScriptable",
+            sp.scriptable
+        );
+
+
+        if (starterPlayerInputsWired) {
+            return;
+        }
+
+        starterPlayerInputsWired =
+            true;
+
+        const bindNumber =
+            (id, key) => {
+
+                $(id)?.addEventListener(
+                    "input",
+                    event => {
+
+                        const value =
+                            parseFloat(
+                                event.target.value
+                            );
+
+                        state.game.starterPlayer[key] =
+                            Number.isFinite(value)
+                                ? value
+                                : 0;
+
+                        state.game.saved =
+                            false;
+
+                        updateGameStatus();
+                    }
+                );
+            };
+
+        const bindCheckbox =
+            (id, key) => {
+
+                $(id)?.addEventListener(
+                    "change",
+                    event => {
+
+                        state.game.starterPlayer[key] =
+                            event.target.checked;
+
+                        state.game.saved =
+                            false;
+
+                        updateGameStatus();
+                    }
+                );
+            };
+
+        bindNumber(
+            "spWalkSpeed",
+            "walkSpeed"
+        );
+
+        bindNumber(
+            "spJumpPower",
+            "jumpPower"
+        );
+
+        bindCheckbox(
+            "spFirstPersonLocked",
+            "firstPersonLocked"
+        );
+
+        bindCheckbox(
+            "spAllowZoom",
+            "allowZoom"
+        );
+
+        bindCheckbox(
+            "spHotkeysEnabled",
+            "hotkeysEnabled"
+        );
+
+        bindCheckbox(
+            "spScriptable",
+            "scriptable"
+        );
+    }
+
+
     function updateProperties() {
+
+        if (
+            state.selectedId ===
+            "starterPlayer"
+        ) {
+
+            renderStarterPlayerProperties();
+
+            return;
+        }
+
+
+        document
+            .querySelectorAll(
+                "#propertiesContent [data-property-section]"
+            )
+            .forEach(
+                section => {
+
+                    section
+                        .classList
+                        .remove(
+                            "hidden"
+                        );
+                }
+            );
+
+        const starterPlayerSection =
+            $("starterPlayerProperties");
+
+        if (starterPlayerSection) {
+
+            starterPlayerSection
+                .classList
+                .add(
+                    "hidden"
+                );
+        }
+
 
         const object =
             state.objects.get(
@@ -4733,15 +5101,41 @@
             createDefaultWorld();
         }
 
+        /*
+         * placeData can come from two different shapes:
+         * - the "new project" template (flat: name/description
+         *   directly on placeData)
+         * - a real save from persistActiveProject(), which
+         *   stores getGameData()'s output (name/description/
+         *   starterPlayer nested under placeData.game)
+         * Check both so neither path silently loses data.
+         */
+
         state.game.name =
+            placeData?.game?.name ||
             placeData?.name ||
             project?.title ||
             state.game.name;
 
         state.game.description =
+            placeData?.game?.description ||
             placeData?.description ||
             project?.description ||
             state.game.description;
+
+        const savedStarterPlayer =
+            placeData?.game?.starterPlayer ||
+            placeData?.starterPlayer;
+
+        if (savedStarterPlayer) {
+
+            state.game.starterPlayer = {
+
+                ...state.game.starterPlayer,
+
+                ...savedStarterPlayer
+            };
+        }
 
         state.game.saved =
             true;
@@ -6502,7 +6896,7 @@
                                 );
 
                             },
-                            7000
+                            18000
                         );
                 }
             );
