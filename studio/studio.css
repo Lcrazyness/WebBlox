@@ -1106,6 +1106,13 @@ button {
     font-size: 10px;
 }
 
+.property-hint {
+    padding: 8px 9px 14px;
+    color: #7a7a7a;
+    font-size: 10.5px;
+    line-height: 1.5;
+}
+
 .vector-input {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
