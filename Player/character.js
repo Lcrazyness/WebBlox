@@ -914,7 +914,7 @@
 
         if (character.parent) {
             character.parent.remove(
-                character
+                characterQSA
             );
         }
     }
