@@ -1,12 +1,9 @@
-WebBlox Studio — UPDATED studio.js COPY/PASTE PARTS
-===================================================
-Paste Part 1, then Part 2, then Part 3, then Part 4 into the SAME studio.js file.
-Total source lines: 7783
+WEBBLOX STUDIO.JS — COMPLETE UPDATED COPY/PASTE DOCUMENT
+Source: exact uploaded studio.js, with compatibility + loading watchdog fixes.
 
 
-==============================================================================
-PART 1/4 — source lines 1-1946
-==============================================================================
+
+==================== PART 1/4 ====================
 
 /*
  * WebBlox Studio
@@ -275,6 +272,65 @@ PART 1/4 — source lines 1-1946
 
     let loadingScreenFinished = false;
 
+    // ============================================================
+    // HARD LOADING SCREEN FAILSAFE
+    // ============================================================
+    // This watchdog is independent from Three.js, Player, and the
+    // rest of Studio. The editor UI must never remain covered by
+    // the loading overlay because one subsystem is hanging.
+    // ============================================================
+
+    function forceHideLoadingOverlay() {
+
+        const loading =
+            document.getElementById("studioLoading");
+
+        if (!loading) {
+            return;
+        }
+
+        loading.classList.add("hidden");
+
+        loading.style.setProperty(
+            "display",
+            "none",
+            "important"
+        );
+
+        loading.style.setProperty(
+            "visibility",
+            "hidden",
+            "important"
+        );
+
+        loading.style.setProperty(
+            "opacity",
+            "0",
+            "important"
+        );
+
+        loading.style.setProperty(
+            "pointer-events",
+            "none",
+            "important"
+        );
+
+        loading.style.setProperty(
+            "z-index",
+            "-1",
+            "important"
+        );
+
+        loadingScreenFinished = true;
+    }
+
+
+    window.setTimeout(
+        forceHideLoadingOverlay,
+        3500
+    );
+
+
     function finishLoadingScreen() {
 
         if (loadingScreenFinished) {
@@ -300,6 +356,31 @@ PART 1/4 — source lines 1-1946
 
         loading.classList.add(
             "hidden"
+        );
+
+        // Do not wait for CSS or a delayed timer to hide the overlay.
+        loading.style.setProperty(
+            "display",
+            "none",
+            "important"
+        );
+
+        loading.style.setProperty(
+            "visibility",
+            "hidden",
+            "important"
+        );
+
+        loading.style.setProperty(
+            "opacity",
+            "0",
+            "important"
+        );
+
+        loading.style.setProperty(
+            "pointer-events",
+            "none",
+            "important"
         );
 
         /*
@@ -654,6 +735,119 @@ PART 1/4 — source lines 1-1946
      * Player is loaded only when Play is pressed.
      */
 
+    // ============================================================
+    // PLAYER PREFERENCE COMPATIBILITY BRIDGE
+    // ============================================================
+    //
+    // Player/player.js calls loadLocalPreferences() during
+    // Player.start(). Keep the existing Studio preference system
+    // compatible with the Player runtime without changing the
+    // Player API or requiring another file.
+    // ============================================================
+
+    function installPlayerPreferenceBridge() {
+
+        if (
+            typeof window.loadLocalPreferences !==
+            "function"
+        ) {
+
+            window.loadLocalPreferences =
+                function() {
+
+                    try {
+
+                        const raw =
+                            window.localStorage.getItem(
+                                "webblox_player_preferences"
+                            );
+
+                        if (!raw) {
+                            return {};
+                        }
+
+                        const parsed =
+                            JSON.parse(raw);
+
+                        if (
+                            parsed &&
+                            typeof parsed === "object"
+                        ) {
+                            return parsed;
+                        }
+
+                    } catch (error) {
+
+                        console.warn(
+                            "[WebBlox Studio] Failed to load Player preferences:",
+                            error
+                        );
+
+                    }
+
+                    return {};
+                };
+        }
+
+
+        if (
+            typeof window.saveLocalPreferences !==
+            "function"
+        ) {
+
+            window.saveLocalPreferences =
+                function(preferences) {
+
+                    try {
+
+                        window.localStorage.setItem(
+                            "webblox_player_preferences",
+                            JSON.stringify(
+                                preferences &&
+                                typeof preferences === "object"
+                                    ? preferences
+                                    : {}
+                            )
+                        );
+
+                    } catch (error) {
+
+                        console.warn(
+                            "[WebBlox Studio] Failed to save Player preferences:",
+                            error
+                        );
+
+                    }
+
+                };
+        }
+
+
+        log(
+            "Player preference compatibility bridge ready."
+        );
+    }
+
+
+    function verifyPlayerRuntime(runtime, source = "Player runtime") {
+
+        if (
+            runtime &&
+            typeof runtime.start === "function"
+        ) {
+
+            state.playerAvailable = true;
+
+            return runtime;
+        }
+
+
+        throw new Error(
+            `${source} loaded but WebBloxPlayer.start was not created.`
+        );
+    }
+
+
     function getPlayerPath() {
 
         /*
@@ -687,225 +881,78 @@ PART 1/4 — source lines 1-1946
 
 
     // ============================================================
-    // PLAYER RUNTIME COMPATIBILITY
+    // CHARACTER RUNTIME
     // ============================================================
-    //
-    // WebBlox has had two Player runtime APIs during development:
-    //
-    // 1. window.WebBloxPlayer.start(options)
-    // 2. window.PlayerSystem.start(scene)
-    //
-    // The current Player/player.js on GitHub uses PlayerSystem and
-    // depends on character.js being available first. Older/newer
-    // player builds may expose WebBloxPlayer instead.
-    //
-    // Studio normalizes both APIs into one local adapter so Play mode
-    // does not break when the Player runtime changes its public name.
+    // Current Player/player.js versions can use the existing
+    // Player/character.js module to create the character. Load it
+    // before player.js, but do not reload an already-loaded copy.
     // ============================================================
 
-    function installPlayerPreferenceBridge() {
+    function getCharacterPath() {
 
-        if (
-            typeof window.loadLocalPreferences !==
-            "function"
-        ) {
+        try {
 
-            window.loadLocalPreferences =
-                function() {
+            return new URL(
+                "../Player/character.js",
+                document.baseURI
+            ).href;
 
-                    try {
+        } catch {
 
-                        const raw =
-                            window.localStorage.getItem(
-                                "webblox_player_preferences"
-                            );
-
-                        if (!raw) {
-                            return {};
-                        }
-
-                        const parsed =
-                            JSON.parse(raw);
-
-                        if (
-                            parsed &&
-                            typeof parsed ===
-                                "object"
-                        ) {
-
-                            return parsed;
-                        }
-
-                    } catch (error) {
-
-                        console.warn(
-                            "[WebBlox Studio] Failed to read player preferences:",
-                            error
-                        );
-                    }
-
-                    return {};
-                };
+            return "../Player/character.js";
         }
-
-
-        if (
-            typeof window.saveLocalPreferences !==
-            "function"
-        ) {
-
-            window.saveLocalPreferences =
-                function(preferences = {}) {
-
-                    try {
-
-                        window.localStorage.setItem(
-                            "webblox_player_preferences",
-                            JSON.stringify(
-                                preferences &&
-                                typeof preferences ===
-                                    "object"
-                                    ? preferences
-                                    : {}
-                            )
-                        );
-
-                    } catch (error) {
-
-                        console.warn(
-                            "[WebBlox Studio] Failed to save player preferences:",
-                            error
-                        );
-                    }
-                };
-        }
-
-
-        console.log(
-            "[WebBlox Studio] Player preference bridge ready."
-        );
     }
 
 
-    function isWebBloxPlayerRuntimeAvailable() {
-
-        return !!(
-            window.WebBloxPlayer &&
-            typeof window.WebBloxPlayer.start ===
-                "function"
-        );
-    }
-
-
-    function isPlayerSystemRuntimeAvailable() {
-
-        return !!(
-            window.PlayerSystem &&
-            typeof window.PlayerSystem.start ===
-                "function"
-        );
-    }
-
-
-    function createPlayerRuntimeAdapter() {
-
-        if (
-            isWebBloxPlayerRuntimeAvailable()
-        ) {
-
-            return {
-                api: "WebBloxPlayer",
-
-                start(options = {}) {
-                    return window.WebBloxPlayer.start(
-                        options
-                    );
-                },
-
-                stop() {
-                    if (
-                        typeof window.WebBloxPlayer.stop ===
-                        "function"
-                    ) {
-                        return window.WebBloxPlayer.stop();
-                    }
-
-                    return true;
-                },
-
-                raw:
-                    window.WebBloxPlayer
-            };
-        }
-
-
-        if (
-            isPlayerSystemRuntimeAvailable()
-        ) {
-
-            return {
-                api: "PlayerSystem",
-
-                start(options = {}) {
-
-                    const runtimeScene =
-                        options.scene ||
-                        window.WebBloxStudio?.scene ||
-                        scene ||
-                        null;
-
-                    return window.PlayerSystem.start(
-                        runtimeScene
-                    );
-                },
-
-                stop() {
-
-                    if (
-                        typeof window.PlayerSystem.stop ===
-                        "function"
-                    ) {
-                        return window.PlayerSystem.stop();
-                    }
-
-                    return true;
-                },
-
-                raw:
-                    window.PlayerSystem
-            };
-        }
-
-
-        return null;
-    }
-
-
-    function loadExternalScript(url, attributeName) {
+    function loadCharacterRuntime() {
 
         return new Promise((resolve, reject) => {
 
-            const selector =
-                `script[${attributeName}]`;
+            if (
+                window.WebBloxPlayer &&
+                typeof window.WebBloxPlayer.createCharacter ===
+                    "function"
+            ) {
+
+                resolve(window.WebBloxPlayer);
+                return;
+            }
 
             const existing =
                 document.querySelector(
-                    selector
+                    "script[data-webblox-character]"
                 );
 
             if (existing) {
 
-                if (
-                    existing.dataset.loaded ===
-                    "true"
-                ) {
-                    resolve(existing);
+                const finish = () => {
+
+                    if (
+                        window.WebBloxPlayer &&
+                        typeof window.WebBloxPlayer.createCharacter ===
+                            "function"
+                    ) {
+
+                        resolve(window.WebBloxPlayer);
+                        return;
+                    }
+
+                    /*
+                     * Some Player versions don't require the
+                     * character runtime API until start(). In that
+                     * case, loading the script successfully is enough.
+                     */
+                    resolve(window.WebBloxPlayer || {});
+                };
+
+                if (existing.dataset.loaded === "true") {
+                    finish();
                     return;
                 }
 
                 existing.addEventListener(
                     "load",
-                    () => resolve(existing),
+                    finish,
                     { once: true }
                 );
 
@@ -913,7 +960,7 @@ PART 1/4 — source lines 1-1946
                     "error",
                     () => reject(
                         new Error(
-                            `Failed to load ${url}`
+                            "Player/character.js failed to load."
                         )
                     ),
                     { once: true }
@@ -922,29 +969,29 @@ PART 1/4 — source lines 1-1946
                 return;
             }
 
-
             const script =
                 document.createElement("script");
 
-            script.src = url;
+            script.src = getCharacterPath();
+            script.dataset.webbloxCharacter = "true";
             script.async = false;
-            script.setAttribute(
-                attributeName,
-                "true"
-            );
 
             script.onload = () => {
 
-                script.dataset.loaded =
-                    "true";
+                script.dataset.loaded = "true";
 
-                resolve(script);
+                log(
+                    "Character runtime loaded."
+                );
+
+                resolve(window.WebBloxPlayer || {});
             };
 
             script.onerror = () => {
+
                 reject(
                     new Error(
-                        `Could not load ${url}`
+                        "Could not load Player/character.js."
                     )
                 );
             };
@@ -958,206 +1005,181 @@ PART 1/4 — source lines 1-1946
 
         installPlayerPreferenceBridge();
 
+        /*
+         * Keep the existing character runtime compatible with both
+         * the modern and legacy Player implementations.
+         */
+        await loadCharacterRuntime();
 
-        let runtime =
-            createPlayerRuntimeAdapter();
+        return new Promise((resolve, reject) => {
+
+            /*
+             * A previous Player load may have left a runtime object
+             * behind. Reuse it only when the required API is actually
+             * present.
+             */
+            if (
+                window.WebBloxPlayer &&
+                typeof window.WebBloxPlayer.start ===
+                    "function"
+            ) {
+
+                try {
+
+                    resolve(
+                        verifyPlayerRuntime(
+                            window.WebBloxPlayer,
+                            "Existing Player runtime"
+                        )
+                    );
+
+                } catch (error) {
+                    reject(error);
+                }
+
+                return;
+            }
 
 
-        if (runtime) {
-
-            state.playerAvailable = true;
+            const playerPath =
+                getPlayerPath();
 
             log(
-                `Player runtime already available (${runtime.api}).`
+                `Loading Player runtime: ${playerPath}`
             );
 
-            return runtime;
-        }
 
-
-        const playerBase =
-            new URL(
-                "../Player/",
-                document.baseURI
-            );
-
-        const cacheBust =
-            Date.now().toString(36);
-
-        const characterPath =
-            `${new URL(
-                "character.js",
-                playerBase
-            ).href}?v=${cacheBust}`;
-
-        const playerPath =
-            `${new URL(
-                "player.js",
-                playerBase
-            ).href}?v=${cacheBust}`;
-
-
-        log(
-            `Loading Player character runtime: ${characterPath}`
-        );
-
-
-        /*
-         * A previous failed test can leave a loaded script tag behind
-         * without creating a usable runtime. Remove that stale tag so
-         * the next Play request can actually load the current source.
-         */
-        const stalePlayerScripts =
-            document.querySelectorAll(
-                "script[data-webblox-player]"
-            );
-
-        stalePlayerScripts.forEach(script => {
-
-            if (
-                script.dataset.loaded === "true" &&
-                !isWebBloxPlayerRuntimeAvailable() &&
-                !isPlayerSystemRuntimeAvailable()
-            ) {
-                script.remove();
-            }
-        });
-
-
-        const staleCharacterScripts =
-            document.querySelectorAll(
-                "script[data-webblox-character]"
-            );
-
-        staleCharacterScripts.forEach(script => {
-
-            if (
-                script.dataset.loaded === "true" &&
-                !window.PlayerSystem
-            ) {
-                script.remove();
-            }
-        });
-
-
-        /*
-         * The current GitHub Player/player.js expects
-         * PlayerSystem.createCharacter() to exist before it starts.
-         * character.js therefore loads first.
-         */
-
-        if (!window.PlayerSystem) {
-
-            await loadExternalScript(
-                characterPath,
-                "data-webblox-character"
-            );
-        }
-
-
-        runtime =
-            createPlayerRuntimeAdapter();
-
-
-        if (
-            !runtime ||
-            !isPlayerSystemRuntimeAvailable()
-        ) {
-
-            log(
-                "character.js loaded, but PlayerSystem.start is not available yet. Continuing to player.js.",
-                "error"
-            );
-        }
-
-
-        log(
-            `Loading Player runtime: ${playerPath}`
-        );
-
-
-        if (
-            !runtime &&
-            !document.querySelector(
-                "script[data-webblox-player]"
-            )
-        ) {
-
-            await loadExternalScript(
-                playerPath,
-                "data-webblox-player"
-            );
-
-        } else if (
-            !runtime
-        ) {
-
-            const existingPlayer =
+            const existing =
                 document.querySelector(
                     "script[data-webblox-player]"
                 );
 
-            if (
-                existingPlayer &&
-                existingPlayer.dataset.loaded !==
-                    "true"
-            ) {
+            if (existing) {
 
-                await new Promise(
-                    (resolve, reject) => {
+                const finish = () => {
 
-                        existingPlayer.addEventListener(
-                            "load",
-                            resolve,
-                            { once: true }
+                    try {
+
+                        resolve(
+                            verifyPlayerRuntime(
+                                window.WebBloxPlayer,
+                                "player.js"
+                            )
                         );
 
-                        existingPlayer.addEventListener(
-                            "error",
-                            () => reject(
-                                new Error(
-                                    "Player/player.js failed to load."
-                                )
-                            ),
-                            { once: true }
-                        );
+                    } catch (error) {
+
+                        /*
+                         * The existing tag may belong to a failed
+                         * runtime from an earlier Studio attempt.
+                         * Remove it so a clean Player script can load.
+                         */
+
+                        try {
+                            existing.remove();
+                        } catch {
+                            // Ignore removal failures.
+                        }
+
+                        reject(error);
                     }
+                };
+
+
+                if (
+                    existing.dataset.loaded ===
+                    "true"
+                ) {
+
+                    finish();
+                    return;
+                }
+
+
+                existing.addEventListener(
+                    "load",
+                    finish,
+                    { once: true }
                 );
+
+                existing.addEventListener(
+                    "error",
+                    () => {
+
+                        reject(
+                            new Error(
+                                "Player/player.js failed to load."
+                            )
+                        );
+
+                    },
+                    { once: true }
+                );
+
+                return;
             }
-        }
 
 
-        runtime =
-            createPlayerRuntimeAdapter();
+            const script =
+                document.createElement("script");
+
+            script.src =
+                playerPath;
+
+            script.dataset.webbloxPlayer =
+                "true";
+
+            script.async =
+                false;
 
 
-        if (!runtime) {
+            script.onload = () => {
 
-            const hasPlayerSystem =
-                !!window.PlayerSystem;
+                script.dataset.loaded =
+                    "true";
 
-            const hasWebBloxPlayer =
-                !!window.WebBloxPlayer;
+                try {
 
-            throw new Error(
-                `Player runtime loaded but no compatible start API was found. ` +
-                `PlayerSystem=${hasPlayerSystem}, ` +
-                `WebBloxPlayer=${hasWebBloxPlayer}`
+                    const runtime =
+                        verifyPlayerRuntime(
+                            window.WebBloxPlayer,
+                            "player.js"
+                        );
+
+                    log(
+                        "Player runtime loaded."
+                    );
+
+                    resolve(runtime);
+
+                } catch (error) {
+
+                    /*
+                     * Do not swallow the actual Player-side error.
+                     * Studio will report it through the existing
+                     * startup error handler.
+                     */
+
+                    reject(error);
+                }
+            };
+
+
+            script.onerror = () => {
+
+                reject(
+                    new Error(
+                        `Could not load Player runtime: ${playerPath}`
+                    )
+                );
+            };
+
+
+            document.head.appendChild(
+                script
             );
-        }
-
-
-        state.playerAvailable = true;
-
-
-        log(
-            `Player runtime loaded (${runtime.api}).`
-        );
-
-
-        return runtime;
+        });
     }
-
 
     // ============================================================
     // OBJECT SYSTEM
@@ -1940,6 +1962,10 @@ PART 1/4 — source lines 1-1946
         const mesh =
             meshes.get(
                 object.id
+
+
+==================== PART 2/4 ====================
+
             );
 
 
@@ -1954,13 +1980,6 @@ PART 1/4 — source lines 1-1946
                 if (
                     !child.isMesh ||
                     !child.material
-
-
-
-==============================================================================
-PART 2/4 — source lines 1947-3892
-==============================================================================
-
                 ) {
                     return;
                 }
@@ -3903,17 +3922,14 @@ PART 2/4 — source lines 1947-3892
 
         updateMeshFromObject(
             object
+
+
+==================== PART 3/4 ====================
+
         );
 
 
         updateProperties();
-
-
-
-==============================================================================
-PART 3/4 — source lines 3893-5838
-==============================================================================
-
 
 
         state.game.saved =
@@ -5860,18 +5876,15 @@ PART 3/4 — source lines 3893-5838
 
 
         state.game.saved =
-
-
-
-==============================================================================
-PART 4/4 — source lines 5839-7783
-==============================================================================
-
             true;
 
 
         updateGameStatus();
 
+
+
+
+==================== PART 4/4 ====================
 
         closeModal(
             "publishModal"
@@ -5990,30 +6003,52 @@ PART 4/4 — source lines 5839-7783
                 getGameData();
 
 
-            await Player.start({
+            /*
+             * WebBlox has had two Player.start() contracts:
+             *
+             * 1. Modern runtime: start({ game, objects, scene, ... })
+             * 2. Legacy runtime: start(scene)
+             *
+             * Support both so Studio and Player remain compatible
+             * across cached/deployed versions.
+             */
+            if (
+                Player.state ||
+                Player.version ||
+                Player.setSetting
+            ) {
 
-                game:
-                    runtimeData.game,
+                await Player.start({
 
-                objects:
-                    runtimeData.objects,
+                    game:
+                        runtimeData.game,
 
-                scene,
+                    objects:
+                        runtimeData.objects,
 
-                camera,
+                    scene,
 
-                renderer,
+                    camera,
 
-                viewport,
+                    renderer,
 
-                onLog:
-                    message => {
+                    viewport,
 
-                        log(
-                            `[Player] ${message}`
-                        );
-                    }
-            });
+                    onLog:
+                        message => {
+
+                            log(
+                                `[Player] ${message}`
+                            );
+                        }
+                });
+
+            } else {
+
+                await Player.start(
+                    scene
+                );
+            }
 
 
             log(
@@ -6074,16 +6109,13 @@ PART 4/4 — source lines 5839-7783
 
         try {
 
-            const runtime =
-                createPlayerRuntimeAdapter();
-
             if (
-                runtime &&
-                typeof runtime.stop ===
+                window.WebBloxPlayer &&
+                typeof window.WebBloxPlayer.stop ===
                     "function"
             ) {
 
-                await runtime.stop();
+                await window.WebBloxPlayer.stop();
             }
 
         } catch (error) {
@@ -7747,8 +7779,6 @@ PART 4/4 — source lines 5839-7783
 
         state,
 
-        scene,
-
         createObject,
 
         insertObject,
@@ -7812,5 +7842,3 @@ PART 4/4 — source lines 5839-7783
     }
 
 })();
-
-
