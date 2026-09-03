@@ -1,6 +1,7 @@
 
-
-==================== PART 1/4 ====================
+======================================================================
+PART 1/4 — lines 1-1956
+======================================================================
 
 /*
  * WebBlox Studio
@@ -40,6 +41,44 @@
     "use strict";
 
     console.log("[WebBlox Studio] Loading studio.js");
+
+    // ============================================================
+    // EARLY LOADING SCREEN SAFETY
+    // ============================================================
+
+    function forceHideStudioLoadingScreen() {
+
+        const loading =
+            document.getElementById("studioLoading");
+
+        if (!loading) {
+            return;
+        }
+
+        const progress =
+            document.getElementById("loadingProgress");
+
+        if (progress) {
+            progress.style.setProperty(
+                "width",
+                "100%",
+                "important"
+            );
+        }
+
+        loading.classList.add("hidden");
+        loading.setAttribute("aria-hidden", "true");
+        loading.style.setProperty("display", "none", "important");
+        loading.style.setProperty("visibility", "hidden", "important");
+        loading.style.setProperty("opacity", "0", "important");
+        loading.style.setProperty("pointer-events", "none", "important");
+    }
+
+    // Never allow the HTML loading overlay to trap the editor.
+    window.setTimeout(
+        forceHideStudioLoadingScreen,
+        3000
+    );
 
     // ============================================================
     // STATE
@@ -271,15 +310,8 @@
 
     function finishLoadingScreen() {
 
-        /*
-         * IMPORTANT:
-         *
-         * This function must be safe to call more than once.
-         * Project Manager can reopen the loading overlay after the
-         * initial Studio boot, so an "already finished" early return
-         * would leave that second overlay stuck on screen.
-         */
-
+        // This function is intentionally repeatable. Project loading
+        // can call it after the initial Studio startup has completed.
         loadingScreenFinished = true;
 
         const loading =
@@ -297,65 +329,13 @@
                 "100%";
         }
 
-        loading.classList.add(
-            "hidden"
+        forceHideStudioLoadingScreen();
+
+        // Paint-frame redundancy for browsers that animate the overlay.
+        window.setTimeout(
+            forceHideStudioLoadingScreen,
+            50
         );
-
-        /*
-         * Force the overlay completely off even if another script
-         * removed the hidden class or recreated the loading state.
-         */
-
-        loading.style.display =
-            "none";
-
-        loading.style.visibility =
-            "hidden";
-
-        loading.style.opacity =
-            "0";
-
-        loading.style.pointerEvents =
-            "none";
-
-        loading.setAttribute(
-            "aria-hidden",
-            "true"
-        );
-
-        /*
-         * Repeat after the next render turn in case another UI
-         * handler changed the element while a project was opening.
-         */
-
-        setTimeout(() => {
-
-            if (!loading) {
-                return;
-            }
-
-            loading.classList.add(
-                "hidden"
-            );
-
-            loading.style.display =
-                "none";
-
-            loading.style.visibility =
-                "hidden";
-
-            loading.style.opacity =
-                "0";
-
-            loading.style.pointerEvents =
-                "none";
-
-            loading.setAttribute(
-                "aria-hidden",
-                "true"
-            );
-
-        }, 50);
     }
 
 
@@ -1972,10 +1952,6 @@
 
         const mesh =
             meshes.get(
-
-
-==================== PART 2/4 ====================
-
                 object.id
             );
 
@@ -1983,6 +1959,11 @@
         if (!mesh) {
             return;
         }
+
+======================================================================
+PART 2/4 — lines 1957-3912
+======================================================================
+
 
 
         mesh.traverse(
@@ -3939,6 +3920,11 @@
         updateProperties();
 
 
+
+======================================================================
+PART 3/4 — lines 3913-5868
+======================================================================
+
         state.game.saved =
             false;
 
@@ -3946,10 +3932,6 @@
         updateGameStatus();
 
         updateGizmoPosition();
-
-
-==================== PART 3/4 ====================
-
     }
 
 
@@ -5434,142 +5416,92 @@
 
     function loadProjectIntoEditor(project) {
 
-        /*
-         * A project-open event is a transition away from the project
-         * picker. Never allow the picker/loading overlay to remain over
-         * the editor while the project is being applied.
-         */
-        finishLoadingScreen();
+        const placeData =
+            project?.placeData;
 
-        try {
+        const objects =
+            Array.isArray(
+                placeData?.objects
+            )
+                ? placeData.objects
+                : null;
 
-            const placeData =
-                project?.placeData;
+        saveHistory();
 
-            const objects =
-                Array.isArray(
-                    placeData?.objects
-                )
-                    ? placeData.objects
-                    : null;
+        state.objects.clear();
 
-            saveHistory();
+        if (objects && objects.length) {
 
-            state.objects.clear();
-
-            if (objects && objects.length) {
-
-                for (
-                    const object
-                    of objects
-                ) {
-                    createObject(
-                        object
-                    );
-                }
-
-            } else {
-
-                createDefaultWorld();
-            }
-
-            /*
-             * placeData can come from two different shapes:
-             * - the "new project" template (flat: name/description
-             *   directly on placeData)
-             * - a real save from persistActiveProject(), which
-             *   stores getGameData()'s output (name/description/
-             *   starterPlayer nested under placeData.game)
-             * Check both so neither path silently loses data.
-             */
-
-            state.game.name =
-                placeData?.game?.name ||
-                placeData?.name ||
-                project?.title ||
-                state.game.name;
-
-            state.game.description =
-                placeData?.game?.description ||
-                placeData?.description ||
-                project?.description ||
-                state.game.description;
-
-            const savedStarterPlayer =
-                placeData?.game?.starterPlayer ||
-                placeData?.starterPlayer;
-
-            if (savedStarterPlayer) {
-
-                state.game.starterPlayer = {
-
-                    ...state.game.starterPlayer,
-
-                    ...savedStarterPlayer
-                };
-            }
-
-            state.game.saved =
-                true;
-
-            state.selectedId =
-                null;
-
-            renderWorld();
-
-            updateExplorer();
-
-            updateProperties();
-
-            updateGameStatus();
-
-            log(
-                `Opened project: ${
-                    project?.title ||
-                    "Untitled"
-                }`
-            );
-
-        } catch (error) {
-
-            console.error(
-                "[WebBlox Studio] Failed to open project:",
-                error
-            );
-
-            log(
-                `Project load failed: ${error.message}`,
-                "error"
-            );
-
-            showToast(
-                "Project loaded with an error. Studio remains open."
-            );
-
-            /*
-             * Always restore a usable editor state.
-             */
-            try {
-                createDefaultWorld();
-                renderWorld();
-                updateExplorer();
-                updateProperties();
-                updateGameStatus();
-            } catch (recoveryError) {
-                console.error(
-                    "[WebBlox Studio] Project recovery failed:",
-                    recoveryError
+            for (
+                const object
+                of objects
+            ) {
+                createObject(
+                    object
                 );
             }
 
-        } finally {
+        } else {
 
-            /*
-             * Most important part: project opening can never leave the
-             * loading overlay covering the editor.
-             */
-            finishLoadingScreen();
+            createDefaultWorld();
         }
+
+        /*
+         * placeData can come from two different shapes:
+         * - the "new project" template (flat: name/description
+         *   directly on placeData)
+         * - a real save from persistActiveProject(), which
+         *   stores getGameData()'s output (name/description/
+         *   starterPlayer nested under placeData.game)
+         * Check both so neither path silently loses data.
+         */
+
+        state.game.name =
+            placeData?.game?.name ||
+            placeData?.name ||
+            project?.title ||
+            state.game.name;
+
+        state.game.description =
+            placeData?.game?.description ||
+            placeData?.description ||
+            project?.description ||
+            state.game.description;
+
+        const savedStarterPlayer =
+            placeData?.game?.starterPlayer ||
+            placeData?.starterPlayer;
+
+        if (savedStarterPlayer) {
+
+            state.game.starterPlayer = {
+
+                ...state.game.starterPlayer,
+
+                ...savedStarterPlayer
+            };
+        }
+
+        state.game.saved =
+            true;
+
+        state.selectedId =
+            null;
+
+        renderWorld();
+
+        updateExplorer();
+
+        updateProperties();
+
+        updateGameStatus();
+
+        log(
+            `Opened project: ${
+                project?.title ||
+                "Untitled"
+            }`
+        );
     }
 
 
@@ -5579,17 +5511,29 @@
             "webblox:project-opened",
             event => {
 
-                /*
-                 * A project picker may show/re-show the loading overlay
-                 * before dispatching this event. Close it immediately,
-                 * then let loadProjectIntoEditor() repeat the safeguard.
-                 */
-                finishLoadingScreen();
+                try {
 
-                loadProjectIntoEditor(
-                    event.detail
-                        ?.project
-                );
+                    loadProjectIntoEditor(
+                        event.detail
+                            ?.project
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "[WebBlox Studio] Project open failed:",
+                        error
+                    );
+
+                    log(
+                        `Project open failed: ${error.message}`,
+                        "error"
+                    );
+
+                } finally {
+
+                    finishLoadingScreen();
+                }
             }
         );
 
@@ -5920,10 +5864,6 @@
         if (!title) {
 
             closeModal(
-
-
-==================== PART 4/4 ====================
-
                 "publishModal"
             );
 
@@ -5940,6 +5880,11 @@
         const gameData =
             getGameData();
 
+
+
+======================================================================
+PART 4/4 — lines 5869-7824
+======================================================================
 
         console.log(
             "[WebBlox] Publish payload:",
@@ -7686,6 +7631,10 @@
         log(
             "Studio interface loaded."
         );
+
+        // The editor UI is now available; do not leave the full-screen
+        // startup overlay above the project editor while WebGL loads.
+        finishLoadingScreen();
 
 
         /*
