@@ -36,14 +36,6 @@
     // GLOBAL
     // ============================================================
 
-    /*
-     * Never allow a stale/incomplete WebBloxPlayer object to
-     * prevent this runtime from initializing.
-     *
-     * Studio checks for WebBloxPlayer.start immediately after
-     * loading this file, so the runtime must always publish
-     * a complete API from this execution.
-     */
     if (
         window.WebBloxPlayer &&
         typeof window.WebBloxPlayer.start === "function"
@@ -51,15 +43,12 @@
         console.warn(
             "[WebBlox Player] Runtime already exists."
         );
-
         return;
     }
 
+    // A stale/incomplete WebBloxPlayer object must never prevent
+    // this file from installing the complete runtime API.
     if (window.WebBloxPlayer) {
-        console.warn(
-            "[WebBlox Player] Replacing stale WebBloxPlayer object."
-        );
-
         try {
             delete window.WebBloxPlayer;
         } catch {
@@ -2460,10 +2449,6 @@
                 resultZ
 
         };
-
-        log(
-            "Classic blocky R6 character created."
-        );
 
     }
 
