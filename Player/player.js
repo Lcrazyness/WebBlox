@@ -36,13 +36,35 @@
     // GLOBAL
     // ============================================================
 
-    if (window.WebBloxPlayer) {
-
+    /*
+     * Never allow a stale/incomplete WebBloxPlayer object to
+     * prevent this runtime from initializing.
+     *
+     * Studio checks for WebBloxPlayer.start immediately after
+     * loading this file, so the runtime must always publish
+     * a complete API from this execution.
+     */
+    if (
+        window.WebBloxPlayer &&
+        typeof window.WebBloxPlayer.start === "function"
+    ) {
         console.warn(
             "[WebBlox Player] Runtime already exists."
         );
 
         return;
+    }
+
+    if (window.WebBloxPlayer) {
+        console.warn(
+            "[WebBlox Player] Replacing stale WebBloxPlayer object."
+        );
+
+        try {
+            delete window.WebBloxPlayer;
+        } catch {
+            window.WebBloxPlayer = undefined;
+        }
     }
 
 
@@ -1888,587 +1910,69 @@
 
                         object.material ===
                         "Metal"
-
-                            ? 0.85
-
-                            : 0,
-
-
-                    transparent:
-
-                        transparency > 0 ||
-                        object.material ===
-                            "Glass",
-
-
-                    opacity:
-
-                        object.material ===
-                            "Glass"
-
-                            ? Math.min(
-                                0.45,
-                                1 -
-                                transparency
-                            )
-
-                            : 1 -
-                              transparency,
-
-                    depthWrite:
-                        transparency < 1
-
-                });
-
-
-            const mesh =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        size.x,
-
-                        size.y,
-
-                        size.z
-
-                    ),
-
-                    material
-
-                );
-
-
-            mesh.name =
-                `Runtime_${object.name || "Part"}`;
-
-
-            mesh.position.set(
-
-                Number(
-
-                    object.position?.x ||
-
-                    0
-
-                ),
-
-                Number(
-
-                    object.position?.y ||
-
-                    0
-
-                ),
-
-                Number(
-
-                    object.position?.z ||
-
-                    0
-
-                )
-
-            );
-
-
-            mesh.rotation.set(
-
-                degToRad(
-
-                    Number(
-
-                        object.rotation?.x ||
-
-                        0
-
-                    )
-
-                ),
-
-                degToRad(
-
-                    Number(
-
-                        object.rotation?.y ||
-
-                        0
-
-                    )
-
-                ),
-
-                degToRad(
-
-                    Number(
-
-                        object.rotation?.z ||
-
-                        0
-
-                    )
-
-                )
-
-            );
-
-
-            mesh.castShadow =
-                object.castShadow !==
-                false;
-
-
-            mesh.receiveShadow =
-                object.receiveShadow !==
-                false;
-
-
-            mesh.userData.webbloxObject =
-                object;
-
-
-            mesh.userData.canCollide =
-                object.canCollide !==
-                false;
-
-
-            mesh.userData.anchored =
-                object.anchored !==
-                false;
-
-
-            mesh.userData.transparency =
-                transparency;
-
-
-            state.scene.add(
-                mesh
-            );
-
-
-            state.runtimeObjects.push({
-
-                mesh,
-
-                object,
-
-                size
-
-            });
-
-        }
-
-
-        log(
-
-            `Runtime world loaded: ${state.runtimeObjects.length} physical parts.`
-
+    pants,
+            { x: 0, y: -lowerLegLen / 2, z: 0 },
+            leftKnee
         );
 
-    }
-
-
-    // ============================================================
-    // REMOVE RUNTIME WORLD
-    // ============================================================
-
-    function removeRuntimeWorld() {
-
-        for (
-
-            const item
-
-            of state.runtimeObjects
-
-        ) {
-
-            if (
-
-                item.mesh &&
-
-                item.mesh.parent
-
-            ) {
-
-                item.mesh.parent.remove(
-                    item.mesh
-                );
-
-            }
-
-
-            disposeObject(
-                item.mesh
-            );
-
-        }
-
-
-        state.runtimeObjects =
-            [];
-
-    }
-
-
-    // ============================================================
-    // CHARACTER AABB
-    // ============================================================
-
-    function getCharacterBox(
-
-        x,
-
-        y,
-
-        z
-
-    ) {
-
-        return {
-
-            minX:
-
-                x -
-                PLAYER_WIDTH /
-                2,
-
-            maxX:
-
-                x +
-                PLAYER_WIDTH /
-                2,
-
-            minY:
-
-                y,
-
-            maxY:
-
-                y +
-                PLAYER_HEIGHT,
-
-            minZ:
-
-                z -
-                PLAYER_DEPTH /
-                2,
-
-            maxZ:
-
-                z +
-                PLAYER_DEPTH /
-                2
-
-        };
-
-    }
-
-
-    // ============================================================
-    // PART AABB
-    // ============================================================
-
-    function getPartBox(
-        item
-    ) {
-
-        const mesh =
-            item.mesh;
-
-        const size =
-            item.size;
-
-
-        /*
-         * Runtime collision currently uses
-         * axis-aligned bounds.
-         *
-         * This is deliberately kept simple
-         * so the WebBlox Stage 3A runtime stays
-         * stable while still supporting
-         * CanCollide correctly.
-         */
-
-        return {
-
-            minX:
-
-                mesh.position.x -
-                size.x /
-                2,
-
-            maxX:
-
-                mesh.position.x +
-                size.x /
-                2,
-
-            minY:
-
-                mesh.position.y -
-                size.y /
-                2,
-
-            maxY:
-
-                mesh.position.y +
-                size.y /
-                2,
-
-            minZ:
-
-                mesh.position.z -
-                size.z /
-                2,
-
-            maxZ:
-
-                mesh.position.z +
-                size.z /
-                2
-
-        };
-
-    }
-
-
-    // ============================================================
-    // OVERLAP
-    // ============================================================
-
-    function overlaps(
-        a,
-        b
-    ) {
-
-        return (
-
-            a.minX < b.maxX &&
-
-            a.maxX > b.minX &&
-
-            a.minY < b.maxY &&
-
-            a.maxY > b.minY &&
-
-            a.minZ < b.maxZ &&
-
-            a.maxZ > b.minZ
-
+        createRoundedPart(
+            THREE,
+            "LeftFoot",
+            { x: 0.75, y: footHeight, z: 1.15 },
+            shoe,
+            { x: 0, y: -lowerLegLen - footHeight / 2, z: 0.20 },
+            leftKnee
         );
-
-    }
-
-
-    // ============================================================
-    // COLLISION
-    // ============================================================
-
-    function resolveHorizontalCollision(
-
-        oldX,
-
-        oldZ,
-
-        newX,
-
-        newZ
-
-    ) {
-
-        let resultX =
-            newX;
-
-        let resultZ =
-            newZ;
-
-
-        const currentY =
-            state.character.position.y;
-
-
-        const characterAtNew =
-            getCharacterBox(
-
-                newX,
-
-                currentY,
-
-                newZ
-
-            );
-
-
-        for (
-
-            const item
-
-            of state.runtimeObjects
-
-        ) {
-
-            if (
-
-                !item.object ||
-
-                item.object.canCollide ===
-                    false
-
-            ) {
-
-                continue;
-
-            }
-
-
-            const partBox =
-                getPartBox(
-                    item
-                );
-
-
-            if (
-
-                !overlaps(
-
-                    characterAtNew,
-
-                    partBox
-
-                )
-
-            ) {
-
-                continue;
-
-            }
-
-
-            // ----------------------------------------------------
-            // Try X only.
-            // ----------------------------------------------------
-
-            const testX =
-                getCharacterBox(
-
-                    newX,
-
-                    currentY,
-
-                    oldZ
-
-                );
-
-
-            if (
-
-                !overlaps(
-
-                    testX,
-
-                    partBox
-
-                )
-
-            ) {
-
-                resultZ =
-                    oldZ;
-
-                continue;
-
-            }
-
-
-            // ----------------------------------------------------
-            // Try Z only.
-            // ----------------------------------------------------
-
-            const testZ =
-                getCharacterBox(
-
-                    oldX,
-
-                    currentY,
-
-                    newZ
-
-                );
-
-
-            if (
-
-                !overlaps(
-
-                    testZ,
-
-                    partBox
-
-                )
-
-            ) {
-
-                resultX =
-                    oldX;
-
-                continue;
-
-            }
-
-
-            // ----------------------------------------------------
-            // Both blocked.
-            // ----------------------------------------------------
-
-            resultX =
-                oldX;
-
-            resultZ =
-                oldZ;
-
-        }
-
-
-        return {
-
-            x:
-                resultX,
-
-            z:
-                resultZ
-
-        };
-
-    }
-        const humanoidRootPart =
-            new THREE.Mesh(
-                new THREE.BoxGeometry(
-                    1.5,
-                    4.5,
-                    0.9
-                ),
-                rootMaterial
-            );
-
-        humanoidRootPart.name =
-            "HumanoidRootPart";
-
-        humanoidRootPart.visible =
-            false;
-
-        humanoidRootPart.userData.characterPart =
-            true;
-
-        root.add(
-            humanoidRootPart
-        );
-
-        root.userData.humanoidRootPart =
-            humanoidRootPart;
 
 
         // --------------------------------------------------------
-        // Spawn
+        // Right leg
+        // --------------------------------------------------------
+
+        const rightHip =
+            createPivot(
+                "RightHip",
+                { x: hipX, y: hipY, z: 0 },
+                root
+            );
+
+        createRoundedPart(
+            THREE,
+            "RightUpperLeg",
+            { x: 0.75, y: upperLegLen, z: 0.75 },
+            pants,
+            { x: 0, y: -upperLegLen / 2, z: 0 },
+            rightHip
+        );
+
+        const rightKnee =
+            createPivot(
+                "RightKnee",
+                { x: 0, y: -upperLegLen, z: 0 },
+                rightHip
+            );
+
+        createRoundedPart(
+            THREE,
+            "RightLowerLeg",
+            { x: 0.65, y: lowerLegLen, z: 0.65 },
+            pants,
+            { x: 0, y: -lowerLegLen / 2, z: 0 },
+            rightKnee
+        );
+
+        createRoundedPart(
+            THREE,
+            "RightFoot",
+            { x: 0.75, y: footHeight, z: 1.15 },
+            shoe,
+            { x: 0, y: -lowerLegLen - footHeight / 2, z: 0.20 },
+            rightKnee
+        );
+
+
+        // --------------------------------------------------------
+        // Put at spawn
         // --------------------------------------------------------
 
         root.position.set(
@@ -2481,42 +1985,46 @@
         state.character =
             root;
 
-        state.characterParts =
-            [];
+        state.characterParts = [];
 
-
-        root.traverse(
-            child => {
-
-                if (
-                    child.isMesh &&
-                    child !== humanoidRootPart
-                ) {
-
-                    state.characterParts.push(
-                        child
-                    );
-
-                }
-
+        root.traverse(child => {
+            if (child.isMesh) {
+                state.characterParts.push(child);
             }
-        );
+        });
 
+        /*
+         * Named references, used by
+         * updateCharacterAnimation() for
+         * walk / idle / jump limb swing.
+         *
+         * These now point at the *pivot groups*
+         * (shoulder / elbow / hip / knee), not the
+         * meshes themselves, so rotating them swings
+         * the limb from its joint like a real rig.
+         */
 
-        state.characterHeight =
-            5;
+        root.userData.bodyParts = {
+            upperTorso,
+            leftUpperArm: leftShoulder,
+            rightUpperArm: rightShoulder,
+            leftLowerArm: leftElbow,
+            rightLowerArm: rightElbow,
+            leftUpperLeg: leftHip,
+            rightUpperLeg: rightHip,
+            leftLowerLeg: leftKnee,
+            rightLowerLeg: rightKnee
+        };
 
+        root.userData.head = head;
 
-        state.scene.add(
-            root
-        );
+        root.userData.height = upperTorsoTop + 1.75;
 
+        state.scene.add(root);
 
-        log(
-            "Classic blocky R6 character created."
-        );
-
+        log("Character created.");
     }
+
 
 
     // ============================================================
@@ -2529,27 +2037,21 @@
             return;
         }
 
-
         if (
             state.character.parent
         ) {
-
             state.character.parent.remove(
                 state.character
             );
-
         }
-
 
         disposeObject(
             state.character
         );
 
-
         state.character = null;
 
         state.characterParts = [];
-
     }
 
 
@@ -2566,29 +2068,21 @@
                     (
                         object.type ===
                             "SpawnLocation" ||
-
                         object.className ===
                             "SpawnLocation"
                     )
             );
 
-
         if (!spawn) {
 
             state.spawn = {
-
                 x: 0,
-
                 y: 3,
-
                 z: 0
-
             };
 
             return;
-
         }
-
 
         state.spawn = {
 
@@ -2609,14 +2103,11 @@
                     spawn.position?.z ||
                     0
                 )
-
         };
-
 
         log(
             `Spawn found at ${state.spawn.x}, ${state.spawn.y}, ${state.spawn.z}.`
         );
-
     }
 
 
@@ -2626,9 +2117,7 @@
 
     function createRuntimeWorld() {
 
-        const THREE =
-            getThree();
-
+        const THREE = getThree();
 
         state.runtimeObjects = [];
 
@@ -2642,20 +2131,12 @@
                 continue;
             }
 
-
-            // ----------------------------------------------------
-            // Physical objects
-            // ----------------------------------------------------
-
             if (
                 object.type !== "Part" &&
                 object.type !== "SpawnLocation"
             ) {
-
                 continue;
-
             }
-
 
             const size = {
 
@@ -2685,29 +2166,11 @@
                             1
                         )
                     )
-
             };
-
-
-            const transparency =
-                clamp(
-                    Number(
-                        object.transparency ??
-                        0
-                    ),
-                    0,
-                    1
-                );
-
-
-            const isGlass =
-                object.material ===
-                "Glass";
 
 
             const material =
                 new THREE.MeshStandardMaterial({
-
                     color:
                         getColor(
                             THREE,
@@ -2722,17 +2185,10 @@
                         object.material ===
                         "SmoothPlastic"
                             ? 0.35
-
                             : object.material ===
                               "Metal"
-
                                 ? 0.25
-
-                                : isGlass
-
-                                    ? 0.12
-
-                                    : 0.8,
+                                : 0.8,
 
                     metalness:
                         object.material ===
@@ -2741,36 +2197,25 @@
                             : 0,
 
                     transparent:
-                        isGlass ||
-                        transparency > 0,
+                        object.material ===
+                        "Glass",
 
                     opacity:
-                        isGlass
-                            ? Math.min(
-                                0.45,
-                                1 - transparency
-                            )
-                            : 1 - transparency,
-
-                    depthWrite:
-                        transparency < 1
-
+                        object.material ===
+                        "Glass"
+                            ? 0.45
+                            : 1
                 });
 
 
             const mesh =
                 new THREE.Mesh(
-
                     new THREE.BoxGeometry(
-
                         size.x,
                         size.y,
                         size.z
-
                     ),
-
                     material
-
                 );
 
 
@@ -2794,7 +2239,6 @@
                     object.position?.z ||
                     0
                 )
-
             );
 
 
@@ -2820,7 +2264,6 @@
                         0
                     )
                 )
-
             );
 
 
@@ -2828,65 +2271,33 @@
                 object.castShadow !==
                 false;
 
-
-            mesh.receiveShadow =
-                object.receiveShadow !==
-                false;
-
-
-            mesh.userData =
-                mesh.userData ||
-                {};
+            mesh.receiveShadow = true;
 
 
             mesh.userData.webbloxObject =
                 object;
 
-
-            mesh.userData.source =
-                object;
-
-
             mesh.userData.canCollide =
                 object.canCollide !==
                 false;
-
 
             mesh.userData.anchored =
                 object.anchored !==
                 false;
 
 
-            mesh.userData.transparency =
-                transparency;
-
-
-            mesh.userData.runtimePart =
-                true;
-
-
-            state.scene.add(
-                mesh
-            );
-
+            state.scene.add(mesh);
 
             state.runtimeObjects.push({
-
                 mesh,
-
                 object,
-
                 size
-
             });
-
         }
-
 
         log(
             `Runtime world loaded: ${state.runtimeObjects.length} physical parts.`
         );
-
     }
 
 
@@ -2905,24 +2316,17 @@
                 item.mesh &&
                 item.mesh.parent
             ) {
-
                 item.mesh.parent.remove(
                     item.mesh
                 );
-
             }
-
 
             disposeObject(
                 item.mesh
             );
-
         }
 
-
-        state.runtimeObjects =
-            [];
-
+        state.runtimeObjects = [];
     }
 
 
@@ -2940,13 +2344,11 @@
 
             minX:
                 x -
-                PLAYER_WIDTH /
-                2,
+                PLAYER_WIDTH / 2,
 
             maxX:
                 x +
-                PLAYER_WIDTH /
-                2,
+                PLAYER_WIDTH / 2,
 
             minY:
                 y,
@@ -2957,16 +2359,12 @@
 
             minZ:
                 z -
-                PLAYER_DEPTH /
-                2,
+                PLAYER_DEPTH / 2,
 
             maxZ:
                 z +
-                PLAYER_DEPTH /
-                2
-
+                PLAYER_DEPTH / 2
         };
-
     }
 
 
@@ -2974,9 +2372,7 @@
     // PART AABB
     // ============================================================
 
-    function getPartBox(
-        item
-    ) {
+    function getPartBox(item) {
 
         const mesh =
             item.mesh;
@@ -2985,40 +2381,40 @@
             item.size;
 
 
+        /*
+         * Runtime collision currently uses
+         * axis-aligned bounds.
+         *
+         * This is intentionally simple and
+         * reliable for Stage 3A.
+         */
+
         return {
 
             minX:
                 mesh.position.x -
-                size.x /
-                2,
+                size.x / 2,
 
             maxX:
                 mesh.position.x +
-                size.x /
-                2,
+                size.x / 2,
 
             minY:
                 mesh.position.y -
-                size.y /
-                2,
+                size.y / 2,
 
             maxY:
                 mesh.position.y +
-                size.y /
-                2,
+                size.y / 2,
 
             minZ:
                 mesh.position.z -
-                size.z /
-                2,
+                size.z / 2,
 
             maxZ:
                 mesh.position.z +
-                size.z /
-                2
-
+                size.z / 2
         };
-
     }
 
 
@@ -3043,12 +2439,11 @@
             a.maxZ > b.minZ
 
         );
-
     }
 
 
     // ============================================================
-    // HORIZONTAL COLLISION
+    // COLLISION
     // ============================================================
 
     function resolveHorizontalCollision(
@@ -3065,37 +2460,15 @@
             newZ;
 
 
-        if (
-            !state.settings.canMove ||
-            !state.settings.collisions
-        ) {
-
-            return {
-
-                x:
-                    resultX,
-
-                z:
-                    resultZ
-
-            };
-
-        }
-
-
         const currentY =
             state.character.position.y;
 
 
-        const targetBox =
+        const characterAtNew =
             getCharacterBox(
-
                 newX,
-
                 currentY,
-
                 newZ
-
             );
 
 
@@ -3104,131 +2477,95 @@
             of state.runtimeObjects
         ) {
 
-            if (!item.object) {
-                continue;
-            }
-
-
             if (
+                !item.object ||
                 item.object.canCollide ===
-                false
+                    false
             ) {
-
                 continue;
-
             }
 
 
             const partBox =
-                getPartBox(
-                    item
+                getPartBox(item);
+
+
+            if (
+                !overlaps(
+                    characterAtNew,
+                    partBox
+                )
+            ) {
+                continue;
+            }
+
+
+            // ----------------------------------------------------
+            // Try X only.
+            // ----------------------------------------------------
+
+            const testX =
+                getCharacterBox(
+                    newX,
+                    currentY,
+                    oldZ
                 );
 
 
             if (
                 !overlaps(
-                    targetBox,
+                    testX,
                     partBox
                 )
             ) {
+                resultZ =
+                    oldZ;
 
                 continue;
-
             }
 
 
             // ----------------------------------------------------
-            // Try X movement only.
+            // Try Z only.
             // ----------------------------------------------------
 
-            const xBox =
+            const testZ =
                 getCharacterBox(
-
-                    newX,
-
-                    currentY,
-
-                    oldZ
-
-                );
-
-
-            const blockedX =
-                overlaps(
-                    xBox,
-                    partBox
-                );
-
-
-            // ----------------------------------------------------
-            // Try Z movement only.
-            // ----------------------------------------------------
-
-            const zBox =
-                getCharacterBox(
-
                     oldX,
-
                     currentY,
-
                     newZ
-
                 );
 
 
-            const blockedZ =
-                overlaps(
-                    zBox,
+            if (
+                !overlaps(
+                    testZ,
                     partBox
-                );
-
-
-            if (
-                blockedX
+                )
             ) {
-
                 resultX =
                     oldX;
 
+                continue;
             }
 
 
-            if (
-                blockedZ
-            ) {
+            // ----------------------------------------------------
+            // Both blocked.
+            // ----------------------------------------------------
 
-                resultZ =
-                    oldZ;
+            resultX =
+                oldX;
 
-            }
-
-
-            if (
-                blockedX &&
-                blockedZ
-            ) {
-
-                resultX =
-                    oldX;
-
-                resultZ =
-                    oldZ;
-
-            }
-
+            resultZ =
+                oldZ;
         }
 
 
         return {
-
-            x:
-                resultX,
-
-            z:
-                resultZ
-
+            x: resultX,
+            z: resultZ
         };
-
     }
 
 
@@ -3248,23 +2585,6 @@
             false;
 
 
-        if (
-            !state.settings.collisions
-        ) {
-
-            return {
-
-                y:
-                    newY,
-
-                grounded:
-                    false
-
-            };
-
-        }
-
-
         const x =
             state.character.position.x;
 
@@ -3274,137 +2594,18 @@
 
         const oldBox =
             getCharacterBox(
-
                 x,
-
                 oldY,
-
                 z
-
             );
 
 
         const newBox =
             getCharacterBox(
-
                 x,
-
                 newY,
-
                 z
-
             );
-
-
-        for (
-            const item
-            of state.runtimeObjects
-        ) {
-
-            if (!item.object) {
-                continue;
-            }
-
-
-            if (
-                item.object.canCollide ===
-                false
-            ) {
-
-                continue;
-
-            }
-
-
-            const partBox =
-                getPartBox(
-                    item
-                );
-
-
-            if (
-                !overlaps(
-                    newBox,
-                    partBox
-                )
-            ) {
-
-                continue;
-
-            }
-
-
-            // ----------------------------------------------------
-            // Falling onto a surface.
-            // ----------------------------------------------------
-
-            if (
-                state.velocity.y <= 0 &&
-                oldBox.minY >=
-                    partBox.maxY -
-                    0.05
-            ) {
-
-                resultY =
-                    partBox.maxY;
-
-                state.velocity.y =
-                    0;
-
-                grounded =
-                    true;
-
-                continue;
-
-            }
-
-
-            // ----------------------------------------------------
-            // Jumping into underside.
-            // ----------------------------------------------------
-
-            if (
-                state.velocity.y > 0 &&
-                oldBox.maxY <=
-                    partBox.minY +
-                    0.05
-            ) {
-
-                resultY =
-                    partBox.minY -
-                    PLAYER_HEIGHT;
-
-                state.velocity.y =
-                    0;
-
-            }
-
-        }
-
-
-        return {
-
-            y:
-                resultY,
-
-            grounded
-
-        };
-
-    }
-
-
-    // ============================================================
-    // FLOOR CHECK
-    // ============================================================
-
-    function findFloorY(
-        x,
-        z
-    ) {
-
-        let floor =
-            -0.5;
 
 
         for (
@@ -3417,387 +2618,82 @@
                 item.object.canCollide ===
                     false
             ) {
-
                 continue;
-
             }
 
 
-            const mesh =
-                item.mesh;
-
-            const size =
-                item.size;
-
-
-            const insideX =
-                x >=
-                    mesh.position.x -
-                    size.x /
-                    2 &&
-
-                x <=
-                    mesh.position.x +
-                    size.x /
-                    2;
-
-
-            const insideZ =
-                z >=
-                    mesh.position.z -
-                    size.z /
-                    2 &&
-
-                z <=
-                    mesh.position.z +
-                    size.z /
-                    2;
+            const partBox =
+                getPartBox(item);
 
 
             if (
-                !insideX ||
-                !insideZ
+                !overlaps(
+                    newBox,
+                    partBox
+                )
             ) {
-
                 continue;
-
             }
 
 
-            const top =
-                mesh.position.y +
-                size.y /
-                2;
-
+            // ----------------------------------------------------
+            // Falling onto part.
+            // ----------------------------------------------------
 
             if (
-                top >
-                floor
+                state.velocity.y <= 0 &&
+                oldBox.minY >=
+                    partBox.maxY - 0.05
             ) {
 
-                floor =
-                    top;
+                resultY =
+                    partBox.maxY;
 
+                state.velocity.y =
+                    0;
+
+                grounded =
+                    true;
+
+                continue;
             }
 
+
+            // ----------------------------------------------------
+            // Hitting underside.
+            // ----------------------------------------------------
+
+            if (
+                state.velocity.y > 0 &&
+                oldBox.maxY <=
+                    partBox.minY + 0.05
+            ) {
+
+                resultY =
+                    partBox.minY -
+                    PLAYER_HEIGHT;
+
+                state.velocity.y =
+                    0;
+            }
         }
 
 
-        return floor;
-
+        return {
+            y: resultY,
+            grounded
+        };
     }
 
 
     // ============================================================
-    // MOVE PLAYER
-    // ============================================================
-    //
-    // IMPORTANT:
-    //
-    // This function intentionally DOES NOT use camera yaw.
-    //
-    // W = -Z
-    // S = +Z
-    // A = -X
-    // D = +X
-    //
-    // Camera rotation is completely separate from movement.
-    //
-    // This eliminates the old inverted camera-relative behavior.
+    // FALLBACK GROUND
     // ============================================================
 
-    function updateMovement(
-        delta
-    ) {
-
-        if (
-            !state.character ||
-            !state.settings.canMove
-        ) {
-
-            return;
-
-        }
-
-
-        const keys =
-            state.keys;
-
-
-        const forwardKey =
-            state.hotkeys.forward;
-
-
-        const backwardKey =
-            state.hotkeys.backward;
-
-
-        const leftKey =
-            state.hotkeys.left;
-
-
-        const rightKey =
-            state.hotkeys.right;
-
-
-        const jumpKey =
-            state.hotkeys.jump;
-
-
-        const runKey =
-            state.hotkeys.run;
-
-
-        const forward =
-            keys.has(
-                forwardKey
-            );
-
-
-        const backward =
-            keys.has(
-                backwardKey
-            );
-
-
-        const left =
-            keys.has(
-                leftKey
-            );
-
-
-        const right =
-            keys.has(
-                rightKey
-            );
-
-
-        const running =
-            keys.has(
-                runKey
-            );
-
-
-        let moveX =
-            0;
-
-        let moveZ =
-            0;
-
-
-        // --------------------------------------------------------
-        // WORLD-RELATIVE MOVEMENT
-        // --------------------------------------------------------
-
-        if (
-            forward
-        ) {
-
-            moveZ -=
-                1;
-
-        }
-
-
-        if (
-            backward
-        ) {
-
-            moveZ +=
-                1;
-
-        }
-
-
-        if (
-            left
-        ) {
-
-            moveX -=
-                1;
-
-        }
-
-
-        if (
-            right
-        ) {
-
-            moveX +=
-                1;
-
-        }
-
-
-        const magnitude =
-            Math.hypot(
-                moveX,
-                moveZ
-            );
-
-
-        state.moving =
-            magnitude >
-            0;
-
-
-        state.sprinting =
-            running &&
-            state.moving;
-
-
-        if (
-            magnitude >
-            0
-        ) {
-
-            moveX /=
-                magnitude;
-
-            moveZ /=
-                magnitude;
-
-        }
-
-
-        const walkSpeed =
-            Number(
-                state.settings.walkSpeed
-            ) ||
-            MOVE_SPEED;
-
-
-        const runSpeed =
-            Number(
-                state.settings.runSpeed ||
-                RUN_SPEED
-            );
-
-
-        const speed =
-            state.sprinting
-                ? runSpeed
-                : walkSpeed;
-
-
-        const oldX =
-            state.character.position.x;
-
-
-        const oldZ =
-            state.character.position.z;
-
-
-        const desiredX =
-            oldX +
-            moveX *
-            speed *
-            delta;
-
-
-        const desiredZ =
-            oldZ +
-            moveZ *
-            speed *
-            delta;
-
-
-        const resolved =
-            resolveHorizontalCollision(
-
-                oldX,
-
-                oldZ,
-
-                desiredX,
-
-                desiredZ
-
-            );
-
-
-        state.character.position.x =
-            resolved.x;
-
-
-        state.character.position.z =
-            resolved.z;
-
-
-        // --------------------------------------------------------
-        // Jump
-        // --------------------------------------------------------
-
-        if (
-            state.settings.canJump &&
-            keys.has(
-                jumpKey
-            ) &&
-            state.grounded
-        ) {
-
-            state.velocity.y =
-                Number(
-                    state.settings.jumpPower
-                ) ||
-                JUMP_POWER;
-
-
-            state.grounded =
-                false;
-
-        }
-
-
-        // --------------------------------------------------------
-        // Gravity
-        // --------------------------------------------------------
-
-        state.velocity.y -=
-            GRAVITY *
-            delta;
-
-
-        const oldY =
-            state.character.position.y;
-
-
-        const desiredY =
-            oldY +
-            state.velocity.y *
-            delta;
-
-
-        const vertical =
-            resolveVerticalCollision(
-
-                oldY,
-
-                desiredY
-
-            );
-
-
-        state.character.position.y =
-            vertical.y;
-
-
-        state.grounded =
-            vertical.grounded;
-
-
-        // --------------------------------------------------------
-        // Fallback floor.
-        // --------------------------------------------------------
+    function applyFallbackGround() {
 
         const floorY =
-            findFloorY(
-
-                state.character.position.x,
-
-                state.character.position.z
-
-            );
+            -0.5;
 
 
         if (
@@ -3808,588 +2704,125 @@
             state.character.position.y =
                 floorY;
 
-
             state.velocity.y =
                 0;
 
-
             state.grounded =
                 true;
-
         }
-
-
-        // --------------------------------------------------------
-        // Runtime information.
-        // --------------------------------------------------------
-
-        if (
-            state.character.userData.runtime
-        ) {
-
-            state.character.userData.runtime.grounded =
-                state.grounded;
-
-            state.character.userData.runtime.velocity =
-                state.velocity;
-
-        }
-
-
-        if (
-            state.character.userData.humanoid
-        ) {
-
-            state.character.userData.humanoid.walkSpeed =
-                walkSpeed;
-
-            state.character.userData.humanoid.jumpPower =
-                state.settings.jumpPower;
-
-            state.character.userData.humanoid.state =
-                state.grounded
-                    ? (
-                        state.moving
-                            ? (
-                                state.sprinting
-                                    ? "Running"
-                                    : "Walking"
-                            )
-                            : "Idle"
-                    )
-                    : (
-                        state.velocity.y > 0
-                            ? "Jumping"
-                            : "Freefall"
-                    );
-
-        }
-
     }
 
 
     // ============================================================
-    // CAMERA INPUT
+    // INPUT
     // ============================================================
 
-    function updateCamera(
-        delta
-    ) {
+    function keyDown(event) {
 
-        if (
-            !state.camera ||
-            !state.character ||
-            !state.settings.cameraEnabled
-        ) {
-
+        if (!state.running) {
             return;
-
         }
 
-
-        const character =
-            state.character;
-
-
-        // Camera target is above the feet.
-        const target =
-            new THREE.Vector3(
-
-                character.position.x,
-
-                character.position.y +
-                state.cameraSettings.height,
-
-                character.position.z
-
-            );
-
-
-        const yaw =
-            degToRad(
-                state.mouse.yaw
-            );
-
-
-        const pitch =
-            degToRad(
-                state.mouse.pitch
-            );
-
-
-        const distance =
-            state.cameraSettings.distance;
-
-
-        const horizontalDistance =
-            Math.cos(
-                pitch
-            ) *
-            distance;
-
-
-        const offsetX =
-            Math.sin(
-                yaw
-            ) *
-            horizontalDistance;
-
-
-        const offsetY =
-            Math.sin(
-                pitch
-            ) *
-            distance;
-
-
-        const offsetZ =
-            Math.cos(
-                yaw
-            ) *
-            horizontalDistance;
-
-
-        const desiredPosition =
-            new THREE.Vector3(
-
-                target.x +
-                offsetX,
-
-                target.y +
-                offsetY,
-
-                target.z +
-                offsetZ
-
-            );
-
-
-        const smoothing =
-            clamp(
-
-                state.cameraSettings.smoothing,
-
-                0.01,
-
-                1
-
-            );
-
-
-        state.camera.position.lerp(
-
-            desiredPosition,
-
-            1 -
-            Math.pow(
-                1 - smoothing,
-                delta *
-                60
-            )
-
-        );
-
-
-        state.camera.lookAt(
-            target
-        );
-
-
-        // First-person state.
-        const firstPerson =
-            state.settings.firstPersonLocked ||
-            distance <=
-                FIRST_PERSON_DISTANCE;
-
-
-        character.visible =
-            !firstPerson;
-
-    }
-
-
-    // ============================================================
-    // CHARACTER ANIMATION
-    // ============================================================
-
-    function updateCharacterAnimation(
-        delta
-    ) {
+        const target = event.target;
+        const tagName = target && target.tagName
+            ? String(target.tagName).toLowerCase()
+            : "";
 
         if (
-            !state.character
+            tagName === "input" ||
+            tagName === "textarea" ||
+            tagName === "select" ||
+            target?.isContentEditable
         ) {
-
             return;
-
         }
-
-
-        const pivots =
-            state.character.userData
-                ?.animationPivots;
-
-
-        if (!pivots) {
-
-            return;
-
-        }
-
-
-        state.animationTime +=
-            delta;
-
-
-        const time =
-            state.animationTime;
-
-
-        const moving =
-            state.moving;
-
-
-        const sprinting =
-            state.sprinting;
-
-
-        const grounded =
-            state.grounded;
-
-
-        let targetArm =
-            0;
-
-
-        let targetLeg =
-            0;
-
-
-        if (
-            moving &&
-            grounded
-        ) {
-
-            const speed =
-                sprinting
-                    ? 12
-                    : 8;
-
-
-            const amount =
-                sprinting
-                    ? 0.7
-                    : 0.48;
-
-
-            const swing =
-                Math.sin(
-                    time *
-                    speed
-                ) *
-                amount;
-
-
-            targetArm =
-                swing;
-
-            targetLeg =
-                swing;
-
-        }
-
-
-        if (
-            pivots.leftShoulder
-        ) {
-
-            pivots.leftShoulder.rotation.x +=
-                (
-                    targetArm -
-                    pivots.leftShoulder.rotation.x
-                ) *
-                Math.min(
-                    1,
-                    delta *
-                    12
-                );
-
-        }
-
-
-        if (
-            pivots.rightShoulder
-        ) {
-
-            pivots.rightShoulder.rotation.x +=
-                (
-                    -targetArm -
-                    pivots.rightShoulder.rotation.x
-                ) *
-                Math.min(
-                    1,
-                    delta *
-                    12
-                );
-
-        }
-
-
-        if (
-            pivots.leftHip
-        ) {
-
-            pivots.leftHip.rotation.x +=
-                (
-                    -targetLeg -
-                    pivots.leftHip.rotation.x
-                ) *
-                Math.min(
-                    1,
-                    delta *
-                    12
-                );
-
-        }
-
-
-        if (
-            pivots.rightHip
-        ) {
-
-            pivots.rightHip.rotation.x +=
-                (
-                    targetLeg -
-                    pivots.rightHip.rotation.x
-                ) *
-                Math.min(
-                    1,
-                    delta *
-                    12
-                );
-
-        }
-
-
-        if (
-            !grounded
-        ) {
-
-            const jumpPose =
-                state.velocity.y >
-                0
-                    ? -0.35
-                    : -0.15;
-
-
-            if (
-                pivots.leftShoulder
-            ) {
-
-                pivots.leftShoulder.rotation.x +=
-                    (
-                        jumpPose -
-                        pivots.leftShoulder.rotation.x
-                    ) *
-                    Math.min(
-                        1,
-                        delta *
-                        8
-                    );
-
-            }
-
-
-            if (
-                pivots.rightShoulder
-            ) {
-
-                pivots.rightShoulder.rotation.x +=
-                    (
-                        jumpPose -
-                        pivots.rightShoulder.rotation.x
-                    ) *
-                    Math.min(
-                        1,
-                        delta *
-                        8
-                    );
-
-            }
-
-        }
-
-
-        // Tiny idle breathing movement.
-        if (
-            !moving &&
-            grounded &&
-            pivots.neck
-        ) {
-
-            pivots.neck.rotation.x =
-                Math.sin(
-                    time *
-                    2
-                ) *
-                0.015;
-
-        }
-
-    }
-
-
-    // ============================================================
-    // KEY NORMALIZATION
-    // ============================================================
-
-    function normalizeKey(
-        event
-    ) {
-
-        if (
-            !event
-        ) {
-
-            return "";
-
-        }
-
-
-        if (
-            event.code ===
-            "Space"
-        ) {
-
-            return " ";
-
-        }
-
-
-        if (
-            event.code ===
-                "ShiftLeft" ||
-            event.code ===
-                "ShiftRight"
-        ) {
-
-            return "shift";
-
-        }
-
-
-        return String(
-            event.key ||
-            ""
-        ).toLowerCase();
-
-    }
-
-
-    // ============================================================
-    // KEY DOWN
-    // ============================================================
-
-    function keyDown(
-        event
-    ) {
-
-        if (
-            !state.running ||
-            !state.settings.hotkeysEnabled
-        ) {
-
-            return;
-
-        }
-
 
         const key =
-            normalizeKey(
-                event
-            );
+            String(
+                event.key
+            ).toLowerCase();
 
 
-        if (!key) {
-            return;
-        }
+        state.keys.add(key);
 
 
-        state.keys.add(
-            key
-        );
-
+        const hotkeys = state.settings.hotkeys || {};
+        const jumpKey = hotkeys.jump || " ";
+        const settingsKey = hotkeys.settings || "p";
 
         if (
             [
-                state.hotkeys.forward,
-                state.hotkeys.backward,
-                state.hotkeys.left,
-                state.hotkeys.right,
-                state.hotkeys.jump,
-                state.hotkeys.run
-            ].includes(
-                key
-            )
+                hotkeys.forward || "w",
+                hotkeys.backward || "s",
+                hotkeys.left || "a",
+                hotkeys.right || "d",
+                "arrowup",
+                "arrowdown",
+                "arrowleft",
+                "arrowright",
+                jumpKey
+            ].includes(key)
+        ) {
+            event.preventDefault();
+        }
+
+
+        if (
+            key === jumpKey &&
+            state.grounded
         ) {
 
-            event.preventDefault();
+            state.velocity.y =
+                state.settings.jumpPower;
 
+            state.grounded =
+                false;
+
+            log("Jump.");
         }
 
+
+        if (
+            key === "p" &&
+            state.settings.hotkeysEnabled
+        ) {
+
+            toggleSettingsMenu();
+        }
     }
 
 
-    // ============================================================
-    // KEY UP
-    // ============================================================
-
-    function keyUp(
-        event
-    ) {
-
-        const key =
-            normalizeKey(
-                event
-            );
-
-
-        if (!key) {
-            return;
-        }
-
+    function keyUp(event) {
 
         state.keys.delete(
-            key
+            String(
+                event.key
+            ).toLowerCase()
         );
-
     }
 
 
     // ============================================================
-    // MOUSE LOOK
+    // MOUSE
     // ============================================================
 
-    function mouseMove(
-        event
-    ) {
+    function pointerLockChange() {
+
+        state.mouse.locked =
+            document.pointerLockElement ===
+ state.viewport;
+    }
+
+
+    function mouseMove(event) {
 
         if (
             !state.running ||
-            !state.settings.mouseCamera ||
-            state.settings.scriptable
+            !state.mouse.locked
         ) {
-
             return;
-
         }
 
-
-        /*
-         * Camera rotation is ONLY camera rotation.
-         *
-         * It never changes the movement axes.
-         */
 
         const movementX =
             Number(
@@ -4407,11 +2840,7 @@
 
         const sensitivity =
             CAMERA_SENSITIVITY *
-            Number(
-                state.settings.sensitivity ||
-                1
-            );
-
+            state.settings.sensitivity;
 
         state.mouse.yaw -=
             movementX *
@@ -4425,61 +2854,17 @@
 
         state.mouse.pitch =
             clamp(
-
                 state.mouse.pitch,
-
                 MIN_PITCH,
-
                 MAX_PITCH
-
             );
-
     }
 
 
-    // ============================================================
-    // POINTER LOCK
-    // ============================================================
+    function viewportClick() {
 
-    function pointerLockChange() {
-
-        state.mouse.locked =
-            document.pointerLockElement ===
-            state.viewport;
-
-    }
-
-
-    // ============================================================
-    // VIEWPORT CLICK
-    // ============================================================
-    //
-    // Left click enters mouse-look mode.
-    // Right click is NOT required.
-    // ============================================================
-
-    function viewportClick(
-        event
-    ) {
-
-        if (
-            !state.running ||
-            !state.settings.mouseCamera ||
-            state.settings.scriptable
-        ) {
-
+        if (!state.running) {
             return;
-
-        }
-
-
-        if (
-            event.button !==
-            0
-        ) {
-
-            return;
-
         }
 
 
@@ -4493,1079 +2878,392 @@
                 state.viewport.requestPointerLock();
 
             } catch {
-
-                // Pointer lock unavailable.
-
+                // Pointer lock may be unavailable.
             }
-
         }
-
     }
 
 
     // ============================================================
-    // RIGHT CLICK
+    // ZOOM (scroll wheel) — first/third person, like Roblox
     // ============================================================
 
-    function viewportContextMenu(
-        event
-    ) {
+    function mouseWheel(event) {
 
-        /*
-         * Never allow the browser context menu to interrupt
-         * gameplay.
-         */
-
-        event.preventDefault();
-
-    }
-
-
-    // ============================================================
-    // WHEEL ZOOM
-    // ============================================================
-
-    function mouseWheel(
-        event
-    ) {
-
-        if (
-            !state.running
-        ) {
-
+        if (!state.running) {
             return;
-
         }
 
-
         if (
+            !state.settings.allowZoom ||
             state.settings.firstPersonLocked
         ) {
 
+            /*
+             * Still preventDefault so the page
+             * itself doesn't scroll while playing.
+             */
             event.preventDefault();
 
             return;
-
         }
-
-
-        if (
-            !state.settings.allowZoom
-        ) {
-
-            return;
-
-        }
-
 
         event.preventDefault();
 
-
         state.cameraSettings.distance =
             clamp(
-
                 state.cameraSettings.distance +
-                event.deltaY *
-                ZOOM_STEP *
-                state.cameraSettings.distance,
-
+                (event.deltaY * ZOOM_STEP * state.cameraSettings.distance) +
+                (event.deltaY * ZOOM_STEP * 2),
                 MIN_CAMERA_DISTANCE,
-
                 MAX_CAMERA_DISTANCE
-
             );
-
     }
 
 
     // ============================================================
-    // HOTKEY SETTER
+    // SETTINGS MENU (press P)
+    //
+    // Self-contained HTML/CSS overlay — sensitivity, graphics
+    // quality, and a read-only hotkey reference. Built at
+    // runtime so no separate CSS/HTML file is needed.
     // ============================================================
 
-    function setHotkey(
-        action,
-        key
-    ) {
-
-        const validActions = [
-            "forward",
-            "backward",
-            "left",
-            "right",
-            "jump",
-            "run"
-        ];
+    let settingsMenuEl = null;
 
 
-        if (
-            !validActions.includes(
-                action
-            )
-        ) {
+    function buildSettingsMenu() {
 
-            return false;
-
+        if (settingsMenuEl) {
+            return settingsMenuEl;
         }
 
+        const overlay =
+            document.createElement("div");
 
-        const normalized =
-            String(
-                key ||
-                ""
-            ).toLowerCase();
+        overlay.id =
+            "webbloxSettingsMenu";
 
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.55);
+            z-index: 999999;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        `;
 
-        if (!normalized) {
+        const panel =
+            document.createElement("div");
 
-            return false;
+        panel.style.cssText = `
+            width: 340px;
+            max-width: 90vw;
+            background: #1c1c1f;
+            border: 1px solid #333;
+            border-radius: 10px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+            color: #eee;
+            overflow: hidden;
+        `;
 
-        }
+        panel.innerHTML = `
+            <div style="
+                padding: 14px 16px;
+                border-bottom: 1px solid #2c2c2f;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            ">
+                <strong style="font-size: 14px;">Settings</strong>
+                <button id="webbloxSettingsClose" style="
+                    background: none; border: none; color: #999;
+                    font-size: 18px; cursor: pointer; line-height: 1;
+                ">&times;</button>
+            </div>
 
+            <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 16px;">
 
-        state.hotkeys[action] =
-            normalized;
-
-
-        saveHotkeys();
-
-
-        log(
-            `Hotkey changed: ${action} = ${normalized === " " ? "Space" : normalized}`
-        );
-
-
-        return true;
-
-    }
-
-
-    // ============================================================
-    // RESET HOTKEYS
-    // ============================================================
-
-    function resetHotkeys() {
-
-        state.hotkeys = {
-
-            forward:
-                "w",
-
-            backward:
-                "s",
-
-            left:
-                "a",
-
-            right:
-                "d",
-
-            jump:
-                " ",
-
-            run:
-                "shift"
-
-        };
-
-
-        saveHotkeys();
-
-
-        log(
-            "Player hotkeys reset."
-        );
-
-    }
-
-
-    // ============================================================
-    // SAVE HOTKEYS
-    // ============================================================
-
-    function saveHotkeys() {
-
-        try {
-
-            window.localStorage.setItem(
-
-                "webblox_player_hotkeys",
-
-                JSON.stringify(
-                    state.hotkeys
-                )
-
-            );
-
-        } catch {
-
-            // Ignore unavailable storage.
-
-        }
-
-    }
-
-
-    // ============================================================
-    // SETTINGS MENU
-    // ============================================================
-
-    let settingsMenu =
-        null;
-
-
-    function createSettingsMenu() {
-
-        if (
-            settingsMenu
-        ) {
-
-            return;
-
-        }
-
-
-        settingsMenu =
-            document.createElement(
-                "div"
-            );
-
-
-        settingsMenu.id =
-            "webbloxPlayerSettings";
-
-
-        settingsMenu.innerHTML = `
-            <div class="webblox-player-settings-backdrop">
-                <div class="webblox-player-settings-panel">
-
-                    <div class="webblox-player-settings-header">
-
-                        <div>
-                            <strong>WebBlox Player Settings</strong>
-                            <small>Controls & camera</small>
-                        </div>
-
-                        <button
-                            type="button"
-                            id="webbloxPlayerSettingsClose"
-                        >
-                            ×
-                        </button>
-
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; color:#ccc; margin-bottom:6px;">
+                        <span>Mouse Sensitivity</span>
+                        <span id="webbloxSensitivityValue">1.0x</span>
                     </div>
-
-
-                    <div class="webblox-player-settings-body">
-
-                        <label>
-                            Camera Sensitivity
-                            <input
-                                type="range"
-                                id="webbloxSensitivity"
-                                min="0.1"
-                                max="3"
-                                step="0.05"
-                            >
-                        </label>
-
-
-                        <label>
-                            Camera Distance
-                            <input
-                                type="range"
-                                id="webbloxCameraDistance"
-                                min="0"
-                                max="20"
-                                step="0.1"
-                            >
-                        </label>
-
-
-                        <label>
-                            <input
-                                type="checkbox"
-                                id="webbloxAllowZoom"
-                            >
-                            Allow Camera Zoom
-                        </label>
-
-
-                        <label>
-                            <input
-                                type="checkbox"
-                                id="webbloxFirstPerson"
-                            >
-                            First Person Lock
-                        </label>
-
-
-                        <hr>
-
-
-                        <h3>Player Hotkeys</h3>
-
-
-                        <div class="webblox-hotkey-row">
-                            <span>Forward</span>
-                            <button data-hotkey="forward">W</button>
-                        </div>
-
-                        <div class="webblox-hotkey-row">
-                            <span>Backward</span>
-                            <button data-hotkey="backward">S</button>
-                        </div>
-
-                        <div class="webblox-hotkey-row">
-                            <span>Left</span>
-                            <button data-hotkey="left">A</button>
-                        </div>
-
-                        <div class="webblox-hotkey-row">
-                            <span>Right</span>
-                            <button data-hotkey="right">D</button>
-                        </div>
-
-                        <div class="webblox-hotkey-row">
-                            <span>Jump</span>
-                            <button data-hotkey="jump">Space</button>
-                        </div>
-
-                        <div class="webblox-hotkey-row">
-                            <span>Run</span>
-                            <button data-hotkey="run">Shift</button>
-                        </div>
-
-
-                        <button
-                            type="button"
-                            id="webbloxResetHotkeys"
-                            class="webblox-settings-secondary"
-                        >
-                            Reset Hotkeys
-                        </button>
-
-                    </div>
-
+                    <input id="webbloxSensitivitySlider" type="range" min="0.2" max="3" step="0.05" value="1"
+                        style="width: 100%;">
                 </div>
+
+                <div>
+                    <div style="font-size:12px; color:#ccc; margin-bottom:6px;">Graphics Quality</div>
+                    <select id="webbloxGraphicsSelect" style="
+                        width: 100%; padding: 6px 8px; background:#111; color:#eee;
+                        border: 1px solid #333; border-radius: 6px; font-size: 12px;
+                    ">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+
+                <div>
+                    <div style="font-size:12px; color:#ccc; margin-bottom:6px;">Hotkeys</div>
+                    <div id="webbloxHotkeyList" style="
+                        font-size: 11.5px; color: #999; line-height: 1.9;
+                        background: #141416; border: 1px solid #2a2a2d;
+                        border-radius: 6px; padding: 8px 10px;
+                    "></div>
+                </div>
+
             </div>
         `;
 
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
 
-        document.body.appendChild(
-            settingsMenu
+        overlay.addEventListener(
+            "click",
+            event => {
+
+                if (event.target === overlay) {
+                    closeSettingsMenu();
+                }
+            }
         );
 
+        overlay.querySelector(
+            "#webbloxSettingsClose"
+        ).addEventListener(
+            "click",
+            closeSettingsMenu
+        );
 
-        bindSettingsMenu();
-
-    }
-
-
-    // ============================================================
-    // BIND SETTINGS
-    // ============================================================
-
-    function bindSettingsMenu() {
-
-        if (
-            !settingsMenu
-        ) {
-
-            return;
-
-        }
-
-
-        const close =
-            settingsMenu.querySelector(
-                "#webbloxPlayerSettingsClose"
+        const slider =
+            overlay.querySelector(
+                "#webbloxSensitivitySlider"
             );
 
+        const sensitivityLabel =
+            overlay.querySelector(
+                "#webbloxSensitivityValue"
+            );
 
-        close?.addEventListener(
-            "click",
+        slider.addEventListener(
+            "input",
             () => {
 
-                settingsMenu.style.display =
-                    "none";
-
-                releasePointerLock();
-
-            }
-        );
-
-
-        const sensitivity =
-            settingsMenu.querySelector(
-                "#webbloxSensitivity"
-            );
-
-
-        sensitivity?.addEventListener(
-            "input",
-            event => {
+                const value =
+                    parseFloat(
+                        slider.value
+                    );
 
                 state.settings.sensitivity =
-                    Number(
-                        event.target.value
-                    );
+                    value;
 
+                sensitivityLabel.textContent =
+                    `${value.toFixed(2)}x`;
 
-                savePlayerPreferences();
-
+                persistPreferences();
             }
         );
 
-
-        const distance =
-            settingsMenu.querySelector(
-                "#webbloxCameraDistance"
+        const graphicsSelect =
+            overlay.querySelector(
+                "#webbloxGraphicsSelect"
             );
 
-
-        distance?.addEventListener(
-            "input",
-            event => {
-
-                state.cameraSettings.distance =
-                    Number(
-                        event.target.value
-                    );
-
-
-                savePlayerPreferences();
-
-            }
-        );
-
-
-        const zoom =
-            settingsMenu.querySelector(
-                "#webbloxAllowZoom"
-            );
-
-
-        zoom?.addEventListener(
+        graphicsSelect.addEventListener(
             "change",
-            event => {
+            () => {
 
-                state.settings.allowZoom =
-                    event.target.checked;
+                state.settings.graphicsQuality =
+                    graphicsSelect.value;
 
-                savePlayerPreferences();
+                applyGraphicsQuality();
 
+                persistPreferences();
             }
         );
 
+        settingsMenuEl =
+            overlay;
 
-        const firstPerson =
-            settingsMenu.querySelector(
-                "#webbloxFirstPerson"
-            );
-
-
-        firstPerson?.addEventListener(
-            "change",
-            event => {
-
-                state.settings.firstPersonLocked =
-                    event.target.checked;
-
-                savePlayerPreferences();
-
-            }
-        );
-
-
-        settingsMenu
-            .querySelectorAll(
-                "[data-hotkey]"
-            )
-            .forEach(
-                button => {
-
-                    button.addEventListener(
-                        "click",
-                        () => {
-
-                            beginHotkeyCapture(
-                                button.dataset.hotkey,
-                                button
-                            );
-
-                        }
-                    );
-
-                }
-            );
-
-
-        settingsMenu
-            .querySelector(
-                "#webbloxResetHotkeys"
-            )
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    resetHotkeys();
-
-                    updateSettingsMenu();
-
-                }
-            );
-
+        return overlay;
     }
 
 
-    // ============================================================
-    // HOTKEY CAPTURE
-    // ============================================================
+    function persistPreferences() {
 
-    let hotkeyCapture =
-        null;
+        saveLocalPreferences({
+
+            sensitivity:
+                state.settings.sensitivity,
+
+            graphicsQuality:
+                state.settings.graphicsQuality
+        });
+    }
 
 
-    function beginHotkeyCapture(
-        action,
-        button
-    ) {
+    function applyGraphicsQuality() {
 
-        if (
-            hotkeyCapture
-        ) {
-
+        if (!state.renderer) {
             return;
-
         }
 
+        const quality =
+            state.settings.graphicsQuality;
 
-        hotkeyCapture =
-            action;
+        if (quality === "low") {
 
+            state.renderer.shadowMap.enabled = false;
 
-        button.textContent =
-            "Press key";
+            state.renderer.setPixelRatio(1);
 
+        } else if (quality === "medium") {
 
-        const listener =
-            event => {
+            state.renderer.shadowMap.enabled = true;
 
-                if (
-                    event.key ===
-                    "Escape"
-                ) {
-
-                    finish();
-
-                    return;
-
-                }
-
-
-                const key =
-                    normalizeKey(
-                        event
-                    );
-
-
-                if (!key) {
-                    return;
-                }
-
-
-                setHotkey(
-                    action,
-                    key
-                );
-
-
-                finish();
-
-            };
-
-
-        function finish() {
-
-            window.removeEventListener(
-                "keydown",
-                listener,
-                true
+            state.renderer.setPixelRatio(
+                Math.min(1.5, window.devicePixelRatio || 1)
             );
 
+        } else {
 
-            hotkeyCapture =
-                null;
+            state.renderer.shadowMap.enabled = true;
 
-
-            updateSettingsMenu();
-
+            state.renderer.setPixelRatio(
+                Math.min(2, window.devicePixelRatio || 1)
+            );
         }
-
-
-        window.addEventListener(
-            "keydown",
-            listener,
-            true
-        );
-
     }
 
-
-    // ============================================================
-    // UPDATE SETTINGS MENU
-    // ============================================================
-
-    function updateSettingsMenu() {
-
-        if (
-            !settingsMenu
-        ) {
-
-            return;
-
-        }
-
-
-        const sensitivity =
-            settingsMenu.querySelector(
-                "#webbloxSensitivity"
-            );
-
-
-        if (
-            sensitivity
-        ) {
-
-            sensitivity.value =
-                state.settings.sensitivity;
-
-        }
-
-
-        const distance =
-            settingsMenu.querySelector(
-                "#webbloxCameraDistance"
-            );
-
-
-        if (
-            distance
-        ) {
-
-            distance.value =
-                state.cameraSettings.distance;
-
-        }
-
-
-        const zoom =
-            settingsMenu.querySelector(
-                "#webbloxAllowZoom"
-            );
-
-
-        if (
-            zoom
-        ) {
-
-            zoom.checked =
-                state.settings.allowZoom;
-
-        }
-
-
-        const firstPerson =
-            settingsMenu.querySelector(
-                "#webbloxFirstPerson"
-            );
-
-
-        if (
-            firstPerson
-        ) {
-
-            firstPerson.checked =
-                state.settings.firstPersonLocked;
-
-        }
-
-
-        settingsMenu
-            .querySelectorAll(
-                "[data-hotkey]"
-            )
-            .forEach(
-                button => {
-
-                    const action =
-                        button.dataset.hotkey;
-
-                    const value =
-                        state.hotkeys[action];
-
-
-                    button.textContent =
-                        value ===
-                        " "
-                            ? "Space"
-                            : value;
-
-                }
-            );
-
-    }
-
-
-    // ============================================================
-    // TOGGLE SETTINGS
-    // ============================================================
 
     function toggleSettingsMenu() {
 
-        createSettingsMenu();
+        const overlay =
+            buildSettingsMenu();
 
+        const isOpen =
+            overlay.style.display === "flex";
 
-        if (
-            settingsMenu.style.display ===
-            "flex"
-        ) {
+        if (isOpen) {
 
-            settingsMenu.style.display =
-                "none";
+            closeSettingsMenu();
 
-            releasePointerLock();
+        } else {
 
-            return;
-
+            openSettingsMenu();
         }
+    }
 
 
-        updateSettingsMenu();
+    function openSettingsMenu() {
 
+        const overlay =
+            buildSettingsMenu();
 
-        settingsMenu.style.display =
+        overlay.querySelector(
+            "#webbloxSensitivitySlider"
+        ).value =
+            state.settings.sensitivity;
+
+        overlay.querySelector(
+            "#webbloxSensitivityValue"
+        ).textContent =
+            `${state.settings.sensitivity.toFixed(2)}x`;
+
+        overlay.querySelector(
+            "#webbloxGraphicsSelect"
+        ).value =
+            state.settings.graphicsQuality;
+
+        const hotkeyList =
+            overlay.querySelector(
+                "#webbloxHotkeyList"
+            );
+
+        const hotkeys = [
+            ["W A S D", "Move"],
+            ["Space", "Jump"],
+            ["Scroll", state.settings.allowZoom ? "Zoom / first person" : "Disabled by this game"],
+            ["P", "Settings"]
+        ];
+
+        hotkeyList.innerHTML =
+            hotkeys.map(
+                ([key, action]) =>
+                    `<div style="display:flex; justify-content:space-between;">
+                        <span>${key}</span><span>${action}</span>
+                    </div>`
+            ).join("");
+
+        overlay.style.display =
             "flex";
 
+        if (document.pointerLockElement) {
 
-        releasePointerLock();
-
-    }
-
-
-    // ============================================================
-    // RELEASE POINTER LOCK
-    // ============================================================
-
-    function releasePointerLock() {
-
-        try {
-
-            if (
-                document.pointerLockElement
-            ) {
-
+            try {
                 document.exitPointerLock();
-
+            } catch {
+                // Ignore.
             }
+        }
+    }
 
-        } catch {
 
-            // Ignore browser restrictions.
+    function closeSettingsMenu() {
 
+        if (!settingsMenuEl) {
+            return;
         }
 
+        settingsMenuEl.style.display =
+            "none";
     }
 
 
-    // ============================================================
-    // PLAYER PREFERENCES
-    // ============================================================
+    function destroySettingsMenu() {
 
-    function savePlayerPreferences() {
+        if (settingsMenuEl) {
 
-        try {
+            settingsMenuEl.remove();
 
-            const data = {
-
-                sensitivity:
-                    state.settings.sensitivity,
-
-                graphicsQuality:
-                    state.settings.graphicsQuality,
-
-                allowZoom:
-                    state.settings.allowZoom,
-
-                firstPersonLocked:
-                    state.settings.firstPersonLocked,
-
-                cameraDistance:
-                    state.cameraSettings.distance
-
-            };
-
-
-            window.localStorage.setItem(
-
-                "webblox_player_preferences",
-
-                JSON.stringify(
-                    data
-                )
-
-            );
-
-        } catch {
-
-            // Ignore unavailable storage.
-
+            settingsMenuEl =
+                null;
         }
-
     }
 
 
     // ============================================================
-    // LOAD PLAYER PREFERENCES
+    // SETUP INPUT
     // ============================================================
 
-    function loadPlayerPreferences() {
-
-        try {
-
-            const raw =
-                window.localStorage.getItem(
-                    "webblox_player_preferences"
-                );
-
-
-            if (!raw) {
-
-                return;
-
-            }
-
-
-            const data =
-                JSON.parse(
-                    raw
-                );
-
-
-            if (
-                !data ||
-                typeof data !== "object"
-            ) {
-
-                return;
-
-            }
-
-
-            if (
-                Number.isFinite(
-                    Number(
-                        data.sensitivity
-                    )
-                )
-            ) {
-
-                state.settings.sensitivity =
-                    clamp(
-                        Number(
-                            data.sensitivity
-                        ),
-                        0.1,
-                        3
-                    );
-
-            }
-
-
-            if (
-                typeof data.graphicsQuality ===
-                "string"
-            ) {
-
-                state.settings.graphicsQuality =
-                    data.graphicsQuality;
-
-            }
-
-
-            if (
-                typeof data.allowZoom ===
-                "boolean"
-            ) {
-
-                state.settings.allowZoom =
-                    data.allowZoom;
-
-            }
-
-
-            if (
-                typeof data.firstPersonLocked ===
-                "boolean"
-            ) {
-
-                state.settings.firstPersonLocked =
-                    data.firstPersonLocked;
-
-            }
-
-
-            if (
-                Number.isFinite(
-                    Number(
-                        data.cameraDistance
-                    )
-                )
-            ) {
-
-                state.cameraSettings.distance =
-                    clamp(
-
-                        Number(
-                            data.cameraDistance
-                        ),
-
-                        MIN_CAMERA_DISTANCE,
-
-                        MAX_CAMERA_DISTANCE
-
-                    );
-
-            }
-
-        } catch {
-
-            // Ignore invalid preferences.
-
-        }
-
-    }
-
-
-    loadPlayerPreferences();
-
-
-    // ============================================================
-    // APPLY GAME SETTINGS
-    // ============================================================
-
-    function applyGameSettings(
-        game
-    ) {
-
-        const starterPlayer =
-            game?.starterPlayer ||
-            game?.StarterPlayer ||
-            {};
-
-
-        state.settings.walkSpeed =
-            Number(
-                starterPlayer.walkSpeed ??
-                starterPlayer.WalkSpeed ??
-                state.settings.walkSpeed
-            );
-
-
-        state.settings.jumpPower =
-            Number(
-                starterPlayer.jumpPower ??
-                starterPlayer.JumpPower ??
-                state.settings.jumpPower
-            );
-
-
-        state.settings.firstPersonLocked =
-            Boolean(
-                starterPlayer.firstPersonLocked ??
-                starterPlayer.CameraMode ===
-                    "LockFirstPerson" ??
-                state.settings.firstPersonLocked
-            );
-
-
-        state.settings.hotkeysEnabled =
-            starterPlayer.hotkeysEnabled !==
-            false;
-
-
-        state.settings.scriptable =
-            starterPlayer.scriptableCamera ===
-            true ||
-            starterPlayer.cameraType ===
-                "Scriptable";
-
-
-        state.settings.canJump =
-            starterPlayer.canJump !==
-            false;
-
-
-        state.settings.canMove =
-            starterPlayer.canMove !==
-            false;
-
-
-        state.cameraSettings.distance =
-            state.settings.firstPersonLocked
-                ? FIRST_PERSON_DISTANCE
-                : clamp(
-
-                    Number(
-                        state.cameraSettings.distance
-                    ) || 10,
-
-                    MIN_CAMERA_DISTANCE,
-
-                    MAX_CAMERA_DISTANCE
-
-                );
-
-    }
-
-
-    // ============================================================
-    // EVENT ATTACHMENT
-    // ============================================================
-
-    function attachEvents() {
+    function attachInput() {
 
         if (
             state.listenersAttached
         ) {
-
             return;
-
         }
-
-
-        state.listenersAttached =
-            true;
 
 
         window.addEventListener(
             "keydown",
-            keyDown,
-            true
+            keyDown
         );
 
 
         window.addEventListener(
             "keyup",
-            keyUp,
-            true
+            keyUp
         );
 
 
         window.addEventListener(
             "mousemove",
-            mouseMove,
-            true
+            mouseMove
         );
 
 
@@ -5575,72 +3273,46 @@
         );
 
 
-        if (
-            state.viewport
-        ) {
+        if (state.viewport) {
 
             state.viewport.addEventListener(
-
                 "click",
-
                 viewportClick
-
             );
 
-
             state.viewport.addEventListener(
-
-                "contextmenu",
-
-                viewportContextMenu
-
-            );
-
-
-            state.viewport.addEventListener(
-
                 "wheel",
-
                 mouseWheel,
-
-                {
-                    passive:
-                        false
-                }
-
+                { passive: false }
             );
-
         }
 
+
+        state.listenersAttached =
+            true;
     }
 
 
     // ============================================================
-    // EVENT DETACHMENT
+    // REMOVE INPUT
     // ============================================================
 
-    function detachEvents() {
+    function detachInput() {
 
         window.removeEventListener(
             "keydown",
-            keyDown,
-            true
+            keyDown
         );
-
 
         window.removeEventListener(
             "keyup",
-            keyUp,
-            true
+            keyUp
         );
-
 
         window.removeEventListener(
             "mousemove",
-            mouseMove,
-            true
+            mouseMove
         );
-
 
         document.removeEventListener(
             "pointerlockchange",
@@ -5648,358 +3320,605 @@
         );
 
 
-        if (
-            state.viewport
-        ) {
+        if (state.viewport) {
 
             state.viewport.removeEventListener(
                 "click",
                 viewportClick
             );
 
-
-            state.viewport.removeEventListener(
-                "contextmenu",
-                viewportContextMenu
-            );
-
-
             state.viewport.removeEventListener(
                 "wheel",
                 mouseWheel
             );
-
         }
-
-
-        state.listenersAttached =
-            false;
 
 
         state.keys.clear();
 
-
-        releasePointerLock();
-
+        state.listenersAttached =
+            false;
     }
 
 
     // ============================================================
-    // RENDER LOOP
+    // MOVEMENT
     // ============================================================
 
-    function renderLoop(
-        time
-    ) {
+    function updateMovement(delta) {
 
         if (
-            !state.running
+            !state.character
         ) {
-
             return;
-
         }
 
 
-        if (
-            !state.lastTime
-        ) {
+        let forward =
+            0;
 
-            state.lastTime =
-                time;
-
-        }
-
-
-        const delta =
-            Math.min(
-
-                0.05,
-
-                (
-                    time -
-                    state.lastTime
-                ) /
-                1000
-
-            );
-
-
-        state.lastTime =
-            time;
-
-
-        updateMovement(
-            delta
-        );
-
-
-        updateCharacterAnimation(
-            delta
-        );
-
-
-        updateCamera(
-            delta
-        );
-
-
-        if (
-            state.renderer &&
-            state.scene &&
-            state.camera
-        ) {
-
-            state.renderer.render(
-                state.scene,
-                state.camera
-            );
-
-        }
-
-
-        state.animationFrame =
-            requestAnimationFrame(
-                renderLoop
-            );
-
-    }
-
-
-    // ============================================================
-    // START
-    // ============================================================
-
-    function start(
-        options = {}
-    ) {
-
-        if (
-            state.running
-        ) {
-
-            log(
-                "Player runtime is already running."
-            );
-
-            return state;
-
-        }
-
-
-        const THREE =
-            getThree();
+        let right =
+            0;
 
 
         /*
-         * Studio passes these objects directly.
-         *
-         * We intentionally accept both the modern fields and the
-         * older WebBlox naming used by previous Studio versions.
+         * Reset per-frame animation flags.
+         * Set to true below only if the
+         * character actually has input.
          */
 
-        state.game =
-            options.game ||
-            null;
-
-
-        state.objects =
-            Array.isArray(
-                options.objects
-            )
-                ? options.objects
-                : [];
-
-
-        state.scene =
-            options.scene ||
-            new THREE.Scene();
-
-
-        state.camera =
-            options.camera ||
-            new THREE.PerspectiveCamera(
-
-                70,
-
-                1,
-
-                0.1,
-
-                1000
-
-            );
-
-
-        state.renderer =
-            options.renderer ||
-            null;
-
-
-        state.viewport =
-            options.viewport ||
-            options.container ||
-            document.querySelector(
-                "#viewport"
-            );
-
-
-        state.onLog =
-            options.onLog ||
-            null;
-
-
-        // --------------------------------------------------------
-        // Apply developer settings.
-        // --------------------------------------------------------
-
-        applyGameSettings(
-            state.game
-        );
-
-
-        // --------------------------------------------------------
-        // Find spawn before character creation.
-        // --------------------------------------------------------
-
-        findSpawn();
-
-
-        // --------------------------------------------------------
-        // Build runtime world.
-        // --------------------------------------------------------
-
-        createRuntimeWorld();
-
-
-        // --------------------------------------------------------
-        // Create actual player.
-        // --------------------------------------------------------
-
-        createCharacter();
-
-
-        // --------------------------------------------------------
-        // Input.
-        // --------------------------------------------------------
-
-        attachEvents();
-
-
-        // --------------------------------------------------------
-        // Settings UI.
-        // --------------------------------------------------------
-
-        createSettingsMenu();
-
-
-        // --------------------------------------------------------
-        // Runtime state.
-        // --------------------------------------------------------
-
-        state.running =
-            true;
-
-
-        state.lastTime =
-            performance.now();
-
-
-        state.animationTime =
-            0;
-
-
-        state.velocity.x =
-            0;
-
-        state.velocity.y =
-            0;
-
-        state.velocity.z =
-            0;
-
-
-        state.grounded =
+        state.moving =
             false;
 
 
-        // --------------------------------------------------------
-        // Renderer sizing.
-        // --------------------------------------------------------
+        /*
+         * IMPORTANT:
+         *
+         * W = forward
+         * S = backward
+         * A = left
+         * D = right
+         *
+         * This is deliberately written
+         * explicitly so the old inverted
+         * WASD behavior cannot return.
+         */
+
+        const hotkeys = state.settings.hotkeys || {};
 
         if (
-            state.renderer &&
-            state.viewport
+            state.keys.has(hotkeys.forward || "w") ||
+            state.keys.has("arrowup")
         ) {
+            forward += 1;
+        }
 
-            const width =
-                Math.max(
+        if (
+            state.keys.has(hotkeys.backward || "s") ||
+            state.keys.has("arrowdown")
+        ) {
+            forward -= 1;
+        }
 
-                    1,
+        if (
+            state.keys.has(hotkeys.right || "d") ||
+            state.keys.has("arrowright")
+        ) {
+            right += 1;
+        }
 
-                    state.viewport.clientWidth ||
-                    800
-
-                );
-
-
-            const height =
-                Math.max(
-
-                    1,
-
-                    state.viewport.clientHeight ||
-                    600
-
-                );
-
-
-            state.renderer.setSize(
-                width,
-                height,
-                false
-            );
-
-
-            if (
-                state.camera.isPerspectiveCamera
-            ) {
-
-                state.camera.aspect =
-                    width /
-                    height;
-
-                state.camera.updateProjectionMatrix();
-
-            }
-
+        if (
+            state.keys.has(hotkeys.left || "a") ||
+            state.keys.has("arrowleft")
+        ) {
+            right -= 1;
         }
 
 
-        log(
-            "Player runtime started."
-        );
+        let moveX =
+            0;
+
+        let moveZ =
+            0;
 
 
-        log(
-            `World-relative controls active: ${state.hotkeys.forward.toUpperCase()} / ${state.hotkeys.backward.toUpperCase()} / ${state.hotkeys.left.toUpperCase()} / ${state.hotkeys.right.toUpperCase()}.`
-        );
+        if (
+            forward !== 0 ||
+            right !== 0
+        ) {
+
+            state.moving =
+                true;
 
 
-        log(
-            "Left-click enters camera look. Right-click is not required."
-        );
+            const length =
+                Math.hypot(
+                    forward,
+                    right
+                );
 
 
-        state.animationFrame =
-            requestAnimationFrame(
-                renderLoop
+            forward /=
+                length;
+
+            right /=
+                length;
+
+
+            /* World-relative movement: camera rotation does not change WASD.
+               W=-Z, S=+Z, A=-X, D=+X. */
+            moveX = right;
+            moveZ = -forward;
+        }
+
+
+        const sprintKey =
+            (state.settings.hotkeys && state.settings.hotkeys.sprint) ||
+            "shift";
+
+        state.sprinting =
+            state.settings.hotkeysEnabled &&
+            state.keys.has(sprintKey);
+
+        const speed =
+            state.sprinting
+                ? state.settings.walkSpeed * 1.5
+                : state.settings.walkSpeed;
+
+
+        const oldX =
+            state.character.position.x;
+
+
+        const oldZ =
+            state.character.position.z;
+
+
+        const newX =
+            oldX +
+            moveX *
+            speed *
+            delta;
+
+
+        const newZ =
+            oldZ +
+            moveZ *
+            speed *
+            delta;
+
+
+        const resolved =
+            resolveHorizontalCollision(
+                oldX,
+                oldZ,
+                newX,
+                newZ
             );
 
 
-        return state;
+        state.character.position.x =
+            resolved.x;
 
+
+        state.character.position.z =
+            resolved.z;
+
+
+        /*
+         * Rotate character toward movement.
+         */
+
+        if (
+            Math.abs(moveX) >
+                0.001 ||
+            Math.abs(moveZ) >
+                0.001
+        ) {
+
+            const targetRotation =
+                Math.atan2(
+                    moveX,
+                    moveZ
+                );
+
+
+            let difference =
+                targetRotation -
+                state.character.rotation.y;
+
+
+            while (
+                difference >
+                Math.PI
+            ) {
+                difference -=
+                    Math.PI * 2;
+            }
+
+
+            while (
+                difference <
+                -Math.PI
+            ) {
+                difference +=
+                    Math.PI * 2;
+            }
+
+
+            state.character.rotation.y +=
+                difference *
+                Math.min(
+                    1,
+                    delta * 12
+                );
+        }
     }
+
+
+    // ============================================================
+    // GRAVITY
+    // ============================================================
+
+    function updateGravity(delta) {
+
+        if (
+            !state.character
+        ) {
+            return;
+        }
+
+
+        const oldY =
+            state.character.position.y;
+
+
+        state.velocity.y -=
+            GRAVITY *
+            delta;
+
+
+        const newY =
+            oldY +
+            state.velocity.y *
+            delta;
+
+
+        const result =
+            resolveVerticalCollision(
+                oldY,
+                newY
+            );
+
+
+        state.character.position.y =
+            result.y;
+
+
+        state.grounded =
+            result.grounded;
+
+
+        applyFallbackGround();
+    }
+
+
+    // ============================================================
+    // ANIMATION (walk / idle / jump limb swing)
+    //
+    // Merged from the old Player/animations.js module and
+    // adapted to read directly from this file's own `state`
+    // instead of a separate PlayerSystem namespace.
+    // ============================================================
+
+    function resetPartRotation(part) {
+
+        if (!part) {
+            return;
+        }
+
+        part.rotation.x = 0;
+        part.rotation.y = 0;
+        part.rotation.z = 0;
+    }
+
+
+    function updateCharacterAnimation(delta) {
+
+        const character =
+            state.character;
+
+        if (
+            !character ||
+            !character.userData.bodyParts
+        ) {
+            return;
+        }
+
+        state.animationTime +=
+            delta;
+
+        const parts =
+            character.userData.bodyParts;
+
+        let animState =
+            "Idle";
+
+        if (!state.grounded) {
+
+            animState =
+                state.velocity.y > 1
+                    ? "Jumping"
+                    : "Freefall";
+
+        } else if (state.moving) {
+
+            animState =
+                "Walking";
+        }
+
+
+        Object.values(parts)
+            .forEach(
+                resetPartRotation
+            );
+
+
+        const speed =
+            8;
+
+        const swing =
+            Math.sin(
+                state.animationTime *
+                speed
+            );
+
+        const walkAmount =
+            0.45;
+
+
+        if (
+            animState === "Walking"
+        ) {
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.x =
+                    swing * walkAmount;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.x =
+                    -swing * walkAmount;
+            }
+
+            if (parts.leftLowerArm) {
+                parts.leftLowerArm.rotation.x =
+                    swing * 0.18;
+            }
+
+            if (parts.rightLowerArm) {
+                parts.rightLowerArm.rotation.x =
+                    -swing * 0.18;
+            }
+
+            if (parts.leftUpperLeg) {
+                parts.leftUpperLeg.rotation.x =
+                    -swing * walkAmount;
+            }
+
+            if (parts.rightUpperLeg) {
+                parts.rightUpperLeg.rotation.x =
+                    swing * walkAmount;
+            }
+               if (parts.leftLowerLeg) {
+                parts.leftLowerLeg.rotation.x =
+                    Math.max(0, swing) * 0.18;
+            }
+
+            if (parts.rightLowerLeg) {
+                parts.rightLowerLeg.rotation.x =
+                    Math.max(0, -swing) * 0.18;
+            }
+        }
+
+        else if (animState === "Idle") {
+
+            const breathing =
+                Math.sin(
+                    state.animationTime * 2
+                ) * 0.025;
+
+            if (parts.upperTorso) {
+                parts.upperTorso.rotation.x =
+                    breathing;
+            }
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.z =
+                    0.03;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.z =
+                    -0.03;
+            }
+        }
+
+        else if (animState === "Jumping") {
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.x =
+                    -0.8;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.x =
+                    -0.8;
+            }
+
+            if (parts.leftUpperLeg) {
+                parts.leftUpperLeg.rotation.x =
+                    0.25;
+            }
+
+            if (parts.rightUpperLeg) {
+                parts.rightUpperLeg.rotation.x =
+                    0.25;
+            }
+        }
+
+        else if (animState === "Freefall") {
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.x =
+                    -0.35;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.x =
+                    -0.35;
+            }
+
+            if (parts.leftUpperLeg) {
+                parts.leftUpperLeg.rotation.x =
+                    -0.15;
+            }
+
+            if (parts.rightUpperLeg) {
+                parts.rightUpperLeg.rotation.x =
+                    -0.15;
+            }
+        }
+    }
+
+
+    // ============================================================
+    // CAMERA
+    // ============================================================
+
+    function updateCamera(delta) {
+
+        if (
+            !state.character ||
+            !state.camera
+        ) {
+            return;
+        }
+
+
+        const yaw =
+            degToRad(
+                state.mouse.yaw
+            );
+
+
+        const pitch =
+            degToRad(
+                state.mouse.pitch
+            );
+
+
+        const isFirstPerson =
+            state.cameraSettings.distance <=
+            FIRST_PERSON_DISTANCE;
+
+
+        if (state.character) {
+            state.character.visible =
+                !isFirstPerson;
+        }
+
+
+        if (isFirstPerson) {
+
+            const headHeight =
+                state.character.userData.height
+                    ? state.character.userData.height - 0.9
+                    : 4.8;
+
+            const eyeX =
+                state.character.position.x;
+
+            const eyeY =
+                state.character.position.y +
+                headHeight;
+
+            const eyeZ =
+                state.character.position.z;
+
+            state.camera.position.set(
+                eyeX,
+                eyeY,
+                eyeZ
+            );
+
+            const lookX =
+                eyeX -
+                Math.sin(yaw) *
+                Math.cos(pitch);
+
+            const lookY =
+                eyeY +
+                Math.sin(pitch);
+
+            const lookZ =
+                eyeZ -
+                Math.cos(yaw) *
+                Math.cos(pitch);
+
+            state.camera.lookAt(
+                lookX,
+                lookY,
+                lookZ
+            );
+
+            return;
+        }
+
+
+        const horizontal =
+            Math.cos(pitch) *
+            state.cameraSettings.distance;
+
+
+        const desiredX =
+            state.character.position.x -
+            Math.sin(yaw) *
+            horizontal;
+
+
+        const desiredY =
+            state.character.position.y +
+            state.cameraSettings.height +
+            (
+                Math.sin(pitch) *
+                state.cameraSettings.distance
+            );
+
+
+        const desiredZ =
+            state.character.position.z -
+            Math.cos(yaw) *
+            horizontal;
+
+
+        const smoothing =
+            1 -
+            Math.pow(
+                0.0001,
+                delta
+            );
+
+
+        state.cameraObjectPosition(
+            desiredX,
+            desiredY,
+            desiredZ,
+            smoothing
+        );
+    }
+
+
     // ============================================================
     // CAMERA POSITION
     // ============================================================
@@ -6051,7 +3970,6 @@
                 targetY,
                 state.character.position.z
             );
-
         };
 
 
@@ -6059,16 +3977,10 @@
     // FRAME
     // ============================================================
 
-    function frame(
-        now
-    ) {
+    function frame(now) {
 
-        if (
-            !state.running
-        ) {
-
+        if (!state.running) {
             return;
-
         }
 
 
@@ -6080,21 +3992,14 @@
 
         const delta =
             Math.min(
-
                 Math.max(
-
                     (
                         now -
                         state.lastTime
-                    ) /
-                    1000,
-
+                    ) / 1000,
                     0
-
                 ),
-
                 0.05
-
             );
 
 
@@ -6102,24 +4007,13 @@
             now;
 
 
-        updateMovement(
-            delta
-        );
+        updateMovement(delta);
 
+        updateGravity(delta);
 
-        updateGravity(
-            delta
-        );
+        updateCharacterAnimation(delta);
 
-
-        updateCharacterAnimation(
-            delta
-        );
-
-
-        updateCamera(
-            delta
-        );
+        updateCamera(delta);
 
 
         if (
@@ -6132,9 +4026,7 @@
                 state.scene,
                 state.camera
             );
-
         }
-
     }
 
 
@@ -6144,19 +4036,14 @@
 
     function saveCamera() {
 
-        if (
-            !state.camera
-        ) {
-
+        if (!state.camera) {
             return;
-
         }
 
 
         state.savedCamera = {
 
             position: {
-
                 x:
                     state.camera.position.x,
 
@@ -6165,11 +4052,9 @@
 
                 z:
                     state.camera.position.z
-
             },
 
             rotation: {
-
                 x:
                     state.camera.rotation.x,
 
@@ -6178,11 +4063,8 @@
 
                 z:
                     state.camera.rotation.z
-
             }
-
         };
-
     }
 
 
@@ -6196,9 +4078,7 @@
             !state.camera ||
             !state.savedCamera
         ) {
-
             return;
-
         }
 
 
@@ -6209,7 +4089,6 @@
             state.savedCamera.position.y,
 
             state.savedCamera.position.z
-
         );
 
 
@@ -6220,12 +4099,10 @@
             state.savedCamera.rotation.y,
 
             state.savedCamera.rotation.z
-
         );
 
 
         state.camera.updateProjectionMatrix();
-
     }
 
 
@@ -6233,20 +4110,15 @@
     // START
     // ============================================================
 
-    async function start(
-        options = {}
-    ) {
+    async function start(options = {}) {
 
-        if (
-            state.running
-        ) {
+        if (state.running) {
 
             log(
                 "Player is already running."
             );
 
             return true;
-
         }
 
 
@@ -6254,52 +4126,29 @@
             getThree();
 
 
-        // --------------------------------------------------------
-        // Studio must provide these.
-        // --------------------------------------------------------
-
-        if (
-            !options.scene
-        ) {
+        if (!options.scene) {
 
             throw new Error(
-
                 "Player.start requires a Three.js scene."
-
             );
-
         }
 
 
-        if (
-            !options.camera
-        ) {
+        if (!options.camera) {
 
             throw new Error(
-
                 "Player.start requires a Three.js camera."
-
             );
-
         }
 
 
-        if (
-            !options.renderer
-        ) {
+        if (!options.renderer) {
 
             throw new Error(
-
                 "Player.start requires a Three.js renderer."
-
             );
-
         }
 
-
-        // --------------------------------------------------------
-        // Game
-        // --------------------------------------------------------
 
         state.game =
             options.game ||
@@ -6307,164 +4156,53 @@
 
 
         /*
-         * Studio's StarterPlayer is the developer-controlled
-         * player configuration.
+         * Merge dev-set StarterPlayer defaults over our
+         * built-in defaults. A locally saved sensitivity/
+         * graphics preference (if the settings menu has
+         * been opened before) still wins for those two
+         * user-facing fields, since those are the
+         * player's own choice, not the developer's.
          */
+
         const starterPlayer =
             state.game.starterPlayer ||
-            state.game.StarterPlayer ||
             {};
-
-
-        // --------------------------------------------------------
-        // Saved player preferences.
-        // --------------------------------------------------------
 
         const savedPrefs =
             loadLocalPreferences();
 
-
-        // --------------------------------------------------------
-        // Developer settings
-        // --------------------------------------------------------
-
         state.settings = {
 
             walkSpeed:
-
-                Number.isFinite(
-                    Number(
-                        starterPlayer.walkSpeed
-                    )
-                )
-
-                    ? Number(
-                        starterPlayer.walkSpeed
-                    )
-
-                    : 12,
-
+                Number.isFinite(starterPlayer.walkSpeed)
+                    ? starterPlayer.walkSpeed
+                    : state.settings.walkSpeed,
 
             jumpPower:
-
-                Number.isFinite(
-                    Number(
-                        starterPlayer.jumpPower
-                    )
-                )
-
-                    ? Number(
-                        starterPlayer.jumpPower
-                    )
-
-                    : 11,
-
+                Number.isFinite(starterPlayer.jumpPower)
+                    ? starterPlayer.jumpPower
+                    : state.settings.jumpPower,
 
             firstPersonLocked:
-
-                starterPlayer.firstPersonLocked ===
-                true,
-
+                starterPlayer.firstPersonLocked === true,
 
             allowZoom:
-
-                starterPlayer.allowZoom !==
-                false,
-
+                starterPlayer.allowZoom !== false,
 
             hotkeysEnabled:
-
-                starterPlayer.hotkeysEnabled !==
-                false,
-
+                starterPlayer.hotkeysEnabled !== false,
 
             scriptable:
-
-                starterPlayer.scriptable ===
-                true,
-
+                starterPlayer.scriptable !== false,
 
             sensitivity:
-
-                Number.isFinite(
-                    Number(
-                        savedPrefs.sensitivity
-                    )
-                )
-
-                    ? Number(
-                        savedPrefs.sensitivity
-                    )
-
-                    : 1,
-
+                savedPrefs.sensitivity ??
+                state.settings.sensitivity,
 
             graphicsQuality:
-
-                savedPrefs.graphicsQuality ||
-                "high"
-
+                savedPrefs.graphicsQuality ??
+                state.settings.graphicsQuality
         };
-
-
-        // --------------------------------------------------------
-        // Developer can explicitly lock first person.
-        // --------------------------------------------------------
-
-        if (
-            starterPlayer.cameraMode ===
-            "LockFirstPerson"
-        ) {
-
-            state.settings.firstPersonLocked =
-                true;
-
-        }
-
-
-        // --------------------------------------------------------
-        // Developer can explicitly disable movement.
-        // --------------------------------------------------------
-
-        if (
-            starterPlayer.canMove ===
-            false
-        ) {
-
-            state.settings.canMove =
-                false;
-
-        } else {
-
-            state.settings.canMove =
-                true;
-
-        }
-
-
-        // --------------------------------------------------------
-        // Developer can explicitly disable jumping.
-        // --------------------------------------------------------
-
-        if (
-            starterPlayer.canJump ===
-            false
-        ) {
-
-            state.settings.canJump =
-                false;
-
-        } else {
-
-            state.settings.canJump =
-                true;
-
-        }
-
-
-        // --------------------------------------------------------
-        // Camera distance.
-        // --------------------------------------------------------
 
         if (
             state.settings.firstPersonLocked
@@ -6472,50 +4210,23 @@
 
             state.cameraSettings.distance =
                 FIRST_PERSON_DISTANCE;
-
         }
 
-
-        // --------------------------------------------------------
-        // Objects.
-        //
-        // Copy them so runtime property changes cannot destroy the
-        // original Studio project data.
-        // --------------------------------------------------------
 
         state.objects =
             Array.isArray(
                 options.objects
             )
-
                 ? options.objects.map(
-                    object => {
-
-                        try {
-
-                            return JSON.parse(
-                                JSON.stringify(
-                                    object
-                                )
-                            );
-
-                        } catch {
-
-                            return {
-                                ...object
-                            };
-
-                        }
-
-                    }
+                    object =>
+                        JSON.parse(
+                            JSON.stringify(
+                                object
+                            )
+                        )
                 )
-
                 : [];
 
-
-        // --------------------------------------------------------
-        // Render objects.
-        // --------------------------------------------------------
 
         state.scene =
             options.scene;
@@ -6529,257 +4240,95 @@
             options.renderer;
 
 
-        /*
-         * IMPORTANT:
-         *
-         * Prefer the explicit viewport from Studio.
-         * Fall back to the renderer canvas.
-         *
-         * This fixes Player loading when Studio changes its
-         * viewport container.
-         */
         state.viewport =
             options.viewport ||
-            options.container ||
             state.renderer.domElement;
 
 
         state.onLog =
             typeof options.onLog ===
             "function"
-
                 ? options.onLog
-
                 : null;
 
 
-        // --------------------------------------------------------
-        // Save editor camera.
-        // --------------------------------------------------------
+        /*
+         * Keep a copy of the camera
+         * before Player takes control.
+         */
 
         saveCamera();
 
 
-        // --------------------------------------------------------
-        // Reset player state.
-        // --------------------------------------------------------
-
-        state.velocity.x =
-            0;
-
-
-        state.velocity.y =
-            0;
-
-
-        state.velocity.z =
-            0;
-
-
-        state.grounded =
-            false;
-
-
-        state.moving =
-            false;
-
-
-        state.sprinting =
-            false;
-
-
-        state.animationTime =
-            0;
-
-
-        state.keys.clear();
-
-
-        // --------------------------------------------------------
-        // Find spawn.
-        // --------------------------------------------------------
+        /*
+         * Find spawn before creating
+         * the character.
+         */
 
         findSpawn();
 
 
-        // --------------------------------------------------------
-        // Build runtime world.
-        // --------------------------------------------------------
-
-        removeRuntimeWorld();
+        /*
+         * Build physical runtime world.
+         */
 
         createRuntimeWorld();
 
 
-        // --------------------------------------------------------
-        // Create character.
-        // --------------------------------------------------------
+        /*
+         * Build character.
+         */
 
         createCharacter();
 
 
-        // --------------------------------------------------------
-        // Camera starting orientation.
-        // --------------------------------------------------------
+        /*
+         * Reset movement state.
+         */
 
-        state.mouse.yaw =
-            0;
+        state.velocity.x = 0;
 
+        state.velocity.y = 0;
 
-        state.mouse.pitch =
-            -12;
+        state.velocity.z = 0;
 
-
-        if (
-            state.camera
-        ) {
-
-            state.camera.position.set(
-
-                state.character.position.x,
-
-                state.character.position.y +
-                5,
-
-                state.character.position.z +
-                10
-
-            );
-
-        }
+        state.grounded = false;
 
 
-        // --------------------------------------------------------
-        // Input events.
-        // --------------------------------------------------------
+        /*
+         * Reset camera rotation.
+         */
+
+        state.mouse.yaw = 0;
+
+        state.mouse.pitch = -12;
+
+
+        /*
+         * Start.
+         */
+
+        state.running = true;
 
         attachInput();
-
-
-        // --------------------------------------------------------
-        // Settings UI.
-        // --------------------------------------------------------
-
-        createSettingsMenu();
-
-
-        // --------------------------------------------------------
-        // Renderer.
-        // --------------------------------------------------------
-
-        try {
-
-            const width =
-                Math.max(
-
-                    1,
-
-                    state.viewport?.clientWidth ||
-                    state.renderer.domElement?.clientWidth ||
-                    800
-
-                );
-
-
-            const height =
-                Math.max(
-
-                    1,
-
-                    state.viewport?.clientHeight ||
-                    state.renderer.domElement?.clientHeight ||
-                    600
-
-                );
-
-
-            state.renderer.setSize(
-                width,
-                height,
-                false
-            );
-
-
-            if (
-                state.camera.isPerspectiveCamera
-            ) {
-
-                state.camera.aspect =
-                    width /
-                    height;
-
-
-                state.camera.updateProjectionMatrix();
-
-            }
-
-        } catch (
-            error
-        ) {
-
-            log(
-                `Renderer sizing warning: ${error.message}`
-            );
-
-        }
-
-
-        // --------------------------------------------------------
-        // Mark running.
-        // --------------------------------------------------------
-
-        state.running =
-            true;
-
-
-        // --------------------------------------------------------
-        // Graphics quality.
-        // --------------------------------------------------------
 
         applyGraphicsQuality();
 
 
-        // --------------------------------------------------------
-        // Runtime information.
-        // --------------------------------------------------------
-
         log(
-
             `Playing "${state.game.name || "Untitled Game"}".`
-
         );
 
 
         log(
-
-            `Controls: ${state.hotkeys.forward.toUpperCase()} = forward, ${state.hotkeys.backward.toUpperCase()} = backward, ${state.hotkeys.left.toUpperCase()} = left, ${state.hotkeys.right.toUpperCase()} = right.`
-
+            "WASD = move | Space = jump | Scroll = zoom | P = settings"
         );
 
 
         log(
-            `${state.hotkeys.jump === " " ? "Space" : state.hotkeys.jump} = jump | ${state.hotkeys.run} = run.`
+            "Click the game viewport to control the camera."
         );
 
-
-        log(
-            "Camera control is independent from movement."
-        );
-
-
-        log(
-            "Left-click enters camera look. Right-click is not required."
-        );
-
-
-        log(
-            "Scroll wheel controls camera distance."
-        );
-
-
-        // --------------------------------------------------------
-        // Start frame loop.
-        // --------------------------------------------------------
 
         state.lastTime =
             performance.now();
@@ -6791,9 +4340,9 @@
             );
 
 
-        // --------------------------------------------------------
-        // Immediate render.
-        // --------------------------------------------------------
+        /*
+         * Render once immediately.
+         */
 
         if (
             state.renderer &&
@@ -6805,16 +4354,10 @@
                 state.scene,
                 state.camera
             );
-
         }
 
 
-        // --------------------------------------------------------
-        // Return success.
-        // --------------------------------------------------------
-
         return true;
-
     }
 
 
@@ -6824,17 +4367,12 @@
 
     async function stop() {
 
-        if (
-            !state.running
-        ) {
-
+        if (!state.running) {
             return true;
-
         }
 
 
-        state.running =
-            false;
+        state.running = false;
 
 
         if (
@@ -6845,25 +4383,20 @@
                 state.animationFrame
             );
 
-
             state.animationFrame =
                 null;
-
         }
 
 
         detachInput();
 
-
         closeSettingsMenu();
-
-
         destroySettingsMenu();
 
 
-        // --------------------------------------------------------
-        // Release pointer lock.
-        // --------------------------------------------------------
+        /*
+         * Release pointer lock.
+         */
 
         if (
             document.pointerLockElement
@@ -6874,64 +4407,25 @@
                 document.exitPointerLock();
 
             } catch {
-
-                // Ignore browser restrictions.
-
+                // Ignore.
             }
-
         }
 
 
-        // --------------------------------------------------------
-        // Remove runtime player.
-        // --------------------------------------------------------
-
         destroyCharacter();
 
-
-        // --------------------------------------------------------
-        // Remove generated world.
-        // --------------------------------------------------------
-
         removeRuntimeWorld();
-
-
-        // --------------------------------------------------------
-        // Restore Studio camera.
-        // --------------------------------------------------------
 
         restoreCamera();
 
 
-        // --------------------------------------------------------
-        // Reset movement.
-        // --------------------------------------------------------
+        state.velocity.x = 0;
 
-        state.velocity.x =
-            0;
+        state.velocity.y = 0;
 
+        state.velocity.z = 0;
 
-        state.velocity.y =
-            0;
-
-
-        state.velocity.z =
-            0;
-
-
-        state.grounded =
-            false;
-
-
-        state.moving =
-            false;
-
-
-        state.sprinting =
-            false;
-
-
-        state.keys.clear();
+        state.grounded = false;
 
 
         log(
@@ -6940,7 +4434,6 @@
 
 
         return true;
-
     }
 
 
@@ -6950,16 +4443,9 @@
 
     function resetCharacter() {
 
-        if (
-            !state.character
-        ) {
-
+        if (!state.character) {
             return;
-
         }
-
-
-        findSpawn();
 
 
         state.character.position.set(
@@ -6969,38 +4455,21 @@
             state.spawn.y,
 
             state.spawn.z
-
         );
 
 
-        state.velocity.x =
-            0;
+        state.velocity.x = 0;
 
+        state.velocity.y = 0;
 
-        state.velocity.y =
-            0;
+        state.velocity.z = 0;
 
-
-        state.velocity.z =
-            0;
-
-
-        state.grounded =
-            false;
-
-
-        state.moving =
-            false;
-
-
-        state.sprinting =
-            false;
+        state.grounded = false;
 
 
         log(
             "Character respawned."
         );
-
     }
 
 
@@ -7014,12 +4483,8 @@
         z
     ) {
 
-        if (
-            !state.character
-        ) {
-
+        if (!state.character) {
             return;
-
         }
 
 
@@ -7030,25 +4495,14 @@
             Number(y) || 0,
 
             Number(z) || 0
-
         );
 
 
-        state.velocity.x =
-            0;
+        state.velocity.x = 0;
 
+        state.velocity.y = 0;
 
-        state.velocity.y =
-            0;
-
-
-        state.velocity.z =
-            0;
-
-
-        state.grounded =
-            false;
-
+        state.velocity.z = 0;
     }
 
 
@@ -7066,21 +4520,9 @@
             grounded:
                 state.grounded,
 
-            moving:
-                state.moving,
-
-            sprinting:
-                state.sprinting,
-
-            character:
-                !!state.character,
-
             position:
-
                 state.character
-
                     ? {
-
                         x:
                             state.character
                                 .position.x,
@@ -7092,13 +4534,10 @@
                         z:
                             state.character
                                 .position.z
-
                     }
-
                     : null,
 
             velocity: {
-
                 x:
                     state.velocity.x,
 
@@ -7107,531 +4546,8 @@
 
                 z:
                     state.velocity.z
-
-            },
-
-            settings:
-                {
-                    ...state.settings
-                },
-
-            hotkeys:
-                {
-                    ...state.hotkeys
-                }
-
-        };
-
-    }
-
-
-    // ============================================================
-    // SETTING API
-    // ============================================================
-
-    function setSetting(
-        name,
-        value
-    ) {
-
-        if (
-            !name
-        ) {
-
-            return false;
-
-        }
-
-
-        switch (
-            String(name)
-        ) {
-
-            case "WalkSpeed":
-
-            case "walkSpeed":
-
-                state.settings.walkSpeed =
-                    Math.max(
-                        0,
-                        Number(value)
-                    );
-
-                break;
-
-
-            case "JumpPower":
-
-            case "jumpPower":
-
-                state.settings.jumpPower =
-                    Math.max(
-                        0,
-                        Number(value)
-                    );
-
-                break;
-
-
-            case "FirstPersonLock":
-
-            case "firstPersonLocked":
-
-                state.settings.firstPersonLocked =
-                    Boolean(value);
-
-                if (
-                    state.settings.firstPersonLocked
-                ) {
-
-                    state.cameraSettings.distance =
-                        FIRST_PERSON_DISTANCE;
-
-                }
-
-                break;
-
-
-            case "AllowZoom":
-
-            case "allowZoom":
-
-                state.settings.allowZoom =
-                    Boolean(value);
-
-                break;
-
-
-            case "HotkeysEnabled":
-
-            case "hotkeysEnabled":
-
-                state.settings.hotkeysEnabled =
-                    Boolean(value);
-
-                break;
-
-
-            case "ScriptableCamera":
-
-            case "scriptable":
-
-                state.settings.scriptable =
-                    Boolean(value);
-
-                break;
-
-
-            case "CanMove":
-
-            case "canMove":
-
-                state.settings.canMove =
-                    Boolean(value);
-
-                break;
-
-
-            case "CanJump":
-
-            case "canJump":
-
-                state.settings.canJump =
-                    Boolean(value);
-
-                break;
-
-
-            case "Sensitivity":
-
-            case "sensitivity":
-
-                state.settings.sensitivity =
-                    clamp(
-                        Number(value),
-                        0.1,
-                        3
-                    );
-
-                break;
-
-
-            default:
-
-                return false;
-
-        }
-
-
-        if (
-            state.character?.userData?.humanoid
-        ) {
-
-            state.character.userData.humanoid.walkSpeed =
-                state.settings.walkSpeed;
-
-
-            state.character.userData.humanoid.jumpPower =
-                state.settings.jumpPower;
-
-        }
-
-
-        savePlayerPreferences();
-
-
-        return true;
-
-    }
-
-
-    // ============================================================
-    // SET HOTKEY
-    // ============================================================
-
-    function setHotkey(
-        action,
-        key
-    ) {
-
-        const valid = [
-
-            "forward",
-
-            "backward",
-
-            "left",
-
-            "right",
-
-            "jump",
-
-            "run"
-
-        ];
-
-
-        if (
-            !valid.includes(
-                action
-            )
-        ) {
-
-            return false;
-
-        }
-
-
-        let normalized =
-            String(
-                key ||
-                ""
-            ).toLowerCase();
-
-
-        if (
-            normalized ===
-            "space"
-        ) {
-
-            normalized =
-                " ";
-
-        }
-
-
-        if (!normalized) {
-
-            return false;
-
-        }
-
-
-        state.hotkeys[action] =
-            normalized;
-
-
-        saveHotkeys();
-
-
-        return true;
-
-    }
-
-
-    // ============================================================
-    // HOTKEY API
-    // ============================================================
-
-    function getHotkeys() {
-
-        return {
-            ...state.hotkeys
-        };
-
-    }
-
-
-    // ============================================================
-    // SCRIPT API
-    // ============================================================
-    //
-    // The Studio will use this bridge for Script objects.
-    // The complete editor/runtime implementation is added in the
-    // Studio script system, while this Player runtime provides the
-    // safe entry point.
-    // ============================================================
-
-    function runScript(
-        source,
-        scriptObject = null
-    ) {
-
-        if (
-            typeof source !==
-            "string"
-        ) {
-
-            return {
-
-                success:
-                    false,
-
-                error:
-                    "Script source must be a string."
-
-            };
-
-        }
-
-
-        /*
-         * WebBlox Luau is intentionally sandboxed.
-         *
-         * Never execute arbitrary JavaScript supplied by a game.
-         *
-         * The full Studio scripting layer parses supported Luau
-         * operations and calls this API.
-         */
-
-        const lines =
-            source.split(
-                /\r?\n/
-            );
-
-
-        for (
-            const originalLine
-            of lines
-        ) {
-
-            const line =
-                originalLine.trim();
-
-
-            if (
-                !line ||
-                line.startsWith("--")
-            ) {
-
-                continue;
-
             }
-
-
-            const printMatch =
-                line.match(
-                    /^print\s*\((.*)\)\s*$/
-                );
-
-
-            if (
-                printMatch
-            ) {
-
-                let value =
-                    printMatch[1]
-                        .trim();
-
-
-                if (
-                    (
-                        value.startsWith(
-                            '"'
-                        ) &&
-                        value.endsWith(
-                            '"'
-                        )
-                    ) ||
-                    (
-                        value.startsWith(
-                            "'"
-                        ) &&
-                        value.endsWith(
-                            "'"
-                        )
-                    )
-                ) {
-
-                    value =
-                        value.slice(
-                            1,
-                            -1
-                        );
-
-                }
-
-
-                log(
-                    `[Luau] ${value}`
-                );
-
-
-                continue;
-
-            }
-
-
-            /*
-             * Basic workspace property syntax:
-             *
-             * workspace.Part.Transparency = 0.5
-             * workspace.Part.CanCollide = false
-             * workspace.Part.Anchored = true
-             *
-             * More scripting support is handled by Studio's
-             * ScriptService in the next update.
-             */
-
-            const propertyMatch =
-                line.match(
-
-                    /^workspace\.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*=\s*(.+)$/
-
-                );
-
-
-            if (
-                propertyMatch
-            ) {
-
-                const objectName =
-                    propertyMatch[1];
-
-
-                const property =
-                    propertyMatch[2];
-
-
-                let value =
-                    propertyMatch[3]
-                        .trim();
-
-
-                const object =
-                    state.objects.find(
-                        item =>
-                            item &&
-                            item.name ===
-                            objectName
-                    );
-
-
-                if (!object) {
-
-                    log(
-                        `[Luau] Object not found: ${objectName}`
-                    );
-
-                    continue;
-
-                }
-
-
-                if (
-                    value ===
-                    "true"
-                ) {
-
-                    value =
-                        true;
-
-                } else if (
-                    value ===
-                    "false"
-                ) {
-
-                    value =
-                        false;
-
-                } else if (
-                    (
-                        value.startsWith(
-                            '"'
-                        ) &&
-                        value.endsWith(
-                            '"'
-                        )
-                    ) ||
-                    (
-                        value.startsWith(
-                            "'"
-                        ) &&
-                        value.endsWith(
-                            "'"
-                        )
-                    )
-                ) {
-
-                    value =
-                        value.slice(
-                            1,
-                            -1
-                        );
-
-                } else if (
-                    Number.isFinite(
-                        Number(value)
-                    )
-                ) {
-
-                    value =
-                        Number(value);
-
-                }
-
-
-                const normalizedProperty =
-                    property.charAt(0).toLowerCase() +
-                    property.slice(1);
-
-
-                object[
-                    normalizedProperty
-                ] =
-                    value;
-
-
-                log(
-                    `[Luau] ${objectName}.${property} updated.`
-                );
-
-            }
-
-        }
-
-
-        return {
-
-            success:
-                true,
-
-            script:
-                scriptObject?.name ||
-                "Script"
-
         };
-
     }
 
 
@@ -7656,20 +4572,9 @@
 
         getState,
 
-        setSetting,
-
-        setHotkey,
-
-        getHotkeys,
-
-        runScript,
-
         isRunning() {
-
             return state.running;
-
         }
-
     };
 
 
@@ -7681,24 +4586,12 @@
         "[WebBlox Player] Runtime loaded."
     );
 
-
     console.log(
-        "[WebBlox Player] Classic blocky R6 character system loaded."
+        "[WebBlox Player] Character system is built in."
     );
 
-
     console.log(
-        "[WebBlox Player] World-relative controls loaded."
-    );
-
-
-    console.log(
-        "[WebBlox Player] Camera and movement systems are separated."
-    );
-
-
-    console.log(
-        "[WebBlox Player] Runtime ready."
+        "[WebBlox Player] No character.js dependency."
     );
 
 })();
