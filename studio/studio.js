@@ -304,6 +304,18 @@
             return "../Player/player.js";
         }
     }
+    if (typeof window.loadLocalPreferences !== "function") {
+        window.loadLocalPreferences = function () {
+            try {
+                const raw = window.localStorage.getItem("webblox_player_preferences");
+                if (!raw) return {};
+                const data = JSON.parse(raw);
+                return data && typeof data === "object" ? data : {};
+            } catch {
+                return {};
+            }
+        };
+    }
     function loadPlayerRuntime() {
         return new Promise((resolve, reject) => {
             if (window.WebBloxPlayer &&
