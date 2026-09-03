@@ -1,7 +1,5 @@
 
 
-===== PART 1/4 START =====
-
 /*
  * WebBlox Studio
  * Stage 3A
@@ -269,147 +267,54 @@
 
     let loadingScreenFinished = false;
 
-    /*
-     * The loading overlay must never be able to trap the editor.
-     * This helper deliberately does not depend on the one-shot
-     * loadingScreenFinished flag. It can be called multiple times,
-     * including after Project Manager navigation.
-     */
-    function forceHideStudioLoadingScreen() {
+    function finishLoadingScreen() {
+
+        if (loadingScreenFinished) {
+            return;
+        }
+
+        loadingScreenFinished = true;
 
         const loading =
-            document.getElementById(
-                "studioLoading"
-            );
+            $("studioLoading");
 
         if (!loading) {
-            return false;
+            return;
         }
 
         const progress =
-            document.getElementById(
-                "loadingProgress"
-            );
+            $("loadingProgress");
 
         if (progress) {
             progress.style.width =
                 "100%";
         }
 
-        loading.classList.remove(
-            "studio-loading-active"
-        );
-
         loading.classList.add(
             "hidden"
         );
 
-        loading.style.setProperty(
-            "display",
-            "none",
-            "important"
-        );
-
-        loading.style.setProperty(
-            "visibility",
-            "hidden",
-            "important"
-        );
-
-        loading.style.setProperty(
-            "opacity",
-            "0",
-            "important"
-        );
-
-        loading.style.setProperty(
-            "pointer-events",
-            "none",
-            "important"
-        );
-
-        loading.setAttribute(
-            "aria-hidden",
-            "true"
-        );
-
-        loadingScreenFinished = true;
-
-        return true;
-    }
-
-
-    function finishLoadingScreen() {
-
         /*
-         * Do NOT return when the screen was finished before.
-         * Project Manager can cause the overlay to become visible
-         * again, so cleanup must always run.
+         * Extra protection in case CSS
+         * does not contain .hidden.
          */
 
-        forceHideStudioLoadingScreen();
+        setTimeout(() => {
 
-        /*
-         * Run again after layout/repaint so CSS, project navigation,
-         * or another script cannot immediately put the overlay back.
-         */
-        setTimeout(
-            forceHideStudioLoadingScreen,
-            0
-        );
-
-        setTimeout(
-            forceHideStudioLoadingScreen,
-            100
-        );
-
-        setTimeout(
-            forceHideStudioLoadingScreen,
-            500
-        );
-    }
-
-
-    /*
-     * The script is loaded at the bottom of index.html, so the
-     * loading element already exists. Hide it immediately instead
-     * of waiting for WebGL, project state, or another async task.
-     */
-    forceHideStudioLoadingScreen();
-
-
-    /*
-     * Watch only the loading element. If another Studio component
-     * removes the hidden state or writes display/visibility back,
-     * immediately force it closed again.
-     */
-    const studioLoadingObserverTarget =
-        document.getElementById(
-            "studioLoading"
-        );
-
-    if (studioLoadingObserverTarget) {
-
-        const studioLoadingObserver =
-            new MutationObserver(() => {
-                forceHideStudioLoadingScreen();
-            });
-
-        studioLoadingObserver.observe(
-            studioLoadingObserverTarget,
-            {
-                attributes: true,
-                attributeFilter: [
-                    "class",
-                    "style",
-                    "aria-hidden"
-                ]
+            if (!loading) {
+                return;
             }
-        );
 
-        /* Keep the observer alive for the lifetime of Studio. */
-        window.__WebBloxStudioLoadingObserver =
-            studioLoadingObserver;
+            loading.style.display =
+                "none";
+
+            loading.style.visibility =
+                "hidden";
+
+            loading.style.pointerEvents =
+                "none";
+
+        }, 500);
     }
 
 
@@ -741,119 +646,6 @@
      * Player is loaded only when Play is pressed.
      */
 
-    // ============================================================
-    // PLAYER PREFERENCE COMPATIBILITY BRIDGE
-    // ============================================================
-    //
-    // Player/player.js calls loadLocalPreferences() during
-    // Player.start(). Keep the existing Studio preference system
-    // compatible with the Player runtime without changing the
-    // Player API or requiring another file.
-    // ============================================================
-
-    function installPlayerPreferenceBridge() {
-
-        if (
-            typeof window.loadLocalPreferences !==
-            "function"
-        ) {
-
-            window.loadLocalPreferences =
-                function() {
-
-                    try {
-
-                        const raw =
-                            window.localStorage.getItem(
-                                "webblox_player_preferences"
-                            );
-
-                        if (!raw) {
-                            return {};
-                        }
-
-                        const parsed =
-                            JSON.parse(raw);
-
-                        if (
-                            parsed &&
-                            typeof parsed === "object"
-                        ) {
-                            return parsed;
-                        }
-
-                    } catch (error) {
-
-                        console.warn(
-                            "[WebBlox Studio] Failed to load Player preferences:",
-                            error
-                        );
-
-                    }
-
-                    return {};
-                };
-        }
-
-
-        if (
-            typeof window.saveLocalPreferences !==
-            "function"
-        ) {
-
-            window.saveLocalPreferences =
-                function(preferences) {
-
-                    try {
-
-                        window.localStorage.setItem(
-                            "webblox_player_preferences",
-                            JSON.stringify(
-                                preferences &&
-                                typeof preferences === "object"
-                                    ? preferences
-                                    : {}
-                            )
-                        );
-
-                    } catch (error) {
-
-                        console.warn(
-                            "[WebBlox Studio] Failed to save Player preferences:",
-                            error
-                        );
-
-                    }
-
-                };
-        }
-
-
-        log(
-            "Player preference compatibility bridge ready."
-        );
-    }
-
-
-    function verifyPlayerRuntime(runtime, source = "Player runtime") {
-
-        if (
-            runtime &&
-            typeof runtime.start === "function"
-        ) {
-
-            state.playerAvailable = true;
-
-            return runtime;
-        }
-
-
-        throw new Error(
-            `${source} loaded but WebBloxPlayer.start was not created.`
-        );
-    }
-
-
     function getPlayerPath() {
 
         /*
@@ -888,33 +680,20 @@
 
     function loadPlayerRuntime() {
 
-        installPlayerPreferenceBridge();
-
         return new Promise((resolve, reject) => {
 
-            /*
-             * A previous Player load may have left a runtime object
-             * behind. Reuse it only when the required API is actually
-             * present.
-             */
             if (
                 window.WebBloxPlayer &&
                 typeof window.WebBloxPlayer.start ===
                     "function"
             ) {
 
-                try {
+                state.playerAvailable =
+                    true;
 
-                    resolve(
-                        verifyPlayerRuntime(
-                            window.WebBloxPlayer,
-                            "Existing Player runtime"
-                        )
-                    );
-
-                } catch (error) {
-                    reject(error);
-                }
+                resolve(
+                    window.WebBloxPlayer
+                );
 
                 return;
             }
@@ -935,34 +714,31 @@
 
             if (existing) {
 
-                const finish = () => {
+                const finish =
+                    () => {
 
-                    try {
+                        if (
+                            window.WebBloxPlayer &&
+                            typeof window.WebBloxPlayer.start ===
+                                "function"
+                        ) {
 
-                        resolve(
-                            verifyPlayerRuntime(
-                                window.WebBloxPlayer,
-                                "player.js"
-                            )
-                        );
+                            state.playerAvailable =
+                                true;
 
-                    } catch (error) {
+                            resolve(
+                                window.WebBloxPlayer
+                            );
 
-                        /*
-                         * The existing tag may belong to a failed
-                         * runtime from an earlier Studio attempt.
-                         * Remove it so a clean Player script can load.
-                         */
+                        } else {
 
-                        try {
-                            existing.remove();
-                        } catch {
-                            // Ignore removal failures.
+                            reject(
+                                new Error(
+                                    "player.js loaded but WebBloxPlayer.start was not found."
+                                )
+                            );
                         }
-
-                        reject(error);
-                    }
-                };
+                    };
 
 
                 if (
@@ -971,6 +747,7 @@
                 ) {
 
                     finish();
+
                     return;
                 }
 
@@ -1017,29 +794,30 @@
                 script.dataset.loaded =
                     "true";
 
-                try {
+                if (
+                    window.WebBloxPlayer &&
+                    typeof window.WebBloxPlayer.start ===
+                        "function"
+                ) {
 
-                    const runtime =
-                        verifyPlayerRuntime(
-                            window.WebBloxPlayer,
-                            "player.js"
-                        );
+                    state.playerAvailable =
+                        true;
 
                     log(
                         "Player runtime loaded."
                     );
 
-                    resolve(runtime);
+                    resolve(
+                        window.WebBloxPlayer
+                    );
 
-                } catch (error) {
+                } else {
 
-                    /*
-                     * Do not swallow the actual Player-side error.
-                     * Studio will report it through the existing
-                     * startup error handler.
-                     */
-
-                    reject(error);
+                    reject(
+                        new Error(
+                            "player.js loaded but WebBloxPlayer.start was not created."
+                        )
+                    );
                 }
             };
 
@@ -1059,6 +837,7 @@
             );
         });
     }
+
 
     // ============================================================
     // OBJECT SYSTEM
@@ -1930,12 +1709,6 @@
 
         state.selectedId =
             id;
-
-
-===== PART 1/4 END =====
-
-
-===== PART 2/4 START =====
 
 
         updateSelectionVisual();
@@ -3867,12 +3640,6 @@
             "pointerup",
             () => {
 
-===== PART 2/4 END =====
-
-
-===== PART 3/4 START =====
-
-
                 onPointerUp();
             }
         );
@@ -5392,9 +5159,6 @@
                 "Untitled"
             }`
         );
-
-        /* Project Manager may have shown/recreated the loading overlay. */
-        finishLoadingScreen();
     }
 
 
@@ -5801,12 +5565,6 @@
                 ? "Saved"
                 : "Unsaved";
     }
-
-===== PART 3/4 END =====
-
-
-===== PART 4/4 START =====
-
 
 
     // ============================================================
@@ -7439,9 +7197,6 @@
 
     async function initialize() {
 
-        /* Never let startup work control whether the editor is visible. */
-        finishLoadingScreen();
-
         console.log(
             "[WebBlox Studio] Starting initialization..."
         );
@@ -7600,29 +7355,6 @@
     }
 
 
-    /*
-     * Final watchdog: even if the loading element is recreated by
-     * another script, the editor gets its visible surface back.
-     */
-    const studioLoadingWatchdog =
-        setInterval(
-            () => {
-                const loading =
-                    document.getElementById(
-                        "studioLoading"
-                    );
-
-                if (loading) {
-                    forceHideStudioLoadingScreen();
-                }
-            },
-            1000
-        );
-
-    window.__WebBloxStudioLoadingWatchdog =
-        studioLoadingWatchdog;
-
-
     // ============================================================
     // GLOBAL ERROR PROTECTION
     // ============================================================
@@ -7707,9 +7439,7 @@
 
         publishGame,
 
-        finishLoadingScreen,
-
-        forceHideStudioLoadingScreen
+        finishLoadingScreen
     };
 
 
@@ -7737,4 +7467,4 @@
 
 })();
 
-===== PART 4/4 END =====
+
