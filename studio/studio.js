@@ -304,19 +304,33 @@
             return "../Player/player.js";
         }
     }
-    if (typeof window.loadLocalPreferences !== "function") {
-        window.loadLocalPreferences = function () {
+    function installPlayerPreferenceCompatibility() {
+        if (typeof globalThis.loadLocalPreferences === "function") {
+            return;
+        }
+        globalThis.loadLocalPreferences = function () {
             try {
                 const raw = window.localStorage.getItem("webblox_player_preferences");
-                if (!raw) return {};
+                if (!raw) {
+                    return {};
+                }
                 const data = JSON.parse(raw);
-                return data && typeof data === "object" ? data : {};
-            } catch {
+                if (!data || typeof data !== "object") {
+                    return {};
+                }
+                return {
+                    sensitivity: data.sensitivity,
+                    graphicsQuality: data.graphicsQuality
+                };
+            }
+            catch {
                 return {};
             }
         };
     }
+
     function loadPlayerRuntime() {
+        installPlayerPreferenceCompatibility();
         return new Promise((resolve, reject) => {
             if (window.WebBloxPlayer &&
                 typeof window.WebBloxPlayer.start ===
