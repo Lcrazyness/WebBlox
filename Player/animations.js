@@ -1,747 +1,1207 @@
 /*
- * WebBlox Player Animations
+ * WebBlox Character Animation System
  *
- * Stage 3C
- * CLASSIC BLOCKY ANIMATION SYSTEM
+ * Existing-file replacement:
+ * /Player/animations.js
+ *
+ * Designed for the built-in WebBlox R6 character created by
+ * Player/player.js.
  *
  * States:
+ * - Idle
+ * - Walking
+ * - Running
+ * - Jumping
+ * - Freefall
+ * - Landing
  *
- * Idle
- * Walking
- * Running
- * Jumping
- * Freefall
- *
- * Designed for the WebBlox blocky character hierarchy.
+ * The animation system uses the character's existing pivot groups.
  */
 
 (() => {
-
     "use strict";
 
-    const PlayerSystem =
-        window.WebBloxPlayer =
-            window.WebBloxPlayer || {};
 
-    const Animations = {};
+    // ============================================================
+    // GLOBAL
+    // ============================================================
 
-    let time = 0;
+    const AnimationSystem = {
 
-    let previousState =
-        "Idle";
+        version:
+            "1.0.0",
 
-    /*
-     * ============================================================
-     * SETUP
-     * ============================================================
-     */
+        active:
+            false,
 
-    function setup() {
+        character:
+            null,
 
-        time = 0;
+        state:
+            "Idle",
 
-        previousState =
-            "Idle";
+        time:
+            0,
 
-    }
+        previousGrounded:
+            false,
 
-    /*
-     * ============================================================
-     * FIND PART
-     * ============================================================
-     */
+        speedMultiplier:
+            1
 
-    function findPart(
-        character,
-        name
+    };
+
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+
+    function clamp(
+        value,
+        min,
+        max
     ) {
 
-        if (!character) {
-            return null;
-        }
-
-        const bodyParts =
-            character.userData
-                ?.bodyParts;
-
-        if (
-            bodyParts &&
-            bodyParts[name]
-        ) {
-            return bodyParts[name];
-        }
-
-        return character.getObjectByName(
-            name
+        return Math.max(
+            min,
+            Math.min(
+                max,
+                value
+            )
         );
+
     }
 
-    /*
-     * ============================================================
-     * ROTATION RESET
-     *
-     * Only reset animation joints.
-     * ============================================================
-     */
 
-    function resetPart(
-        part
+    function lerp(
+        a,
+        b,
+        alpha
     ) {
 
-        if (!part) {
-            return;
-        }
+        return (
+            a +
+            (
+                b -
+                a
+            ) *
+            alpha
+        );
 
-        part.rotation.x = 0;
-
-        part.rotation.y = 0;
-
-        part.rotation.z = 0;
     }
 
-    /*
-     * ============================================================
-     * SAFE LERP
-     * ============================================================
-     */
 
-    function smooth(
+    function approach(
         current,
         target,
         amount
     ) {
 
-        return (
-            current +
-            (
-                target -
-                current
-            ) *
-            amount
+        return lerp(
+            current,
+            target,
+            clamp(
+                amount,
+                0,
+                1
+            )
         );
 
     }
 
-    /*
-     * ============================================================
-     * UPDATE
-     * ============================================================
-     */
+
+    // ============================================================
+    // GET PLAYER
+    // ============================================================
+
+    function getPlayer() {
+
+        if (
+            window.WebBloxPlayer
+        ) {
+
+            return window.WebBloxPlayer;
+
+        }
+
+
+        return null;
+
+    }
+
+
+    // ============================================================
+    // GET CHARACTER
+    // ============================================================
+
+    function getCharacter() {
+
+        const player =
+            getPlayer();
+
+
+        if (
+            player?.state?.character
+        ) {
+
+            return player.state.character;
+
+        }
+
+
+        return null;
+
+    }
+
+
+    // ============================================================
+    // GET PIVOTS
+    // ============================================================
+
+    function getPivots(
+        character
+    ) {
+
+        if (
+            !character
+        ) {
+
+            return null;
+
+        }
+
+
+        return character.userData?.animationPivots ||
+               null;
+
+    }
+
+
+    // ============================================================
+    // RESET POSE
+    // ============================================================
+
+    function resetPose(
+        character
+    ) {
+
+        const pivots =
+            getPivots(
+                character
+            );
+
+
+        if (
+            !pivots
+        ) {
+
+            return;
+
+        }
+
+
+        Object.values(
+            pivots
+        )
+            .forEach(
+                pivot => {
+
+                    if (
+                        !pivot?.rotation
+                    ) {
+
+                        return;
+
+                    }
+
+
+                    pivot.rotation.x =
+                        0;
+
+                    pivot.rotation.y =
+                        0;
+
+                    pivot.rotation.z =
+                        0;
+
+                }
+            );
+
+    }
+
+
+    // ============================================================
+    // APPLY POSE
+    // ============================================================
+
+    function applyPose(
+        character,
+        targets,
+        delta
+    ) {
+
+        const pivots =
+            getPivots(
+                character
+            );
+
+
+        if (
+            !pivots
+        ) {
+
+            return;
+
+        }
+
+
+        const alpha =
+            clamp(
+                delta * 14,
+                0,
+                1
+            );
+
+
+        for (
+            const name of Object.keys(
+                targets
+            )
+        ) {
+
+            const pivot =
+                pivots[name];
+
+
+            if (
+                !pivot
+            ) {
+
+                continue;
+
+            }
+
+
+            const target =
+                targets[name];
+
+
+            pivot.rotation.x =
+                approach(
+                    pivot.rotation.x,
+                    target.x ?? 0,
+                    alpha
+                );
+
+
+            pivot.rotation.y =
+                approach(
+                    pivot.rotation.y,
+                    target.y ?? 0,
+                    alpha
+                );
+
+
+            pivot.rotation.z =
+                approach(
+                    pivot.rotation.z,
+                    target.z ?? 0,
+                    alpha
+                );
+
+        }
+
+    }
+
+
+    // ============================================================
+    // IDLE
+    // ============================================================
+
+    function idlePose(
+        character,
+        delta
+    ) {
+
+        const breathing =
+            Math.sin(
+                AnimationSystem.time *
+                1.8
+            ) *
+            0.015;
+
+
+        const slight =
+            Math.sin(
+                AnimationSystem.time *
+                0.9
+            ) *
+            0.01;
+
+
+        applyPose(
+
+            character,
+
+            {
+
+                leftShoulder: {
+
+                    x:
+                        breathing,
+
+                    y:
+                        0,
+
+                    z:
+                        0.025
+
+                },
+
+                rightShoulder: {
+
+                    x:
+                        -breathing,
+
+                    y:
+                        0,
+
+                    z:
+                        -0.025
+
+                },
+
+                leftHip: {
+
+                    x:
+                        slight,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightHip: {
+
+                    x:
+                        -slight,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                neck: {
+
+                    x:
+                        breathing,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                }
+
+            },
+
+            delta
+
+        );
+
+    }
+
+
+    // ============================================================
+    // WALK
+    // ============================================================
+
+    function walkPose(
+        character,
+        delta
+    ) {
+
+        const swing =
+            Math.sin(
+                AnimationSystem.time *
+                8 *
+                AnimationSystem.speedMultiplier
+            ) *
+            0.5;
+
+
+        applyPose(
+
+            character,
+
+            {
+
+                leftShoulder: {
+
+                    x:
+                        swing,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightShoulder: {
+
+                    x:
+                        -swing,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                leftHip: {
+
+                    x:
+                        -swing,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightHip: {
+
+                    x:
+                        swing,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                }
+
+            },
+
+            delta
+
+        );
+
+    }
+
+
+    // ============================================================
+    // RUN
+    // ============================================================
+
+    function runPose(
+        character,
+        delta
+    ) {
+
+        const swing =
+            Math.sin(
+                AnimationSystem.time *
+                11 *
+                AnimationSystem.speedMultiplier
+            ) *
+            0.72;
+
+
+        applyPose(
+
+            character,
+
+            {
+
+                leftShoulder: {
+
+                    x:
+                        swing,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightShoulder: {
+
+                    x:
+                        -swing,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                leftHip: {
+
+                    x:
+                        -swing,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightHip: {
+
+                    x:
+                        swing,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                }
+
+            },
+
+            delta
+
+        );
+
+    }
+
+
+    // ============================================================
+    // JUMP
+    // ============================================================
+
+    function jumpPose(
+        character,
+        delta
+    ) {
+
+        applyPose(
+
+            character,
+
+            {
+
+                leftShoulder: {
+
+                    x:
+                        -0.55,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightShoulder: {
+
+                    x:
+                        -0.55,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                leftHip: {
+
+                    x:
+                        0.20,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightHip: {
+
+                    x:
+                        0.20,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                }
+
+            },
+
+            delta
+
+        );
+
+    }
+
+
+    // ============================================================
+    // FREEFALL
+    // ============================================================
+
+    function freefallPose(
+        character,
+        delta
+    ) {
+
+        const float =
+            Math.sin(
+                AnimationSystem.time *
+                3
+            ) *
+            0.04;
+
+
+        applyPose(
+
+            character,
+
+            {
+
+                leftShoulder: {
+
+                    x:
+                        -0.35 +
+                        float,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightShoulder: {
+
+                    x:
+                        -0.35 -
+                        float,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                leftHip: {
+
+                    x:
+                        -0.15,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightHip: {
+
+                    x:
+                        -0.15,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                }
+
+            },
+
+            delta
+
+        );
+
+    }
+
+
+    // ============================================================
+    // LAND
+    // ============================================================
+
+    function landingPose(
+        character,
+        delta
+    ) {
+
+        /*
+         * Small squash-like pose created using the existing
+         * block rig only.
+         */
+
+        const squash =
+            Math.sin(
+                clamp(
+                    AnimationSystem.time *
+                    12,
+
+                    0,
+
+                    Math.PI
+                )
+            ) *
+            0.12;
+
+
+        applyPose(
+
+            character,
+
+            {
+
+                leftShoulder: {
+
+                    x:
+                        squash,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightShoulder: {
+
+                    x:
+                        -squash,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                leftHip: {
+
+                    x:
+                        -squash,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                },
+
+                rightHip: {
+
+                    x:
+                        squash,
+
+                    y:
+                        0,
+
+                    z:
+                        0
+
+                }
+
+            },
+
+            delta
+
+        );
+
+    }
+
+
+    // ============================================================
+    // GET STATE
+    // ============================================================
+
+    function determineState() {
+
+        const player =
+            getPlayer();
+
+
+        if (
+            !player?.state
+        ) {
+
+            return "Idle";
+
+        }
+
+
+        const state =
+            player.state;
+
+
+        if (
+            !state.character
+        ) {
+
+            return "Idle";
+
+        }
+
+
+        if (
+            !state.grounded
+        ) {
+
+            return (
+                state.velocity.y >
+                0
+            )
+
+                ? "Jumping"
+
+                : "Freefall";
+
+        }
+
+
+        if (
+            state.sprinting
+        ) {
+
+            return "Running";
+
+        }
+
+
+        if (
+            state.moving
+        ) {
+
+            return "Walking";
+
+        }
+
+
+        return "Idle";
+
+    }
+
+
+    // ============================================================
+    // UPDATE
+    // ============================================================
 
     function update(
         delta
     ) {
 
         const character =
-            PlayerSystem.character;
+            getCharacter();
 
-        if (!character) {
-            return;
-        }
-
-        const runtime =
-            character.userData
-                ?.runtime;
-
-        const humanoid =
-            character.userData
-                ?.humanoid;
-
-        const parts =
-            character.userData
-                ?.bodyParts;
 
         if (
-            !runtime ||
-            !parts
-        ) {
-            return;
-        }
-
-        delta =
-            Math.max(
-                0,
-                Math.min(
-                    delta || 0,
-                    0.1
-                )
-            );
-
-        time += delta;
-
-        /*
-         * --------------------------------------------------------
-         * INPUT
-         * --------------------------------------------------------
-         */
-
-        const input =
-            runtime.input ||
-            {};
-
-        const moving =
-            input.moving === true;
-
-        const sprinting =
-            input.sprint === true;
-
-        /*
-         * --------------------------------------------------------
-         * VELOCITY
-         * --------------------------------------------------------
-         */
-
-        const velocity =
-            runtime.velocity ||
-            {};
-
-        const velocityY =
-            Number(
-                velocity.y || 0
-            );
-
-        /*
-         * --------------------------------------------------------
-         * STATE
-         * --------------------------------------------------------
-         */
-
-        let state =
-            "Idle";
-
-        if (
-            runtime.grounded !== true
+            !character
         ) {
 
-            if (
-                velocityY > 1
-            ) {
+            AnimationSystem.active =
+                false;
 
-                state =
-                    "Jumping";
-
-            } else {
-
-                state =
-                    "Freefall";
-
-            }
-
-        } else if (
-            moving
-        ) {
-
-            state =
-                sprinting
-                    ? "Running"
-                    : "Walking";
-
-        }
-
-        if (humanoid) {
-
-            humanoid.state =
-                state;
-
-        }
-
-        /*
-         * --------------------------------------------------------
-         * JOINTS
-         * --------------------------------------------------------
-         */
-
-        const leftArm =
-            findPart(
-                character,
-                "LeftUpperArm"
-            ) ||
-            parts.leftUpperArm;
-
-        const rightArm =
-            findPart(
-                character,
-                "RightUpperArm"
-            ) ||
-            parts.rightUpperArm;
-
-        const leftLeg =
-            findPart(
-                character,
-                "LeftUpperLeg"
-            ) ||
-            parts.leftUpperLeg;
-
-        const rightLeg =
-            findPart(
-                character,
-                "RightUpperLeg"
-            ) ||
-            parts.rightUpperLeg;
-
-        const upperTorso =
-            findPart(
-                character,
-                "UpperTorso"
-            ) ||
-            parts.upperTorso;
-
-        const neck =
-            findPart(
-                character,
-                "Neck"
-            );
-
-        /*
-         * --------------------------------------------------------
-         * RESET
-         * --------------------------------------------------------
-         */
-
-        resetPart(
-            leftArm
-        );
-
-        resetPart(
-            rightArm
-        );
-
-        resetPart(
-            leftLeg
-        );
-
-        resetPart(
-            rightLeg
-        );
-
-        resetPart(
-            upperTorso
-        );
-
-        resetPart(
-            neck
-        );
-
-        /*
-         * --------------------------------------------------------
-         * IDLE
-         * --------------------------------------------------------
-         *
-         * Very small breathing movement.
-         */
-
-        if (
-            state === "Idle"
-        ) {
-
-            const breathing =
-                Math.sin(
-                    time * 2.0
-                ) *
-                0.018;
-
-            const armSway =
-                Math.sin(
-                    time * 1.7
-                ) *
-                0.012;
-
-            if (
-                upperTorso
-            ) {
-
-                upperTorso.rotation.x =
-                    breathing;
-
-            }
-
-            if (
-                leftArm
-            ) {
-
-                leftArm.rotation.z =
-                    0.025 +
-                    armSway;
-
-            }
-
-            if (
-                rightArm
-            ) {
-
-                rightArm.rotation.z =
-                    -0.025 -
-                    armSway;
-
-            }
-
-            previousState =
-                state;
+            AnimationSystem.character =
+                null;
 
             return;
+
         }
 
-        /*
-         * --------------------------------------------------------
-         * WALK / RUN
-         * --------------------------------------------------------
-         */
+
+        AnimationSystem.active =
+            true;
+
+
+        AnimationSystem.character =
+            character;
+
+
+        AnimationSystem.time +=
+            delta;
+
+
+        const nextState =
+            determineState();
+
 
         if (
-            state === "Walking" ||
-            state === "Running"
+            nextState !==
+            AnimationSystem.state
         ) {
 
-            const animationSpeed =
-                state === "Running"
-                    ? 11
-                    : 8.5;
+            AnimationSystem.state =
+                nextState;
 
-            const amount =
-                state === "Running"
-                    ? 0.72
-                    : 0.48;
+        }
 
-            const wave =
-                Math.sin(
-                    time *
-                    animationSpeed
+
+        switch (
+            AnimationSystem.state
+        ) {
+
+            case "Walking":
+
+                walkPose(
+                    character,
+                    delta
                 );
 
-            const oppositeWave =
-                Math.sin(
-                    time *
-                    animationSpeed +
-                    Math.PI
+                break;
+
+
+            case "Running":
+
+                runPose(
+                    character,
+                    delta
                 );
 
-            /*
-             * Arms.
-             */
+                break;
 
-            if (
-                leftArm
-            ) {
 
-                leftArm.rotation.x =
-                    wave *
-                    amount;
+            case "Jumping":
 
-            }
+                jumpPose(
+                    character,
+                    delta
+                );
 
-            if (
-                rightArm
-            ) {
+                break;
 
-                rightArm.rotation.x =
-                    oppositeWave *
-                    amount;
 
-            }
+            case "Freefall":
 
-            /*
-             * Legs.
-             */
+                freefallPose(
+                    character,
+                    delta
+                );
 
-            if (
-                leftLeg
-            ) {
+                break;
 
-                leftLeg.rotation.x =
-                    oppositeWave *
-                    amount;
 
-            }
+            case "Landing":
 
-            if (
-                rightLeg
-            ) {
+                landingPose(
+                    character,
+                    delta
+                );
 
-                rightLeg.rotation.x =
-                    wave *
-                    amount;
+                break;
 
-            }
 
-            /*
-             * Small torso movement.
-             */
+            case "Idle":
 
-            if (
-                upperTorso
-            ) {
+            default:
 
-                upperTorso.rotation.y =
-                    wave *
-                    0.025;
+                idlePose(
+                    character,
+                    delta
+                );
 
-                upperTorso.rotation.x =
-                    Math.abs(
-                        wave
-                    ) *
-                    0.018;
+                break;
 
-            }
-
-            /*
-             * Running has a slightly stronger
-             * body bounce.
-             */
-
-            if (
-                state === "Running" &&
-                upperTorso
-            ) {
-
-                upperTorso.position.y =
-                    Math.abs(
-                        Math.sin(
-                            time * 11
-                        )
-                    ) *
-                    0.035;
-
-            }
-
-            previousState =
-                state;
-
-            return;
         }
 
-        /*
-         * --------------------------------------------------------
-         * JUMP
-         * --------------------------------------------------------
-         */
 
-        if (
-            state === "Jumping"
-        ) {
-
-            if (
-                leftArm
-            ) {
-
-                leftArm.rotation.x =
-                    -0.85;
-
-                leftArm.rotation.z =
-                    0.04;
-
-            }
-
-            if (
-                rightArm
-            ) {
-
-                rightArm.rotation.x =
-                    -0.85;
-
-                rightArm.rotation.z =
-                    -0.04;
-
-            }
-
-            if (
-                leftLeg
-            ) {
-
-                leftLeg.rotation.x =
-                    0.18;
-
-            }
-
-            if (
-                rightLeg
-            ) {
-
-                rightLeg.rotation.x =
-                    0.18;
-
-            }
-
-            if (
-                upperTorso
-            ) {
-
-                upperTorso.rotation.x =
-                    -0.035;
-
-            }
-
-            previousState =
-                state;
-
-            return;
-        }
-
-        /*
-         * --------------------------------------------------------
-         * FREEFALL
-         * --------------------------------------------------------
-         */
-
-        if (
-            state === "Freefall"
-        ) {
-
-            if (
-                leftArm
-            ) {
-
-                leftArm.rotation.x =
-                    -0.38;
-
-                leftArm.rotation.z =
-                    0.06;
-
-            }
-
-            if (
-                rightArm
-            ) {
-
-                rightArm.rotation.x =
-                    -0.38;
-
-                rightArm.rotation.z =
-                    -0.06;
-
-            }
-
-            if (
-                leftLeg
-            ) {
-
-                leftLeg.rotation.x =
-                    -0.15;
-
-            }
-
-            if (
-                rightLeg
-            ) {
-
-                rightLeg.rotation.x =
-                    -0.15;
-
-            }
-
-            if (
-                upperTorso
-            ) {
-
-                upperTorso.rotation.x =
-                    -0.05;
-
-            }
-
-            previousState =
-                state;
-
-            return;
-        }
-
-        previousState =
-            state;
+        AnimationSystem.previousGrounded =
+            !!state?.grounded;
 
     }
 
-    /*
-     * ============================================================
-     * STATE
-     * ============================================================
-     */
 
-    function getState(
-        character
-    ) {
+    // ============================================================
+    // START
+    // ============================================================
 
-        return (
-            character
-                ?.userData
-                ?.humanoid
-                ?.state ||
-            "Idle"
-        );
+    function start() {
 
-    }
+        AnimationSystem.active =
+            true;
 
-    /*
-     * ============================================================
-     * RESET
-     * ============================================================
-     */
+        AnimationSystem.time =
+            0;
 
-    function reset(
-        character
-    ) {
-
-        if (!character) {
-            return;
-        }
-
-        const parts =
-            character.userData
-                ?.bodyParts;
-
-        if (!parts) {
-            return;
-        }
-
-        Object.values(parts)
-            .forEach(
-                part => {
-
-                    if (
-                        part &&
-                        part.isObject3D
-                    ) {
-
-                        part.rotation.set(
-                            0,
-                            0,
-                            0
-                        );
-
-                    }
-
-                }
-            );
-
-        time = 0;
-
-        previousState =
+        AnimationSystem.state =
             "Idle";
 
     }
 
-    /*
-     * ============================================================
-     * PUBLIC API
-     * ============================================================
-     */
 
-    Animations.setup =
-        setup;
+    // ============================================================
+    // STOP
+    // ============================================================
 
-    Animations.update =
-        update;
+    function stop() {
 
-    Animations.reset =
-        reset;
+        AnimationSystem.active =
+            false;
 
-    Animations.getState =
-        getState;
 
-    Animations.getPreviousState =
-        () => previousState;
+        if (
+            AnimationSystem.character
+        ) {
 
-    Animations.getTime =
-        () => time;
+            resetPose(
+                AnimationSystem.character
+            );
 
-    PlayerSystem.animations =
-        Animations;
+        }
+
+    }
+
+
+    // ============================================================
+    // FORCE STATE
+    // ============================================================
+
+    function play(
+        animationName
+    ) {
+
+        const valid = [
+
+            "Idle",
+
+            "Walking",
+
+            "Running",
+
+            "Jumping",
+
+            "Freefall",
+
+            "Landing"
+
+        ];
+
+
+        if (
+            !valid.includes(
+                animationName
+            )
+        ) {
+
+            return false;
+
+        }
+
+
+        AnimationSystem.state =
+            animationName;
+
+
+        AnimationSystem.time =
+            0;
+
+
+        return true;
+
+    }
+
+
+    // ============================================================
+    // SPEED
+    // ============================================================
+
+    function setSpeed(
+        multiplier
+    ) {
+
+        AnimationSystem.speedMultiplier =
+            clamp(
+                Number(
+                    multiplier
+                ) || 1,
+                0.1,
+                3
+            );
+
+    }
+
+
+    // ============================================================
+    // PUBLIC API
+    // ============================================================
+
+    window.WebBloxAnimations =
+        {
+
+            version:
+                AnimationSystem.version,
+
+            state:
+                AnimationSystem,
+
+            start,
+
+            stop,
+
+            update,
+
+            play,
+
+            setSpeed,
+
+            resetPose() {
+
+                resetPose(
+                    getCharacter()
+                );
+
+            }
+
+        };
+
+
+    // ============================================================
+    // INTERNAL LOOP
+    // ============================================================
+    //
+    // player.js already owns the main render loop. This file does
+    // not create another requestAnimationFrame loop because two
+    // independent loops cause animation jitter and duplicated work.
+    //
+    // player.js can call WebBloxAnimations.update(delta).
+    // ============================================================
+
+    console.log(
+        "[WebBlox Animations] R6 animation system loaded."
+    );
 
 })();
