@@ -1,1747 +1,2119 @@
-/*
- * ============================================================
- * WebBlox Player
- * Stage 3C
- *
- * Classic Roblox-inspired player UI
- * ============================================================
- */
+/* ============================================================
+   WebBlox Player
+   Player/player.css
+   Part 9 replacement
+   ============================================================ */
 
 :root {
+    --webblox-bg: #111318;
+    --webblox-panel: #1b1e24;
+    --webblox-panel-2: #242830;
+    --webblox-panel-3: #2d323c;
+    --webblox-border: rgba(255, 255, 255, 0.10);
+    --webblox-border-strong: rgba(255, 255, 255, 0.18);
 
-    --wb-player-bg:
-        rgba(18, 18, 21, 0.94);
+    --webblox-text: #ffffff;
+    --webblox-text-soft: #c8ccd3;
+    --webblox-text-muted: #8c929d;
 
-    --wb-player-panel:
-        rgba(28, 28, 32, 0.94);
+    --webblox-accent: #00a2ff;
+    --webblox-accent-hover: #20afff;
+    --webblox-accent-active: #0089d7;
 
-    --wb-player-panel-light:
-        rgba(40, 40, 45, 0.96);
+    --webblox-danger: #e74c3c;
+    --webblox-warning: #f5a623;
+    --webblox-success: #35c759;
 
-    --wb-player-border:
-        rgba(255, 255, 255, 0.13);
+    --webblox-radius-sm: 6px;
+    --webblox-radius-md: 10px;
+    --webblox-radius-lg: 14px;
 
-    --wb-player-border-light:
-        rgba(255, 255, 255, 0.22);
+    --webblox-shadow: 0 10px 30px rgba(0, 0, 0, 0.30);
+    --webblox-shadow-heavy: 0 20px 60px rgba(0, 0, 0, 0.50);
 
-    --wb-player-text:
-        #ffffff;
-
-    --wb-player-muted:
-        #b8b8bd;
-
-    --wb-player-blue:
-        #2196f3;
-
-    --wb-player-blue-hover:
-        #42a5f5;
-
-    --wb-player-green:
-        #45c44a;
-
-    --wb-player-red:
-        #ef5350;
-
-    --wb-player-shadow:
-        0 12px 35px rgba(0, 0, 0, 0.38);
-
-    --wb-player-radius:
-        10px;
-
-    --wb-player-font:
+    --webblox-font:
         Arial,
         Helvetica,
         sans-serif;
+
+    --webblox-mono:
+        Consolas,
+        "Courier New",
+        monospace;
 }
 
+/* ============================================================
+   RESET
+   ============================================================ */
 
-/*
- * ============================================================
- * RESET
- * ============================================================
- */
-
-#webblox-player,
-#webblox-player * {
-
-    box-sizing:
-        border-box;
-
-    font-family:
-        var(--wb-player-font);
+* {
+    box-sizing: border-box;
 }
 
-
-/*
- * ============================================================
- * PLAYER ROOT
- * ============================================================
- */
-
-#webblox-player {
-
-    position:
-        fixed;
-
-    inset:
-        0;
-
-    width:
-        100%;
-
-    height:
-        100%;
-
-    overflow:
-        hidden;
-
-    pointer-events:
-        none;
-
-    z-index:
-        1000;
-
-    color:
-        var(--wb-player-text);
-
-    user-select:
-        none;
-
-    -webkit-user-select:
-        none;
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--webblox-bg);
+    color: var(--webblox-text);
+    font-family: var(--webblox-font);
 }
 
-
-/*
- * ============================================================
- * VIEWPORT
- * ============================================================
- */
-
-#webblox-player canvas,
-.webblox-player-canvas,
-#viewport canvas {
-
-    position:
-        absolute;
-
-    inset:
-        0;
-
-    display:
-        block;
-
-    width:
-        100%;
-
-    height:
-        100%;
-
-    outline:
-        none;
-
-    border:
-        0;
+body {
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
 }
 
-
-/*
- * ============================================================
- * TOP LEFT MENU
- * ============================================================
- */
-
-.wb-player-top-left {
-
-    position:
-        absolute;
-
-    top:
-        14px;
-
-    left:
-        14px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        8px;
-
-    pointer-events:
-        auto;
-
-    z-index:
-        20;
+button,
+input,
+select,
+textarea {
+    font: inherit;
 }
 
+button {
+    border: 0;
+    outline: none;
+}
+
+img,
+canvas {
+    display: block;
+}
+
+/* ============================================================
+   PLAYER ROOT
+   ============================================================ */
+
+#player-root,
+#player,
+.webblox-player,
+.game-player,
+.player-container {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+}
+
+#player-root {
+    isolation: isolate;
+}
+
+/* ============================================================
+   WEBGL / GAME CANVAS
+   ============================================================ */
+
+canvas#gameCanvas,
+canvas#playerCanvas,
+#game-canvas,
+#player-canvas,
+.webblox-player canvas {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 1px;
+    min-height: 1px;
+    outline: none;
+    border: 0;
+    background: #000;
+    touch-action: none;
+}
 
 /*
- * ============================================================
- * ROBLOX-STYLE ROUND BUTTON
- * ============================================================
- */
+   Three.js may create its canvas dynamically.
+   This prevents accidental sizing issues.
+*/
 
-.wb-round-button {
+canvas {
+    max-width: none;
+    max-height: none;
+}
 
-    width:
-        46px;
+/* ============================================================
+   GAME HUD
+   ============================================================ */
 
-    height:
-        46px;
+#game-ui,
+#game-hud,
+.game-hud,
+.player-hud,
+.webblox-hud {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+}
 
-    display:
-        flex;
+#game-ui > *,
+#game-hud > *,
+.game-hud > *,
+.player-hud > *,
+.webblox-hud > * {
+    pointer-events: auto;
+}
 
-    align-items:
-        center;
+/* ============================================================
+   TOP BAR
+   ============================================================ */
 
-    justify-content:
-        center;
+#top-bar,
+.top-bar,
+.player-topbar,
+.webblox-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
 
-    border:
-        1px solid
-        var(--wb-player-border);
+    min-height: 52px;
 
-    border-radius:
-        50%;
+    display: flex;
+    align-items: center;
+
+    padding: 8px 12px;
+
+    pointer-events: none;
 
     background:
-        rgba(18, 18, 20, 0.9);
+        linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.48),
+            rgba(0, 0, 0, 0.16),
+            transparent
+        );
 
-    color:
-        #ffffff;
+    z-index: 70;
+}
 
-    cursor:
-        pointer;
+#top-bar > *,
+.top-bar > *,
+.player-topbar > *,
+.webblox-topbar > * {
+    pointer-events: auto;
+}
+
+/* ============================================================
+   GAME TITLE
+   ============================================================ */
+
+#game-title,
+.game-title,
+.player-game-title {
+    max-width: min(45vw, 520px);
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: #fff;
+
+    font-size: 18px;
+    font-weight: 700;
+
+    line-height: 1.2;
+
+    text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.55),
+        0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================
+   HUD BUTTONS
+   ============================================================ */
+
+.hud-button,
+.player-hud-button,
+#settings-button,
+#menu-button,
+#leave-button,
+#reset-character-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width: 40px;
+    min-height: 40px;
+
+    padding: 0 12px;
+
+    border-radius: 8px;
+
+    color: #fff;
+    background: rgba(18, 20, 24, 0.72);
+
+    border: 1px solid rgba(255, 255, 255, 0.11);
 
     box-shadow:
-        var(--wb-player-shadow);
+        0 3px 10px rgba(0, 0, 0, 0.20),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    cursor: pointer;
+
+    transition:
+        background 0.14s ease,
+        border-color 0.14s ease,
+        transform 0.08s ease;
+}
+
+.hud-button:hover,
+.player-hud-button:hover,
+#settings-button:hover,
+#menu-button:hover,
+#leave-button:hover,
+#reset-character-button:hover {
+    background: rgba(35, 39, 46, 0.86);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.hud-button:active,
+.player-hud-button:active,
+#settings-button:active,
+#menu-button:active,
+#leave-button:active,
+#reset-character-button:active {
+    transform: translateY(1px);
+}
+
+/* ============================================================
+   CROSSHAIR
+   ============================================================ */
+
+#crosshair,
+.crosshair,
+.player-crosshair {
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    width: 22px;
+    height: 22px;
+
+    transform: translate(-50%, -50%);
+
+    pointer-events: none;
+
+    z-index: 60;
+}
+
+#crosshair::before,
+#crosshair::after,
+.crosshair::before,
+.crosshair::after,
+.player-crosshair::before,
+.player-crosshair::after {
+    content: "";
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    background: rgba(255, 255, 255, 0.90);
+
+    border-radius: 1px;
+
+    transform: translate(-50%, -50%);
+}
+
+#crosshair::before,
+.crosshair::before,
+.player-crosshair::before {
+    width: 2px;
+    height: 14px;
+}
+
+#crosshair::after,
+.crosshair::after,
+.player-crosshair::after {
+    width: 14px;
+    height: 2px;
+}
+
+/* ============================================================
+   MOBILE TOUCH CONTROLS
+   ============================================================ */
+
+#touch-controls,
+.touch-controls,
+.mobile-controls,
+.player-touch-controls {
+    position: absolute;
+    inset: 0;
+
+    z-index: 80;
+
+    pointer-events: none;
+}
+
+#touch-controls > *,
+.touch-controls > *,
+.mobile-controls > *,
+.player-touch-controls > * {
+    pointer-events: auto;
+}
+
+/* Virtual joystick */
+
+#joystick,
+.virtual-joystick,
+.touch-joystick,
+#mobile-joystick {
+    position: absolute;
+
+    left: max(20px, env(safe-area-inset-left));
+    bottom: max(22px, env(safe-area-inset-bottom));
+
+    width: 136px;
+    height: 136px;
+
+    border-radius: 50%;
+
+    background: rgba(15, 18, 22, 0.34);
+
+    border: 2px solid rgba(255, 255, 255, 0.16);
+
+    box-shadow:
+        inset 0 0 25px rgba(0, 0, 0, 0.16),
+        0 8px 25px rgba(0, 0, 0, 0.18);
+
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+
+    touch-action: none;
+}
+
+#joystick-thumb,
+.joystick-thumb,
+.touch-joystick-thumb,
+#mobile-joystick-thumb {
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    width: 58px;
+    height: 58px;
+
+    border-radius: 50%;
+
+    transform: translate(-50%, -50%);
+
+    background: rgba(255, 255, 255, 0.34);
+
+    border: 2px solid rgba(255, 255, 255, 0.22);
+
+    box-shadow:
+        0 5px 18px rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.20);
+}
+
+#touch-buttons,
+.touch-buttons,
+.mobile-action-buttons {
+    position: absolute;
+
+    right: max(20px, env(safe-area-inset-right));
+    bottom: max(22px, env(safe-area-inset-bottom));
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+
+    gap: 10px;
+}
+
+.touch-button,
+.mobile-action-button {
+    width: 62px;
+    height: 62px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    color: #fff;
+
+    background: rgba(16, 18, 22, 0.48);
+
+    border: 2px solid rgba(255, 255, 255, 0.15);
+
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+
+    box-shadow:
+        0 7px 18px rgba(0, 0, 0, 0.20),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+    touch-action: manipulation;
+}
+
+.touch-button:active,
+.mobile-action-button:active {
+    transform: scale(0.94);
+    background: rgba(255, 255, 255, 0.20);
+}
+
+#jump-button,
+.jump-button,
+.touch-jump {
+    width: 76px;
+    height: 76px;
+    font-weight: 700;
+}
+
+/* ============================================================
+   MOBILE CAMERA PAD
+   ============================================================ */
+
+#camera-touch-zone,
+.camera-touch-zone,
+.touch-camera-zone {
+    position: absolute;
+
+    top: 0;
+    right: 0;
+
+    width: 58%;
+    height: 72%;
+
+    pointer-events: auto;
+    touch-action: none;
+}
+
+/* ============================================================
+   CHAT
+   ============================================================ */
+
+#chat,
+#chat-ui,
+.chat-container,
+.player-chat {
+    position: absolute;
+
+    left: 14px;
+    bottom: 14px;
+
+    width: min(370px, calc(100vw - 28px));
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 8px;
+
+    z-index: 75;
+}
+
+#chat-messages,
+.chat-messages,
+.player-chat-messages {
+    display: flex;
+    flex-direction: column;
+
+    gap: 5px;
+
+    max-height: 240px;
+
+    overflow-y: auto;
+
+    scrollbar-width: thin;
+}
+
+.chat-message,
+.chat-line,
+.player-chat-message {
+    width: fit-content;
+    max-width: 100%;
+
+    padding: 7px 10px;
+
+    border-radius: 7px;
+
+    color: #fff;
+
+    background: rgba(10, 12, 15, 0.58);
+
+    border: 1px solid rgba(255, 255, 255, 0.08);
+
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
+
+    font-size: 13px;
+
+    line-height: 1.35;
+
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+#chat-input,
+.chat-input,
+.player-chat-input {
+    width: 100%;
+
+    height: 40px;
+
+    padding: 0 12px;
+
+    border-radius: 8px;
+
+    color: #fff;
+
+    background: rgba(14, 16, 20, 0.80);
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    outline: none;
+
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
+
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+#chat-input::placeholder,
+.chat-input::placeholder,
+.player-chat-input::placeholder {
+    color: #8e949e;
+}
+
+#chat-input:focus,
+.chat-input:focus,
+.player-chat-input:focus {
+    border-color: rgba(0, 162, 255, 0.65);
+}
+
+/* ============================================================
+   PLAYER LIST
+   ============================================================ */
+
+#player-list,
+.player-list,
+.players-panel,
+.leaderboard {
+    position: absolute;
+
+    top: 64px;
+    right: 14px;
+
+    width: min(290px, calc(100vw - 28px));
+
+    padding: 10px;
+
+    border-radius: var(--webblox-radius-md);
+
+    background: rgba(17, 19, 24, 0.82);
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    box-shadow: var(--webblox-shadow);
+
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    z-index: 73;
+}
+
+.player-list-header,
+.players-panel-header,
+.leaderboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 7px 8px 10px;
+
+    color: #fff;
+
+    font-weight: 700;
+    font-size: 14px;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.player-row,
+.leaderboard-row {
+    display: grid;
+
+    grid-template-columns: minmax(0, 1fr) auto;
+
+    gap: 8px;
+
+    padding: 7px 8px;
+
+    border-radius: 6px;
+
+    color: #d7dbe1;
+
+    font-size: 13px;
+}
+
+.player-row:hover,
+.leaderboard-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.player-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.player-stat {
+    color: #9ba1aa;
+}
+
+/* ============================================================
+   SETTINGS OVERLAY
+   ============================================================ */
+
+#settings-overlay,
+.settings-overlay,
+#settings-menu,
+.player-settings-overlay {
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    z-index: 200;
+
+    background: rgba(0, 0, 0, 0.48);
+
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.settings-window,
+#settings-panel,
+.player-settings-panel {
+    width: min(560px, calc(100vw - 32px));
+    max-height: min(760px, calc(100vh - 32px));
+
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+
+    border-radius: 14px;
+
+    background: #191c21;
+
+    border: 1px solid rgba(255, 255, 255, 0.11);
+
+    box-shadow: var(--webblox-shadow-heavy);
+}
+
+.settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    min-height: 58px;
+
+    padding: 0 18px;
+
+    background: #20242a;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-title {
+    margin: 0;
+
+    color: #fff;
+
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.settings-close,
+#settings-close {
+    width: 36px;
+    height: 36px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 7px;
+
+    background: transparent;
+    color: #bfc4cc;
+
+    cursor: pointer;
+}
+
+.settings-close:hover,
+#settings-close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.settings-body {
+    padding: 16px 18px 20px;
+
+    overflow-y: auto;
+
+    scrollbar-width: thin;
+}
+
+.settings-section {
+    margin-bottom: 22px;
+}
+
+.settings-section:last-child {
+    margin-bottom: 0;
+}
+
+.settings-section-title {
+    margin-bottom: 10px;
+
+    color: #fff;
+
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.settings-row {
+    min-height: 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 18px;
+
+    padding: 9px 0;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settings-row:last-child {
+    border-bottom: 0;
+}
+
+.settings-label {
+    min-width: 0;
+
+    color: #d8dce2;
+
+    font-size: 14px;
+}
+
+.settings-description {
+    margin-top: 2px;
+
+    color: #8c929b;
+
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.settings-control {
+    flex: 0 0 auto;
+}
+
+/* ============================================================
+   RANGE INPUTS
+   ============================================================ */
+
+input[type="range"] {
+    width: 170px;
+
+    accent-color: var(--webblox-accent);
+
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+
+    border-radius: 4px;
+
+    background: #3a4048;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+
+    width: 16px;
+    height: 16px;
+
+    margin-top: -6px;
+
+    border-radius: 50%;
+
+    background: var(--webblox-accent);
+
+    border: 0;
+}
+
+input[type="range"]::-moz-range-track {
+    height: 4px;
+
+    border-radius: 4px;
+
+    background: #3a4048;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+
+    border: 0;
+    border-radius: 50%;
+
+    background: var(--webblox-accent);
+
+    cursor: pointer;
+}
+
+/* ============================================================
+   SELECTS / TEXT INPUTS
+   ============================================================ */
+
+.settings-select,
+.settings-input,
+.settings-text-input,
+select.settings-control,
+input.settings-control {
+    min-width: 150px;
+
+    height: 38px;
+
+    padding: 0 10px;
+
+    border-radius: 7px;
+
+    color: #fff;
+
+    background: #292e36;
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    outline: none;
+}
+
+.settings-select:focus,
+.settings-input:focus,
+.settings-text-input:focus {
+    border-color: rgba(0, 162, 255, 0.65);
+}
+
+/* ============================================================
+   TOGGLE
+   ============================================================ */
+
+.settings-toggle {
+    position: relative;
+
+    width: 46px;
+    height: 26px;
+
+    flex: 0 0 auto;
+}
+
+.settings-toggle input {
+    position: absolute;
+
+    opacity: 0;
+    pointer-events: none;
+}
+
+.settings-toggle-track {
+    position: absolute;
+    inset: 0;
+
+    border-radius: 999px;
+
+    background: #3a3f47;
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    cursor: pointer;
 
     transition:
         background 0.15s ease,
-        transform 0.15s ease,
         border-color 0.15s ease;
 }
 
-.wb-round-button:hover {
+.settings-toggle-track::after {
+    content: "";
+
+    position: absolute;
+
+    left: 3px;
+    top: 3px;
+
+    width: 18px;
+    height: 18px;
+
+    border-radius: 50%;
+
+    background: #fff;
+
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.20);
+
+    transition: transform 0.15s ease;
+}
+
+.settings-toggle input:checked + .settings-toggle-track {
+    background: var(--webblox-accent);
+    border-color: var(--webblox-accent);
+}
+
+.settings-toggle input:checked + .settings-toggle-track::after {
+    transform: translateX(20px);
+}
+
+/* ============================================================
+   SETTINGS BUTTONS
+   ============================================================ */
+
+.settings-button {
+    min-height: 38px;
+
+    padding: 0 14px;
+
+    border-radius: 7px;
+
+    background: #2d333c;
+
+    color: #fff;
+
+    border: 1px solid rgba(255, 255, 255, 0.09);
+
+    cursor: pointer;
+}
+
+.settings-button:hover {
+    background: #383f49;
+}
+
+.settings-button.primary {
+    background: var(--webblox-accent);
+}
+
+.settings-button.primary:hover {
+    background: var(--webblox-accent-hover);
+}
+
+.settings-button.danger {
+    background: #512a2a;
+}
+
+.settings-button.danger:hover {
+    background: #663333;
+}
+
+/* ============================================================
+   HOTKEY DISPLAY
+   ============================================================ */
+
+.hotkey-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.hotkey-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    min-height: 42px;
+
+    padding: 8px 10px;
+
+    border-radius: 7px;
+
+    background: #22262d;
+
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hotkey-name {
+    color: #d9dde3;
+    font-size: 13px;
+}
+
+.hotkey-key {
+    min-width: 50px;
+
+    padding: 4px 8px;
+
+    text-align: center;
+
+    border-radius: 6px;
+
+    color: #fff;
+
+    background: #303640;
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    font-family: var(--webblox-mono);
+    font-size: 12px;
+}
+
+/* ============================================================
+   PAUSE / ESCAPE MENU
+   ============================================================ */
+
+#pause-menu,
+.pause-menu,
+.player-pause-menu {
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    z-index: 210;
+
+    background: rgba(0, 0, 0, 0.55);
+
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.pause-panel {
+    width: min(430px, calc(100vw - 32px));
+
+    padding: 26px;
+
+    border-radius: 14px;
+
+    background: #1b1f25;
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    box-shadow: var(--webblox-shadow-heavy);
+
+    text-align: center;
+}
+
+.pause-title {
+    margin: 0 0 8px;
+
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.pause-description {
+    margin: 0 0 22px;
+
+    color: #9ca2ac;
+
+    font-size: 14px;
+}
+
+.pause-actions {
+    display: flex;
+    flex-direction: column;
+
+    gap: 9px;
+}
+
+.pause-action {
+    width: 100%;
+    min-height: 44px;
+
+    border-radius: 8px;
+
+    color: #fff;
+
+    background: #2b3139;
+
+    border: 1px solid rgba(255, 255, 255, 0.08);
+
+    cursor: pointer;
+}
+
+.pause-action:hover {
+    background: #363d47;
+}
+
+.pause-action.primary {
+    background: var(--webblox-accent);
+}
+
+.pause-action.primary:hover {
+    background: var(--webblox-accent-hover);
+}
+
+.pause-action.danger {
+    background: #4a2929;
+}
+
+.pause-action.danger:hover {
+    background: #603232;
+}
+
+/* ============================================================
+   LOADING SCREEN
+   ============================================================ */
+
+#loading-screen,
+.loading-screen,
+.player-loading-screen,
+#player-loading {
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    z-index: 500;
 
     background:
-        rgba(40, 40, 44, 0.96);
-
-    border-color:
-        var(--wb-player-border-light);
-
-    transform:
-        translateY(-1px);
-}
-
-.wb-round-button:active {
-
-    transform:
-        translateY(0);
-}
-
-
-/*
- * ============================================================
- * MENU BUTTON
- * ============================================================
- */
-
-.wb-menu-button {
-
-    width:
-        48px;
-
-    height:
-        46px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    gap:
-        4px;
-
-    border:
-        1px solid
-        var(--wb-player-border);
-
-    border-radius:
-        10px;
-
-    background:
-        rgba(18, 18, 20, 0.9);
-
-    color:
-        #ffffff;
-
-    cursor:
-        pointer;
-
-    box-shadow:
-        var(--wb-player-shadow);
-
-    transition:
-        background 0.15s ease,
-        border-color 0.15s ease;
-}
-
-.wb-menu-button:hover {
-
-    background:
-        rgba(40, 40, 44, 0.96);
-
-    border-color:
-        var(--wb-player-border-light);
-}
-
-
-/*
- * ============================================================
- * GAME TITLE
- * ============================================================
- */
-
-.wb-game-title {
-
-    min-height:
-        42px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    padding:
-        0 14px;
-
-    border:
-        1px solid
-        var(--wb-player-border);
-
-    border-radius:
-        9px;
-
-    background:
-        rgba(18, 18, 20, 0.9);
-
-    color:
-        #ffffff;
-
-    font-size:
-        14px;
-
-    font-weight:
-        700;
-
-    box-shadow:
-        var(--wb-player-shadow);
-}
-
-
-/*
- * ============================================================
- * TOP RIGHT
- * ============================================================
- */
-
-.wb-player-top-right {
-
-    position:
-        absolute;
-
-    top:
-        14px;
-
-    right:
-        14px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        8px;
-
-    pointer-events:
-        auto;
-
-    z-index:
-        20;
-}
-
-
-/*
- * ============================================================
- * LEADERBOARD
- * ============================================================
- */
-
-.wb-leaderboard {
-
-    width:
-        260px;
-
-    max-width:
-        calc(100vw - 28px);
-
-    overflow:
-        hidden;
-
-    border:
-        1px solid
-        var(--wb-player-border);
-
-    border-radius:
-        var(--wb-player-radius);
-
-    background:
-        rgba(18, 18, 21, 0.93);
-
-    box-shadow:
-        var(--wb-player-shadow);
-
-    backdrop-filter:
-        blur(8px);
-
-    -webkit-backdrop-filter:
-        blur(8px);
-
-    pointer-events:
-        auto;
-}
-
-
-/*
- * ============================================================
- * LEADERBOARD HEADER
- * ============================================================
- */
-
-.wb-leaderboard-header {
-
-    min-height:
-        42px;
-
-    display:
-        grid;
-
-    grid-template-columns:
-        1fr 70px;
-
-    align-items:
-        center;
-
-    padding:
-        0 13px;
-
-    border-bottom:
-        1px solid
-        var(--wb-player-border);
-
-    color:
-        var(--wb-player-muted);
-
-    font-size:
-        12px;
-
-    font-weight:
-        800;
-
-    text-transform:
-        uppercase;
-
-    letter-spacing:
-        0.5px;
-}
-
-
-/*
- * ============================================================
- * LEADERBOARD ROW
- * ============================================================
- */
-
-.wb-leaderboard-row {
-
-    min-height:
-        38px;
-
-    display:
-        grid;
-
-    grid-template-columns:
-        1fr 70px;
-
-    align-items:
-        center;
-
-    padding:
-        0 13px;
-
-    border-bottom:
-        1px solid
-        rgba(255, 255, 255, 0.055);
-
-    color:
-        #eeeeef;
-
-    font-size:
-        13px;
-}
-
-.wb-leaderboard-row:last-child {
-
-    border-bottom:
-        0;
-}
-
-
-/*
- * Current player.
- */
-
-.wb-leaderboard-row.active {
-
-    background:
-        rgba(33, 150, 243, 0.22);
-
-    color:
-        #ffffff;
-}
-
-
-/*
- * ============================================================
- * BOTTOM LEFT HEALTH
- * ============================================================
- */
-
-.wb-health {
-
-    position:
-        absolute;
-
-    left:
-        16px;
-
-    bottom:
-        18px;
-
-    width:
-        210px;
-
-    padding:
-        10px 12px;
-
-    border:
-        1px solid
-        var(--wb-player-border);
-
-    border-radius:
-        10px;
-
-    background:
-        rgba(18, 18, 21, 0.92);
-
-    box-shadow:
-        var(--wb-player-shadow);
-
-    pointer-events:
-        auto;
-}
-
-
-/*
- * ============================================================
- * HEALTH HEADER
- * ============================================================
- */
-
-.wb-health-header {
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        space-between;
-
-    margin-bottom:
-        7px;
-
-    color:
-        #ffffff;
-
-    font-size:
-        12px;
-
-    font-weight:
-        800;
-}
-
-
-/*
- * ============================================================
- * HEALTH BAR
- * ============================================================
- */
-
-.wb-health-bar {
-
-    width:
-        100%;
-
-    height:
-        12px;
-
-    overflow:
-        hidden;
-
-    border:
-        1px solid
-        rgba(0, 0, 0, 0.45);
-
-    border-radius:
-        5px;
-
-    background:
-        #242428;
-}
-
-.wb-health-fill {
-
-    width:
-        100%;
-
-    height:
-        100%;
-
-    border-radius:
-        4px;
-
-    background:
-        var(--wb-player-green);
-
-    transition:
-        width 0.18s ease;
-}
-
-
-/*
- * ============================================================
- * HEALTH TEXT
- * ============================================================
- */
-
-.wb-health-value {
-
-    margin-top:
-        5px;
-
-    color:
-        var(--wb-player-muted);
-
-    font-size:
-        11px;
-
-    text-align:
-        right;
-}
-
-
-/*
- * ============================================================
- * HOTBAR
- * ============================================================
- */
-
-.wb-hotbar {
-
-    position:
-        absolute;
-
-    left:
-        50%;
-
-    bottom:
-        17px;
-
-    transform:
-        translateX(-50%);
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        5px;
-
-    padding:
-        6px;
-
-    border:
-        1px solid
-        var(--wb-player-border);
-
-    border-radius:
-        10px;
-
-    background:
-        rgba(18, 18, 21, 0.93);
-
-    box-shadow:
-        var(--wb-player-shadow);
-
-    pointer-events:
-        auto;
-}
-
-
-/*
- * ============================================================
- * HOTBAR SLOT
- * ============================================================
- */
-
-.wb-hotbar-slot {
-
-    position:
-        relative;
-
-    width:
-        58px;
-
-    height:
-        58px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.13);
-
-    border-radius:
-        7px;
-
-    background:
-        rgba(10, 10, 12, 0.86);
-
-    color:
-        #ffffff;
-
-    cursor:
-        pointer;
-
-    transition:
-        border-color 0.12s ease,
-        background 0.12s ease,
-        transform 0.12s ease;
-}
-
-.wb-hotbar-slot:hover {
-
-    background:
-        rgba(40, 40, 44, 0.94);
-
-    border-color:
-        rgba(255, 255, 255, 0.28);
-}
-
-.wb-hotbar-slot.active {
-
-    border:
-        2px solid
-        var(--wb-player-blue);
-
-    background:
-        rgba(33, 150, 243, 0.16);
-
-    transform:
-        translateY(-2px);
-}
-
-
-/*
- * Slot number.
- */
-
-.wb-hotbar-number {
-
-    position:
-        absolute;
-
-    top:
-        5px;
-
-    left:
-        6px;
-
-    color:
-        #bbbbc0;
-
-    font-size:
-        10px;
-
-    font-weight:
-        800;
-}
-
-
-/*
- * Item icon.
- */
-
-.wb-hotbar-icon {
-
-    width:
-        30px;
-
-    height:
-        30px;
-
-    object-fit:
-        contain;
-
-    image-rendering:
-        auto;
-}
-
-
-/*
- * ============================================================
- * CROSSHAIR
- * ============================================================
- */
-
-.wb-crosshair {
-
-    position:
-        absolute;
-
-    top:
-        50%;
-
-    left:
-        50%;
-
-    width:
-        22px;
-
-    height:
-        22px;
-
-    transform:
-        translate(
-            -50%,
-            -50%
+        radial-gradient(
+            circle at 50% 38%,
+            #232934 0%,
+            #14171d 42%,
+            #0b0d10 100%
         );
 
-    pointer-events:
-        none;
-
-    z-index:
-        15;
-}
-
-.wb-crosshair::before,
-.wb-crosshair::after {
-
-    content:
-        "";
-
-    position:
-        absolute;
-
-    top:
-        50%;
-
-    left:
-        50%;
-
-    background:
-        rgba(255, 255, 255, 0.9);
-
-    transform:
-        translate(
-            -50%,
-            -50%
-        );
-
-    border-radius:
-        1px;
-}
-
-.wb-crosshair::before {
-
-    width:
-        2px;
-
-    height:
-        18px;
-}
-
-.wb-crosshair::after {
-
-    width:
-        18px;
-
-    height:
-        2px;
-}
-
-
-/*
- * ============================================================
- * LOCK / MOUSE ICON
- * ============================================================
- */
-
-.wb-camera-lock {
-
-    position:
-        absolute;
-
-    right:
-        16px;
-
-    bottom:
-        18px;
-
-    width:
-        48px;
-
-    height:
-        48px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    border:
-        1px solid
-        var(--wb-player-border-light);
-
-    border-radius:
-        50%;
-
-    background:
-        rgba(18, 18, 21, 0.9);
-
-    color:
-        #ffffff;
-
-    cursor:
-        pointer;
-
-    box-shadow:
-        var(--wb-player-shadow);
-
-    pointer-events:
-        auto;
-
     transition:
-        background 0.15s ease,
-        transform 0.15s ease;
+        opacity 0.25s ease,
+        visibility 0.25s ease;
 }
 
-.wb-camera-lock:hover {
-
-    background:
-        rgba(40, 40, 44, 0.96);
-
-    transform:
-        scale(1.03);
+#loading-screen.hidden,
+.loading-screen.hidden,
+.player-loading-screen.hidden,
+#player-loading.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
 }
 
-.wb-camera-lock.active {
+.loading-content {
+    width: min(420px, calc(100vw - 40px));
 
-    background:
-        rgba(33, 150, 243, 0.28);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 
-    border-color:
-        var(--wb-player-blue);
+    text-align: center;
 }
 
+.loading-logo {
+    width: 74px;
+    height: 74px;
 
-/*
- * ============================================================
- * MOBILE CONTROLS
- * ============================================================
- */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-.wb-mobile-controls {
+    margin-bottom: 18px;
 
-    position:
-        absolute;
+    border-radius: 16px;
 
-    inset:
-        0;
+    background: #242a32;
 
-    pointer-events:
-        none;
-}
-
-
-/*
- * Virtual joystick.
- */
-
-.wb-joystick {
-
-    position:
-        absolute;
-
-    left:
-        24px;
-
-    bottom:
-        105px;
-
-    width:
-        112px;
-
-    height:
-        112px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    border:
-        2px solid
-        rgba(255, 255, 255, 0.18);
-
-    border-radius:
-        50%;
-
-    background:
-        rgba(0, 0, 0, 0.20);
-
-    pointer-events:
-        auto;
-
-    touch-action:
-        none;
-}
-
-.wb-joystick-knob {
-
-    width:
-        52px;
-
-    height:
-        52px;
-
-    border:
-        2px solid
-        rgba(255, 255, 255, 0.3);
-
-    border-radius:
-        50%;
-
-    background:
-        rgba(255, 255, 255, 0.14);
-}
-
-
-/*
- * Mobile jump button.
- */
-
-.wb-mobile-jump {
-
-    position:
-        absolute;
-
-    right:
-        24px;
-
-    bottom:
-        112px;
-
-    width:
-        72px;
-
-    height:
-        72px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.2);
-
-    border-radius:
-        50%;
-
-    background:
-        rgba(20, 20, 23, 0.86);
-
-    color:
-        #ffffff;
-
-    font-size:
-        13px;
-
-    font-weight:
-        800;
-
-    pointer-events:
-        auto;
-
-    touch-action:
-        manipulation;
-}
-
-
-/*
- * ============================================================
- * MENU PANEL
- * ============================================================
- */
-
-.wb-player-menu {
-
-    position:
-        absolute;
-
-    top:
-        68px;
-
-    left:
-        14px;
-
-    width:
-        280px;
-
-    max-width:
-        calc(100vw - 28px);
-
-    overflow:
-        hidden;
-
-    border:
-        1px solid
-        var(--wb-player-border);
-
-    border-radius:
-        12px;
-
-    background:
-        rgba(18, 18, 21, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.10);
 
     box-shadow:
-        var(--wb-player-shadow);
+        0 15px 35px rgba(0, 0, 0, 0.30),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
-    pointer-events:
-        auto;
-
-    backdrop-filter:
-        blur(10px);
-
-    -webkit-backdrop-filter:
-        blur(10px);
+    font-size: 28px;
+    font-weight: 800;
 }
 
+.loading-title {
+    margin-bottom: 8px;
 
-/*
- * ============================================================
- * MENU ITEM
- * ============================================================
- */
+    color: #fff;
 
-.wb-player-menu-item {
-
-    width:
-        100%;
-
-    min-height:
-        46px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        11px;
-
-    padding:
-        0 15px;
-
-    border:
-        0;
-
-    border-bottom:
-        1px solid
-        rgba(255, 255, 255, 0.06);
-
-    background:
-        transparent;
-
-    color:
-        #ffffff;
-
-    text-align:
-        left;
-
-    font-size:
-        14px;
-
-    font-weight:
-        700;
-
-    cursor:
-        pointer;
+    font-size: 22px;
+    font-weight: 700;
 }
 
-.wb-player-menu-item:last-child {
+.loading-status {
+    min-height: 20px;
 
-    border-bottom:
-        0;
+    color: #9ba1aa;
+
+    font-size: 13px;
 }
 
-.wb-player-menu-item:hover {
+.loading-progress {
+    width: 100%;
+    height: 5px;
 
-    background:
-        rgba(255, 255, 255, 0.07);
+    margin-top: 18px;
+
+    overflow: hidden;
+
+    border-radius: 999px;
+
+    background: #2a2f37;
 }
 
+.loading-progress-bar {
+    width: 0%;
+    height: 100%;
 
-/*
- * ============================================================
- * NOTIFICATIONS
- * ============================================================
- */
+    border-radius: inherit;
 
-.wb-notifications {
+    background: var(--webblox-accent);
 
-    position:
-        absolute;
-
-    top:
-        80px;
-
-    right:
-        16px;
-
-    width:
-        320px;
-
-    max-width:
-        calc(100vw - 32px);
-
-    display:
-        flex;
-
-    flex-direction:
-        column;
-
-    gap:
-        8px;
-
-    pointer-events:
-        none;
-
-    z-index:
-        50;
+    transition: width 0.2s ease;
 }
 
-.wb-notification {
+/* ============================================================
+   SPINNER
+   ============================================================ */
 
-    padding:
-        12px 14px;
+.spinner,
+.loading-spinner,
+.player-spinner {
+    width: 34px;
+    height: 34px;
 
-    border:
-        1px solid
-        var(--wb-player-border);
+    margin-bottom: 18px;
 
-    border-radius:
-        9px;
+    border-radius: 50%;
 
-    background:
-        rgba(18, 18, 21, 0.94);
+    border: 3px solid rgba(255, 255, 255, 0.14);
+    border-top-color: var(--webblox-accent);
 
-    color:
-        #ffffff;
-
-    font-size:
-        13px;
-
-    line-height:
-        1.4;
-
-    box-shadow:
-        var(--wb-player-shadow);
-
-    animation:
-        wbNotificationIn
-        0.18s ease-out;
+    animation: webblox-spin 0.85s linear infinite;
 }
 
-@keyframes wbNotificationIn {
-
+@keyframes webblox-spin {
     from {
-
-        opacity:
-            0;
-
-        transform:
-            translateY(
-                -6px
-            );
-
+        transform: rotate(0deg);
     }
 
     to {
-
-        opacity:
-            1;
-
-        transform:
-            translateY(
-                0
-            );
-
+        transform: rotate(360deg);
     }
 }
 
+/* ============================================================
+   ERROR PANEL
+   ============================================================ */
+
+#error-screen,
+.error-screen,
+.player-error-screen {
+    position: absolute;
+    inset: 0;
+
+    display: none;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    z-index: 520;
+
+    background: rgba(8, 10, 12, 0.92);
+}
+
+#error-screen.visible,
+.error-screen.visible,
+.player-error-screen.visible {
+    display: flex;
+}
+
+.error-panel {
+    width: min(560px, 100%);
+
+    padding: 24px;
+
+    border-radius: 12px;
+
+    background: #1d2026;
+
+    border: 1px solid rgba(231, 76, 60, 0.38);
+
+    box-shadow: var(--webblox-shadow-heavy);
+}
+
+.error-title {
+    margin: 0 0 8px;
+
+    color: #fff;
+
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.error-message {
+    margin: 0;
+
+    color: #b9bec6;
+
+    font-size: 13px;
+    line-height: 1.55;
+
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.error-actions {
+    display: flex;
+    gap: 8px;
+
+    margin-top: 18px;
+}
+
+/* ============================================================
+   NOTIFICATIONS
+   ============================================================ */
+
+#notifications,
+.notifications,
+.player-notifications {
+    position: absolute;
+
+    top: 68px;
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    width: min(420px, calc(100vw - 28px));
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    gap: 8px;
+
+    z-index: 300;
+
+    pointer-events: none;
+}
+
+.notification {
+    width: fit-content;
+    max-width: 100%;
+
+    padding: 10px 14px;
+
+    border-radius: 8px;
+
+    color: #fff;
+
+    background: rgba(20, 23, 28, 0.86);
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.22);
+
+    font-size: 13px;
+
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    animation:
+        webblox-notification-in 0.18s ease,
+        webblox-notification-out 0.20s ease 3.8s forwards;
+}
+
+.notification.success {
+    border-color: rgba(53, 199, 89, 0.35);
+}
+
+.notification.warning {
+    border-color: rgba(245, 166, 35, 0.35);
+}
+
+.notification.error {
+    border-color: rgba(231, 76, 60, 0.40);
+}
+
+@keyframes webblox-notification-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes webblox-notification-out {
+    to {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+    }
+}
+
+/* ============================================================
+   INTERACTION PROMPT
+   ============================================================ */
+
+#interaction-prompt,
+.interaction-prompt {
+    position: absolute;
+
+    left: 50%;
+    bottom: 86px;
+
+    transform: translateX(-50%);
+
+    padding: 8px 12px;
+
+    border-radius: 7px;
+
+    color: #fff;
+
+    background: rgba(13, 15, 18, 0.72);
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.20);
+
+    font-size: 13px;
+
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+
+    z-index: 76;
+}
+
+/* ============================================================
+   TOOLBAR
+   ============================================================ */
+
+#player-toolbar,
+.player-toolbar,
+.game-toolbar {
+    position: absolute;
+
+    left: 50%;
+    bottom: 16px;
+
+    transform: translateX(-50%);
+
+    display: flex;
+    align-items: center;
+
+    gap: 6px;
+
+    padding: 6px;
+
+    border-radius: 10px;
+
+    background: rgba(14, 16, 20, 0.68);
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    box-shadow: var(--webblox-shadow);
+
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    z-index: 78;
+}
+
+.player-toolbar-button {
+    min-width: 42px;
+    height: 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 7px;
+
+    background: transparent;
+    color: #cdd2d8;
+
+    cursor: pointer;
+}
+
+.player-toolbar-button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.player-toolbar-button.active {
+    background: rgba(0, 162, 255, 0.18);
+    color: #fff;
+}
+
+/* ============================================================
+   INVISIBLE INTERACTION LAYER
+   ============================================================ */
+
+#input-layer,
+.input-layer,
+.player-input-layer {
+    position: absolute;
+    inset: 0;
+
+    z-index: 40;
+
+    pointer-events: auto;
+
+    touch-action: none;
+
+    background: transparent;
+}
 
 /*
- * ============================================================
- * RESPAWN SCREEN
- * ============================================================
- */
+   The input layer itself must remain visually invisible.
+*/
 
-.wb-respawn-screen {
-
-    position:
-        absolute;
-
-    inset:
-        0;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    background:
-        rgba(0, 0, 0, 0.48);
-
-    pointer-events:
-        auto;
-
-    z-index:
-        100;
+#input-layer,
+.input-layer,
+.player-input-layer {
+    opacity: 0;
 }
 
-.wb-respawn-card {
+/* ============================================================
+   GAME CANVAS SAFE MODE
+   ============================================================ */
 
-    width:
-        min(380px, calc(100vw - 32px));
+.safe-mode-panel,
+#safe-mode-panel {
+    position: absolute;
+    inset: 0;
 
-    padding:
-        30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    border:
-        1px solid
-        var(--wb-player-border);
+    padding: 20px;
 
-    border-radius:
-        14px;
+    z-index: 450;
 
-    background:
-        rgba(18, 18, 21, 0.97);
-
-    box-shadow:
-        0 25px 80px
-        rgba(0, 0, 0, 0.55);
-
-    text-align:
-        center;
+    background: #101216;
 }
 
-.wb-respawn-card h2 {
+.safe-mode-content {
+    width: min(600px, 100%);
 
-    margin:
-        0 0 8px;
+    padding: 24px;
 
-    color:
-        #ffffff;
+    border-radius: 12px;
 
-    font-size:
-        25px;
+    background: #1c2026;
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    box-shadow: var(--webblox-shadow);
 }
 
-.wb-respawn-card p {
+.safe-mode-title {
+    margin: 0 0 10px;
 
-    margin:
-        0 0 20px;
-
-    color:
-        var(--wb-player-muted);
-
-    font-size:
-        14px;
-
-    line-height:
-        1.5;
+    font-size: 20px;
+    font-weight: 700;
 }
 
+.safe-mode-text {
+    margin: 0;
 
-/*
- * ============================================================
- * BUTTON
- * ============================================================
- */
+    color: #a9afb8;
 
-.wb-player-button {
-
-    min-height:
-        42px;
-
-    padding:
-        0 18px;
-
-    border:
-        0;
-
-    border-radius:
-        8px;
-
-    background:
-        var(--wb-player-blue);
-
-    color:
-        #ffffff;
-
-    font-size:
-        14px;
-
-    font-weight:
-        800;
-
-    cursor:
-        pointer;
-
-    transition:
-        background 0.15s ease,
-        transform 0.15s ease;
+    font-size: 13px;
+    line-height: 1.55;
 }
 
-.wb-player-button:hover {
+/* ============================================================
+   DEBUG PANEL
+   ============================================================ */
 
-    background:
-        var(--wb-player-blue-hover);
+#debug-panel,
+.debug-panel,
+.player-debug-panel {
+    position: absolute;
 
-    transform:
-        translateY(-1px);
+    top: 60px;
+    left: 12px;
+
+    min-width: 230px;
+
+    padding: 10px 12px;
+
+    border-radius: 8px;
+
+    color: #d8dde3;
+
+    background: rgba(8, 10, 12, 0.70);
+
+    border: 1px solid rgba(255, 255, 255, 0.08);
+
+    font-family: var(--webblox-mono);
+    font-size: 11px;
+    line-height: 1.5;
+
+    white-space: pre-wrap;
+
+    pointer-events: none;
+
+    z-index: 310;
+
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
 }
 
-.wb-player-button:active {
+/* ============================================================
+   PLAYER STATUS
+   ============================================================ */
 
-    transform:
-        translateY(0);
+#player-status,
+.player-status {
+    position: absolute;
+
+    left: 14px;
+    bottom: 70px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 5px;
+
+    z-index: 75;
 }
 
+.player-status-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
 
-/*
- * ============================================================
- * HIDDEN
- * ============================================================
- */
+    color: #e0e4e8;
 
-.wb-hidden,
-.wb-player-hidden {
+    font-size: 12px;
 
-    display:
-        none !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
-
-/*
- * ============================================================
- * DESKTOP
- * ============================================================
- */
-
-@media (
-    min-width: 801px
-) {
-
-    .wb-mobile-controls {
-
-        display:
-            none !important;
-
-    }
-
+.player-status-label {
+    color: #9aa0a8;
 }
 
+/* ============================================================
+   HEALTH / STAMINA
+   ============================================================ */
 
-/*
- * ============================================================
- * TABLET
- * ============================================================
- */
+.status-bar {
+    width: 180px;
+    height: 8px;
 
-@media (
-    max-width: 800px
-) {
+    overflow: hidden;
 
-    .wb-leaderboard {
+    border-radius: 999px;
 
-        width:
-            220px;
+    background: rgba(255, 255, 255, 0.12);
 
-    }
-
-    .wb-game-title {
-
-        max-width:
-            180px;
-
-        overflow:
-            hidden;
-
-        white-space:
-            nowrap;
-
-        text-overflow:
-            ellipsis;
-
-    }
-
-    .wb-hotbar-slot {
-
-        width:
-            50px;
-
-        height:
-            50px;
-
-    }
-
-    .wb-health {
-
-        width:
-            175px;
-
-    }
-
+    border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
+.status-bar-fill {
+    width: 100%;
+    height: 100%;
 
-/*
- * ============================================================
- * PHONE
- * ============================================================
- */
+    border-radius: inherit;
 
-@media (
-    max-width: 600px
-) {
-
-    .wb-player-top-left {
-
-        top:
-            9px;
-
-        left:
-            9px;
-
-    }
-
-    .wb-player-top-right {
-
-        top:
-            9px;
-
-        right:
-            9px;
-
-    }
-
-    .wb-round-button {
-
-        width:
-            42px;
-
-        height:
-            42px;
-
-    }
-
-    .wb-menu-button {
-
-        width:
-            44px;
-
-        height:
-            42px;
-
-    }
-
-    .wb-game-title {
-
-        display:
-            none;
-
-    }
-
-    .wb-leaderboard {
-
-        width:
-            190px;
-
-    }
-
-    .wb-leaderboard-row,
-    .wb-leaderboard-header {
-
-        grid-template-columns:
-            1fr 52px;
-
-        padding-left:
-            9px;
-
-        padding-right:
-            9px;
-
-    }
-
-    .wb-health {
-
-        left:
-            10px;
-
-        bottom:
-            10px;
-
-        width:
-            155px;
-
-        padding:
-            8px;
-
-    }
-
-    .wb-hotbar {
-
-        bottom:
-            10px;
-
-        max-width:
-            calc(100vw - 190px);
-
-        overflow:
-            hidden;
-
-    }
-
-    .wb-hotbar-slot {
-
-        width:
-            44px;
-
-        height:
-            44px;
-
-        flex:
-            0 0 44px;
-
-    }
-
-    .wb-camera-lock {
-
-        right:
-            10px;
-
-        bottom:
-            10px;
-
-        width:
-            42px;
-
-        height:
-            42px;
-
-    }
-
+    transition: width 0.16s linear;
 }
 
+.health-fill {
+    background: #35c759;
+}
 
-/*
- * ============================================================
- * REDUCED MOTION
- * ============================================================
- */
+.stamina-fill {
+    background: #00a2ff;
+}
 
-@media (
-    prefers-reduced-motion: reduce
-) {
+/* ============================================================
+   FULLSCREEN
+   ============================================================ */
 
-    .wb-round-button,
-    .wb-menu-button,
-    .wb-hotbar-slot,
-    .wb-camera-lock,
-    .wb-player-button,
-    .wb-notification {
+#fullscreen-button,
+.fullscreen-button {
+    position: absolute;
 
-        transition:
-            none !important;
+    top: 12px;
+    right: 12px;
 
-        animation:
-            none !important;
+    z-index: 72;
+}
 
+/* ============================================================
+   HIDDEN UTILITY
+   ============================================================ */
+
+.hidden,
+.is-hidden,
+[data-hidden="true"] {
+    display: none !important;
+}
+
+.invisible {
+    visibility: hidden !important;
+}
+
+.no-pointer {
+    pointer-events: none !important;
+}
+
+/* ============================================================
+   SCROLLBARS
+   ============================================================ */
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #4a505a transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #4a505a;
+    border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #5b626e;
+}
+
+/* ============================================================
+   ACCESSIBILITY / FOCUS
+   ============================================================ */
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid rgba(0, 162, 255, 0.75);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   DESKTOP
+   ============================================================ */
+
+@media (min-width: 901px) {
+    #touch-controls,
+    .touch-controls,
+    .mobile-controls,
+    .player-touch-controls,
+    #camera-touch-zone,
+    .camera-touch-zone,
+    .touch-camera-zone {
+        display: none !important;
+    }
+}
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (max-width: 900px) {
+    #player-list,
+    .player-list,
+    .players-panel,
+    .leaderboard {
+        width: min(260px, calc(100vw - 24px));
     }
 
+    #player-toolbar,
+    .player-toolbar,
+    .game-toolbar {
+        bottom: max(12px, env(safe-area-inset-bottom));
+    }
+
+    input[type="range"] {
+        width: 145px;
+    }
+}
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 700px) {
+    #top-bar,
+    .top-bar,
+    .player-topbar,
+    .webblox-topbar {
+        min-height: 48px;
+        padding: 6px 8px;
+    }
+
+    #game-title,
+    .game-title,
+    .player-game-title {
+        max-width: 48vw;
+        font-size: 15px;
+    }
+
+    #crosshair,
+    .crosshair,
+    .player-crosshair {
+        width: 20px;
+        height: 20px;
+    }
+
+    #crosshair::before,
+    .crosshair::before,
+    .player-crosshair::before {
+        height: 12px;
+    }
+
+    #crosshair::after,
+    .crosshair::after,
+    .player-crosshair::after {
+        width: 12px;
+    }
+
+    #player-list,
+    .player-list,
+    .players-panel,
+    .leaderboard {
+        top: 56px;
+        right: 8px;
+
+        width: min(240px, calc(100vw - 16px));
+    }
+
+    #chat,
+    #chat-ui,
+    .chat-container,
+    .player-chat {
+        left: 8px;
+        bottom: 8px;
+
+        width: min(330px, calc(100vw - 16px));
+    }
+
+    #interaction-prompt,
+    .interaction-prompt {
+        bottom: 154px;
+
+        max-width: calc(100vw - 40px);
+
+        text-align: center;
+    }
+
+    #player-status,
+    .player-status {
+        left: 8px;
+        bottom: 148px;
+    }
+
+    #player-toolbar,
+    .player-toolbar,
+    .game-toolbar {
+        left: 50%;
+
+        max-width: calc(100vw - 16px);
+
+        overflow-x: auto;
+
+        scrollbar-width: none;
+    }
+
+    #player-toolbar::-webkit-scrollbar,
+    .player-toolbar::-webkit-scrollbar,
+    .game-toolbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .settings-row {
+        align-items: flex-start;
+        flex-direction: column;
+
+        gap: 8px;
+    }
+
+    .settings-control {
+        width: 100%;
+    }
+
+    .settings-select,
+    .settings-input,
+    .settings-text-input,
+    select.settings-control,
+    input.settings-control {
+        width: 100%;
+    }
+
+    input[type="range"] {
+        width: 100%;
+    }
+}
+
+/* ============================================================
+   SMALL MOBILE
+   ============================================================ */
+
+@media (max-width: 480px) {
+    .hud-button,
+    .player-hud-button,
+    #settings-button,
+    #menu-button,
+    #leave-button,
+    #reset-character-button {
+        min-width: 38px;
+        min-height: 38px;
+
+        padding: 0 9px;
+    }
+
+    .settings-window,
+    #settings-panel,
+    .player-settings-panel {
+        width: calc(100vw - 18px);
+        max-height: calc(100vh - 18px);
+    }
+
+    .settings-header {
+        min-height: 52px;
+        padding: 0 14px;
+    }
+
+    .settings-body {
+        padding: 14px;
+    }
+
+    .settings-title {
+        font-size: 17px;
+    }
+
+    .pause-panel {
+        padding: 20px;
+    }
+
+    .pause-title {
+        font-size: 23px;
+    }
+
+    #joystick,
+    .virtual-joystick,
+    .touch-joystick,
+    #mobile-joystick {
+        width: 116px;
+        height: 116px;
+    }
+
+    #joystick-thumb,
+    .joystick-thumb,
+    .touch-joystick-thumb,
+    #mobile-joystick-thumb {
+        width: 50px;
+        height: 50px;
+    }
+
+    .touch-button,
+    .mobile-action-button {
+        width: 56px;
+        height: 56px;
+    }
+
+    #jump-button,
+    .jump-button,
+    .touch-jump {
+        width: 68px;
+        height: 68px;
+    }
+
+    .status-bar {
+        width: 145px;
+    }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ============================================================
+   SAFE AREA
+   ============================================================ */
+
+@supports (padding: max(0px)) {
+    #top-bar,
+    .top-bar,
+    .player-topbar,
+    .webblox-topbar {
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+    }
+}
+
+/* ============================================================
+   FINAL CANVAS SAFETY
+   ============================================================ */
+
+html.webblox-player-page,
+body.webblox-player-page {
+    width: 100%;
+    height: 100%;
+    min-width: 320px;
+    min-height: 240px;
+    overflow: hidden;
+}
+
+body.webblox-player-page canvas {
+    position: absolute !important;
+    inset: 0 !important;
+}
+
+/* Prevent accidental selection while controlling the game. */
+
+.game-running,
+.game-running * {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* But text fields remain selectable. */
+
+.game-running input,
+.game-running textarea,
+.game-running [contenteditable="true"] {
+    user-select: text;
+    -webkit-user-select: text;
 }
