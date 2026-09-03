@@ -1039,8 +1039,8 @@
         }
 
 
-        AnimationSystem.previousGrounded =
-            !!state?.grounded;
+      AnimationSystem.previousGrounded =
+        !!getPlayer()?.state?.grounded;
 
     }
 
