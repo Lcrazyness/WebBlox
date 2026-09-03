@@ -644,6 +644,119 @@
      * Player is loaded only when Play is pressed.
      */
 
+    // ============================================================
+    // PLAYER PREFERENCE COMPATIBILITY BRIDGE
+    // ============================================================
+    //
+    // Player/player.js calls loadLocalPreferences() during
+    // Player.start(). Keep the existing Studio preference system
+    // compatible with the Player runtime without changing the
+    // Player API or requiring another file.
+    // ============================================================
+
+    function installPlayerPreferenceBridge() {
+
+        if (
+            typeof window.loadLocalPreferences !==
+            "function"
+        ) {
+
+            window.loadLocalPreferences =
+                function() {
+
+                    try {
+
+                        const raw =
+                            window.localStorage.getItem(
+                                "webblox_player_preferences"
+                            );
+
+                        if (!raw) {
+                            return {};
+                        }
+
+                        const parsed =
+                            JSON.parse(raw);
+
+                        if (
+                            parsed &&
+                            typeof parsed === "object"
+                        ) {
+                            return parsed;
+                        }
+
+                    } catch (error) {
+
+                        console.warn(
+                            "[WebBlox Studio] Failed to load Player preferences:",
+                            error
+                        );
+
+                    }
+
+                    return {};
+                };
+        }
+
+
+        if (
+            typeof window.saveLocalPreferences !==
+            "function"
+        ) {
+
+            window.saveLocalPreferences =
+                function(preferences) {
+
+                    try {
+
+                        window.localStorage.setItem(
+                            "webblox_player_preferences",
+                            JSON.stringify(
+                                preferences &&
+                                typeof preferences === "object"
+                                    ? preferences
+                                    : {}
+                            )
+                        );
+
+                    } catch (error) {
+
+                        console.warn(
+                            "[WebBlox Studio] Failed to save Player preferences:",
+                            error
+                        );
+
+                    }
+
+                };
+        }
+
+
+        log(
+            "Player preference compatibility bridge ready."
+        );
+    }
+
+
+    function verifyPlayerRuntime(runtime, source = "Player runtime") {
+
+        if (
+            runtime &&
+            typeof runtime.start === "function"
+        ) {
+
+            state.playerAvailable = true;
+
+            return runtime;
+        }
+
+
+        throw new Error(
+            `${source} loaded but WebBloxPlayer.start was not created.`
+        );
+    }
+
+
     function getPlayerPath() {
 
         /*
@@ -678,20 +791,33 @@
 
     function loadPlayerRuntime() {
 
+        installPlayerPreferenceBridge();
+
         return new Promise((resolve, reject) => {
 
+            /*
+             * A previous Player load may have left a runtime object
+             * behind. Reuse it only when the required API is actually
+             * present.
+             */
             if (
                 window.WebBloxPlayer &&
                 typeof window.WebBloxPlayer.start ===
                     "function"
             ) {
 
-                state.playerAvailable =
-                    true;
+                try {
 
-                resolve(
-                    window.WebBloxPlayer
-                );
+                    resolve(
+                        verifyPlayerRuntime(
+                            window.WebBloxPlayer,
+                            "Existing Player runtime"
+                        )
+                    );
+
+                } catch (error) {
+                    reject(error);
+                }
 
                 return;
             }
@@ -712,31 +838,34 @@
 
             if (existing) {
 
-                const finish =
-                    () => {
+                const finish = () => {
 
-                        if (
-                            window.WebBloxPlayer &&
-                            typeof window.WebBloxPlayer.start ===
-                                "function"
-                        ) {
+                    try {
 
-                            state.playerAvailable =
-                                true;
+                        resolve(
+                            verifyPlayerRuntime(
+                                window.WebBloxPlayer,
+                                "player.js"
+                            )
+                        );
 
-                            resolve(
-                                window.WebBloxPlayer
-                            );
+                    } catch (error) {
 
-                        } else {
+                        /*
+                         * The existing tag may belong to a failed
+                         * runtime from an earlier Studio attempt.
+                         * Remove it so a clean Player script can load.
+                         */
 
-                            reject(
-                                new Error(
-                                    "player.js loaded but WebBloxPlayer.start was not found."
-                                )
-                            );
+                        try {
+                            existing.remove();
+                        } catch {
+                            // Ignore removal failures.
                         }
-                    };
+
+                        reject(error);
+                    }
+                };
 
 
                 if (
@@ -745,7 +874,6 @@
                 ) {
 
                     finish();
-
                     return;
                 }
 
@@ -792,30 +920,29 @@
                 script.dataset.loaded =
                     "true";
 
-                if (
-                    window.WebBloxPlayer &&
-                    typeof window.WebBloxPlayer.start ===
-                        "function"
-                ) {
+                try {
 
-                    state.playerAvailable =
-                        true;
+                    const runtime =
+                        verifyPlayerRuntime(
+                            window.WebBloxPlayer,
+                            "player.js"
+                        );
 
                     log(
                         "Player runtime loaded."
                     );
 
-                    resolve(
-                        window.WebBloxPlayer
-                    );
+                    resolve(runtime);
 
-                } else {
+                } catch (error) {
 
-                    reject(
-                        new Error(
-                            "player.js loaded but WebBloxPlayer.start was not created."
-                        )
-                    );
+                    /*
+                     * Do not swallow the actual Player-side error.
+                     * Studio will report it through the existing
+                     * startup error handler.
+                     */
+
+                    reject(error);
                 }
             };
 
@@ -835,7 +962,6 @@
             );
         });
     }
-
 
     // ============================================================
     // OBJECT SYSTEM
@@ -3517,7 +3643,8 @@
                     Math.max(
                         0.1,
                         snap(
-                            object.size.y,
+                            obj
+                            ect.size.y,
                             0.5
                         )
                     );
@@ -5490,7 +5617,8 @@
 
     function publishGame() {
 
-        const title =
+        const tit
+        le =
             String(
                 state.game.name ||
                 ""
