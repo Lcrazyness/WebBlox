@@ -1,137 +1,213 @@
 /*
  * WebBlox Player Character
  *
- * Stage 3C
- * CLASSIC BLOCKY CHARACTER
+ * Stage 3A+
  *
- * - Classic blocky Roblox-style proportions
+ * Existing file:
+ * /Player/character.js
+ *
+ * Character system:
+ * - Classic blocky R6-style character
+ * - Rectangular body parts
+ * - Connected limbs
+ * - Proper shoulder/hip pivots
+ * - Simple classic face
  * - No bacon hair
- * - No hat
- * - No accessories
- * - Proper connected body hierarchy
- * - Shoulder / elbow / wrist joints
- * - Hip / knee / ankle joints
+ * - No capsule geometry
  * - Humanoid-style runtime data
  * - Character spawning
  * - Character cleanup
- * - Body colors
- * - Simple classic face
+ * - Animation-compatible body part aliases
  *
- * IMPORTANT:
- * This file exposes:
- *
- *     WebBloxPlayer.createCharacter()
- *     WebBloxPlayer.destroyCharacter()
- *
- * The current Player runtime also contains its own
- * character builder. If player.js is creating the
- * character instead of this module, the equivalent
- * blocky builder must be used there as well.
+ * Existing public API preserved:
+ * - WebBloxPlayer.createCharacter()
+ * - WebBloxPlayer.destroyCharacter()
  */
 
 (() => {
     "use strict";
 
-    if (!window.WebBloxPlayer) {
+
+    // ============================================================
+    // PLAYER SYSTEM
+    // ============================================================
+
+    if (
+        !window.WebBloxPlayer
+    ) {
+
         window.WebBloxPlayer = {};
+
     }
+
 
     const PlayerSystem =
         window.WebBloxPlayer;
 
-    let THREE = null;
 
-    /*
-     * ============================================================
-     * THREE
-     * ============================================================
-     */
+    // ============================================================
+    // THREE
+    // ============================================================
+
+    let THREE =
+        null;
+
 
     function getThree() {
+
         if (
-            window.THREE &&
-            typeof window.THREE.Group === "function"
+            window.THREE
         ) {
-            THREE = window.THREE;
+
+            THREE =
+                window.THREE;
+
             return THREE;
+
         }
+
 
         return null;
+
     }
 
-    /*
-     * ============================================================
-     * COLOR
-     * ============================================================
-     */
 
-    function safeColor(
-        color,
-        fallback
-    ) {
-        const T = getThree();
-
-        if (!T) {
-            return null;
-        }
-
-        try {
-            return new T.Color(
-                color || fallback
-            );
-        } catch {
-            return new T.Color(
-                fallback
-            );
-        }
-    }
-
-    /*
-     * ============================================================
-     * MATERIAL
-     * ============================================================
-     */
+    // ============================================================
+    // MATERIAL
+    // ============================================================
 
     function makeMaterial(
         color,
-        options = {}
+        roughness = 0.8,
+        transparency = 0
     ) {
-        const T = getThree();
 
-        if (!T) {
-            return null;
-        }
+        const material =
+            new THREE.MeshStandardMaterial({
 
-        return new T.MeshStandardMaterial({
-            color: safeColor(
-                color,
-                "#808080"
-            ),
+                color:
+                    new THREE.Color(
+                        color
+                    ),
 
-            roughness:
-                options.roughness ??
-                0.82,
+                roughness,
 
-            metalness:
-                options.metalness ??
-                0,
+                metalness:
+                    0,
 
-            transparent:
-                options.transparent === true,
+                transparent:
+                    transparency > 0,
 
-            opacity:
-                options.opacity ??
-                1
-        });
+                opacity:
+                    1 -
+                    transparency
+
+            });
+
+
+        return material;
+
     }
 
-    /*
-     * ============================================================
-     * BLOCK
-     * ============================================================
-     */
 
-    function createBlock(
+    // ============================================================
+    // APPLY MATERIAL PROPERTIES
+    // ============================================================
+
+    function applyMaterialProperties(
+        material,
+        options = {}
+    ) {
+
+        if (
+            !material
+        ) {
+
+            return;
+
+        }
+
+
+        if (
+            options.color
+        ) {
+
+            try {
+
+                material.color.set(
+                    options.color
+                );
+
+            } catch {
+
+                // Ignore invalid colors.
+
+            }
+
+        }
+
+
+        if (
+            Number.isFinite(
+                Number(
+                    options.transparency
+                )
+            )
+        ) {
+
+            const transparency =
+                Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        Number(
+                            options.transparency
+                        )
+                    )
+                );
+
+
+            material.transparent =
+                transparency >
+                0;
+
+
+            material.opacity =
+                1 -
+                transparency;
+
+        }
+
+
+        if (
+            Number.isFinite(
+                Number(
+                    options.roughness
+                )
+            )
+        ) {
+
+            material.roughness =
+                Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        Number(
+                            options.roughness
+                        )
+                    )
+                );
+
+        }
+
+    }
+
+
+    // ============================================================
+    // CREATE PART
+    // ============================================================
+
+    function createPart(
         name,
         size,
         color,
@@ -139,1051 +215,1515 @@
         parent,
         options = {}
     ) {
-        const T = getThree();
-
-        if (!T) {
-            return null;
-        }
 
         const geometry =
-            new T.BoxGeometry(
+            new THREE.BoxGeometry(
+
                 size.x,
+
                 size.y,
+
                 size.z
+
             );
+
 
         const material =
             makeMaterial(
+
                 color,
-                options
+
+                options.roughness ??
+                0.8,
+
+                options.transparency ??
+                0
+
             );
 
+
+        applyMaterialProperties(
+            material,
+            options
+        );
+
+
         const mesh =
-            new T.Mesh(
+            new THREE.Mesh(
+
                 geometry,
+
                 material
+
             );
+
 
         mesh.name =
             name;
 
+
         mesh.position.set(
-            position.x || 0,
-            position.y || 0,
-            position.z || 0
+
+            position.x,
+
+            position.y,
+
+            position.z
+
         );
 
+
         mesh.castShadow =
-            options.castShadow !== false;
+            options.castShadow !==
+            false;
+
 
         mesh.receiveShadow =
-            options.receiveShadow !== false;
+            options.receiveShadow !==
+            false;
+
+
+        mesh.userData =
+            mesh.userData ||
+            {};
+
 
         mesh.userData.characterPart =
             true;
 
+
         mesh.userData.characterPartName =
             name;
 
-        if (options.bodyPart) {
-            mesh.userData.isBodyPart =
-                true;
-        }
 
-        parent.add(mesh);
+        mesh.userData.canCollide =
+            options.canCollide !==
+            false;
 
-        return mesh;
-    }
 
-    /*
-     * ============================================================
-     * JOINT GROUP
-     *
-     * The important change here is that limbs are no longer
-     * independent floating meshes.
-     *
-     * Each limb is attached through a joint group positioned
-     * exactly at the connection point.
-     * ============================================================
-     */
-
-    function createLimb(
-        name,
-        size,
-        color,
-        jointPosition,
-        parent,
-        options = {}
-    ) {
-        const T = getThree();
-
-        if (!T) {
-            return null;
-        }
-
-        const joint =
-            new T.Group();
-
-        joint.name =
-            name;
-
-        joint.position.set(
-            jointPosition.x || 0,
-            jointPosition.y || 0,
-            jointPosition.z || 0
-        );
-
-        joint.userData.characterJoint =
-            true;
-
-        joint.userData.characterPartName =
-            name;
-
-        parent.add(joint);
-
-        /*
-         * BoxGeometry is centered.
-         *
-         * Put the box half its height below the joint so
-         * the top of the limb starts exactly at the joint.
-         */
-        const mesh =
-            createBlock(
-                name + "Mesh",
-                size,
-                color,
-                {
-                    x: 0,
-                    y: -size.y / 2,
-                    z: 0
-                },
-                joint,
-                {
-                    bodyPart: true,
-                    castShadow: true,
-                    receiveShadow: true,
-                    roughness:
-                        options.roughness ??
-                        0.84
-                }
+        mesh.userData.transparency =
+            Number(
+                options.transparency ||
+                0
             );
 
-        joint.userData.mesh =
-            mesh;
 
-        joint.userData.characterPart =
-            true;
+        parent.add(
+            mesh
+        );
 
-        return joint;
+
+        return mesh;
+
     }
 
-    /*
-     * ============================================================
-     * FACE
-     * ============================================================
-     */
+
+    // ============================================================
+    // CREATE PIVOT
+    // ============================================================
+
+    function createPivot(
+        name,
+        position,
+        parent
+    ) {
+
+        const pivot =
+            new THREE.Group();
+
+
+        pivot.name =
+            name;
+
+
+        pivot.position.set(
+
+            position.x,
+
+            position.y,
+
+            position.z
+
+        );
+
+
+        pivot.userData =
+            pivot.userData ||
+            {};
+
+
+        pivot.userData.characterJoint =
+            true;
+
+
+        parent.add(
+            pivot
+        );
+
+
+        return pivot;
+
+    }
+
+
+    // ============================================================
+    // FACE
+    // ============================================================
 
     function createFace(
-        head,
-        headSize
+        head
     ) {
-        const T = getThree();
-
-        if (!T) {
-            return null;
-        }
 
         const face =
-            new T.Group();
+            new THREE.Group();
+
 
         face.name =
             "Face";
 
-        /*
-         * The face sits slightly in front of
-         * the front (+Z) surface.
-         */
-        const frontZ =
-            headSize.z / 2 +
-            0.012;
+
+        face.userData =
+            face.userData ||
+            {};
+
+
+        face.userData.characterFace =
+            true;
+
+
+        // --------------------------------------------------------
+        // Face material
+        // --------------------------------------------------------
 
         const eyeMaterial =
-            makeMaterial(
-                "#111111",
-                {
-                    roughness: 0.95
-                }
-            );
+            new THREE.MeshBasicMaterial({
 
-        /*
-         * Classic rectangular eyes.
-         */
+                color:
+                    0x111111
+
+            });
+
+
+        // --------------------------------------------------------
+        // Eyes
+        // --------------------------------------------------------
 
         const eyeGeometry =
-            new T.BoxGeometry(
-                0.16,
-                0.22,
+            new THREE.BoxGeometry(
+
+                0.18,
+
+                0.18,
+
                 0.035
+
             );
 
+
         const leftEye =
-            new T.Mesh(
+            new THREE.Mesh(
+
                 eyeGeometry,
+
                 eyeMaterial
+
             );
+
 
         leftEye.name =
             "LeftEye";
 
+
         leftEye.position.set(
-            -0.30,
-            0.18,
-            frontZ
+
+            -0.36,
+
+            0.08,
+
+            0.515
+
         );
+
+
+        leftEye.userData.characterFace =
+            true;
+
 
         face.add(
             leftEye
         );
 
+
         const rightEye =
-            new T.Mesh(
-                eyeGeometry,
+            new THREE.Mesh(
+
+                eyeGeometry.clone(),
+
                 eyeMaterial
+
             );
+
 
         rightEye.name =
             "RightEye";
 
+
         rightEye.position.set(
-            0.30,
-            0.18,
-            frontZ
+
+            0.36,
+
+            0.08,
+
+            0.515
+
         );
+
+
+        rightEye.userData.characterFace =
+            true;
+
 
         face.add(
             rightEye
         );
 
-        /*
-         * Simple classic mouth.
-         */
 
-        const mouthGeometry =
-            new T.BoxGeometry(
-                0.42,
-                0.055,
-                0.035
-            );
+        // --------------------------------------------------------
+        // Smile
+        // --------------------------------------------------------
+        //
+        // Keep this rectangular instead of TorusGeometry so the
+        // face stays visually blocky like the character.
+        // --------------------------------------------------------
 
-        const mouth =
-            new T.Mesh(
-                mouthGeometry,
+        const smile =
+            new THREE.Mesh(
+
+                new THREE.BoxGeometry(
+
+                    0.45,
+
+                    0.065,
+
+                    0.035
+
+                ),
+
                 eyeMaterial
+
             );
 
-        mouth.name =
-            "Mouth";
 
-        mouth.position.set(
+        smile.name =
+            "Smile";
+
+
+        smile.position.set(
+
             0,
-            -0.18,
-            frontZ
+
+            -0.19,
+
+            0.515
+
         );
+
+
+        smile.userData.characterFace =
+            true;
+
 
         face.add(
-            mouth
+            smile
         );
+
 
         head.add(
             face
         );
 
+
         return face;
+
     }
 
-    /*
-     * ============================================================
-     * CHARACTER
-     * ============================================================
-     */
+
+    // ============================================================
+    // CHARACTER COLORS
+    // ============================================================
+
+    function getCharacterColors(
+        options
+    ) {
+
+        return {
+
+            skin:
+
+                options.skinColor ||
+                "#F2C6A8",
+
+            shirt:
+
+                options.shirtColor ||
+                "#3B82F6",
+
+            pants:
+
+                options.pantsColor ||
+                "#303030",
+
+            shoes:
+
+                options.shoeColor ||
+                "#202020"
+
+        };
+
+    }
+
+
+    // ============================================================
+    // CREATE CHARACTER
+    // ============================================================
 
     function createCharacter(
         options = {}
     ) {
-        const T = getThree();
 
-        if (!T) {
+        const THREE_LOCAL =
+            getThree();
+
+
+        if (
+            !THREE_LOCAL
+        ) {
+
             console.error(
+
                 "[WebBlox Player] Three.js is not loaded."
+
             );
 
+
             return null;
+
         }
 
-        /*
-         * --------------------------------------------------------
-         * ROOT
-         * --------------------------------------------------------
-         */
+
+        // --------------------------------------------------------
+        // Root
+        // --------------------------------------------------------
 
         const character =
-            new T.Group();
+            new THREE_LOCAL.Group();
+
 
         character.name =
             options.name ||
             "Character";
 
+
+        character.userData =
+            character.userData ||
+            {};
+
+
         character.userData.isCharacter =
             true;
+
 
         character.userData.playerId =
             options.playerId ||
             null;
 
+
         character.userData.characterType =
-            "Blocky";
+            "R6";
+
 
         character.userData.rigType =
-            "Blocky";
+            "R6";
 
-        /*
-         * --------------------------------------------------------
-         * HUMANOID
-         * --------------------------------------------------------
-         */
+
+        // --------------------------------------------------------
+        // Humanoid data
+        // --------------------------------------------------------
+
+        const playerState =
+            PlayerSystem?.state ||
+            {};
+
+
+        const playerSettings =
+            playerState.settings ||
+            {};
+
 
         const humanoid = {
-            name: "Humanoid",
 
-            rigType: "Blocky",
+            name:
+                "Humanoid",
+
+            rigType:
+                "R6",
 
             health:
-                Number(
-                    options.health ??
-                    100
-                ),
+                100,
 
             maxHealth:
-                Number(
-                    options.maxHealth ??
-                    100
-                ),
+                100,
 
             walkSpeed:
                 Number(
-                    options.walkSpeed ??
-                    16
+                    playerSettings.walkSpeed ||
+                    options.walkSpeed ||
+                    12
                 ),
 
             jumpPower:
                 Number(
-                    options.jumpPower ??
-                    50
-                ),
-
-            jumpHeight:
-                Number(
-                    options.jumpHeight ??
-                    7.2
+                    playerSettings.jumpPower ||
+                    options.jumpPower ||
+                    11
                 ),
 
             autoRotate:
-                options.autoRotate !== false,
+                options.autoRotate !==
+                false,
 
             state:
                 "Idle",
 
-            platformStand:
-                false,
+            dead:
+                false
 
-            sit:
-                false,
-
-            canJump:
-                true
         };
+
 
         character.userData.humanoid =
             humanoid;
 
-        /*
-         * --------------------------------------------------------
-         * COLORS
-         * --------------------------------------------------------
-         */
 
-        const skinColor =
-            options.skinColor ||
-            options.bodyColor ||
-            "#d7a77b";
+        // --------------------------------------------------------
+        // Colors
+        // --------------------------------------------------------
 
-        const shirtColor =
-            options.shirtColor ||
-            "#1769d1";
+        const colors =
+            getCharacterColors(
+                options
+            );
 
-        const pantsColor =
-            options.pantsColor ||
-            "#202020";
 
-        const shoeColor =
-            options.shoeColor ||
-            "#111111";
+        // ========================================================
+        // TORSO
+        // ========================================================
 
         /*
-         * --------------------------------------------------------
-         * DIMENSIONS
+         * Classic blocky proportions:
          *
-         * Total character:
+         * torso = 2 x 2 x 1
+         * head  = 2 x 1 x 1
+         * arms  = 1 x 2 x 1
+         * legs  = 1 x 2 x 1
          *
-         * feet     = 0
-         * legs     = 2.2
-         * torso    = 2.1
-         * neck gap = 0.15
-         * head     = 1.45
-         *
-         * ~= 5.9
-         *
-         * This is intentionally chunky and blocky.
-         * --------------------------------------------------------
+         * The character is exactly 5 studs tall.
          */
 
-        const dimensions = {
 
-            head: {
-                x: 1.55,
-                y: 1.55,
-                z: 1.55
-            },
+        const torso =
+            createPart(
 
-            torso: {
-                x: 2.0,
-                y: 2.05,
-                z: 1.05
-            },
+                "Torso",
 
-            arm: {
-                x: 0.62,
-                y: 1.95,
-                z: 0.62
-            },
+                {
 
-            hand: {
-                x: 0.66,
-                y: 0.38,
-                z: 0.66
-            },
+                    x:
+                        2,
 
-            leg: {
-                x: 0.82,
-                y: 2.10,
-                z: 0.82
-            },
+                    y:
+                        2,
 
-            foot: {
-                x: 0.82,
-                y: 0.42,
-                z: 1.05
-            }
-        };
+                    z:
+                        1
 
-        /*
-         * --------------------------------------------------------
-         * BODY ROOT
-         * --------------------------------------------------------
-         */
+                },
 
-        const body =
-            new T.Group();
+                colors.shirt,
 
-        body.name =
-            "Body";
+                {
 
-        character.add(
-            body
+                    x:
+                        0,
+
+                    y:
+                        3,
+
+                    z:
+                        0
+
+                },
+
+                character,
+
+                {
+
+                    canCollide:
+                        false
+
+                }
+
+            );
+
+
+        // ========================================================
+        // HEAD
+        // ========================================================
+
+        const head =
+            createPart(
+
+                "Head",
+
+                {
+
+                    x:
+                        2,
+
+                    y:
+                        1,
+
+                    z:
+                        1
+
+                },
+
+                colors.skin,
+
+                {
+
+                    x:
+                        0,
+
+                    y:
+                        4.5,
+
+                    z:
+                        0
+
+                },
+
+                character,
+
+                {
+
+                    canCollide:
+                        false
+
+                }
+
+            );
+
+
+        head.userData.isHead =
+            true;
+
+
+        createFace(
+            head
         );
 
+
+        // ========================================================
+        // SHOULDERS
+        // ========================================================
+
         /*
-         * --------------------------------------------------------
-         * ROOT PART
-         * --------------------------------------------------------
+         * Pivots live at the torso/arm connection.
+         * The arm extends downward from each pivot.
          */
 
+
+        const leftShoulder =
+            createPivot(
+
+                "LeftShoulder",
+
+                {
+
+                    x:
+                        -1.5,
+
+                    y:
+                        4,
+
+                    z:
+                        0
+
+                },
+
+                character
+
+            );
+
+
+        const leftArm =
+            createPart(
+
+                "LeftArm",
+
+                {
+
+                    x:
+                        1,
+
+                    y:
+                        2,
+
+                    z:
+                        1
+
+                },
+
+                colors.skin,
+
+                {
+
+                    x:
+                        0,
+
+                    y:
+                        -1,
+
+                    z:
+                        0
+
+                },
+
+                leftShoulder,
+
+                {
+
+                    canCollide:
+                        false
+
+                }
+
+            );
+
+
+        const rightShoulder =
+            createPivot(
+
+                "RightShoulder",
+
+                {
+
+                    x:
+                        1.5,
+
+                    y:
+                        4,
+
+                    z:
+                        0
+
+                },
+
+                character
+
+            );
+
+
+        const rightArm =
+            createPart(
+
+                "RightArm",
+
+                {
+
+                    x:
+                        1,
+
+                    y:
+                        2,
+
+                    z:
+                        1
+
+                },
+
+                colors.skin,
+
+                {
+
+                    x:
+                        0,
+
+                    y:
+                        -1,
+
+                    z:
+                        0
+
+                },
+
+                rightShoulder,
+
+                {
+
+                    canCollide:
+                        false
+
+                }
+
+            );
+
+
+        // ========================================================
+        // HIPS
+        // ========================================================
+
+        const leftHip =
+            createPivot(
+
+                "LeftHip",
+
+                {
+
+                    x:
+                        -0.5,
+
+                    y:
+                        2,
+
+                    z:
+                        0
+
+                },
+
+                character
+
+            );
+
+
+        const leftLeg =
+            createPart(
+
+                "LeftLeg",
+
+                {
+
+                    x:
+                        1,
+
+                    y:
+                        2,
+
+                    z:
+                        1
+
+                },
+
+                colors.pants,
+
+                {
+
+                    x:
+                        0,
+
+                    y:
+                        -1,
+
+                    z:
+                        0
+
+                },
+
+                leftHip,
+
+                {
+
+                    canCollide:
+                        false
+
+                }
+
+            );
+
+
+        const leftFoot =
+            createPart(
+
+                "LeftFoot",
+
+                {
+
+                    x:
+                        1,
+
+                    y:
+                        0.2,
+
+                    z:
+                        1.08
+
+                },
+
+                colors.shoes,
+
+                {
+
+                    x:
+                        0,
+
+                    y:
+                        -1,
+
+                    z:
+                        0.04
+
+                },
+
+                leftHip,
+
+                {
+
+                    canCollide:
+                        false
+
+                }
+
+            );
+
+
+        const rightHip =
+            createPivot(
+
+                "RightHip",
+
+                {
+
+                    x:
+                        0.5,
+
+                    y:
+                        2,
+
+                    z:
+                        0
+
+                },
+
+                character
+
+            );
+
+
+        const rightLeg =
+            createPart(
+
+                "RightLeg",
+
+                {
+
+                    x:
+                        1,
+
+                    y:
+                        2,
+
+                    z:
+                        1
+
+                },
+
+                colors.pants,
+
+                {
+
+                    x:
+                        0,
+
+                    y:
+                        -1,
+
+                    z:
+                        0
+
+                },
+
+                rightHip,
+
+                {
+
+                    canCollide:
+                        false
+
+                }
+
+            );
+
+
+        const rightFoot =
+            createPart(
+
+                "RightFoot",
+
+                {
+
+                    x:
+                        1,
+
+                    y:
+                        0.2,
+
+                    z:
+                        1.08
+
+                },
+
+                colors.shoes,
+
+                {
+
+                    x:
+                        0,
+
+                    y:
+                        -1,
+
+                    z:
+                        0.04
+
+                },
+
+                rightHip,
+
+                {
+
+                    canCollide:
+                        false
+
+                }
+
+            );
+
+
+        // ========================================================
+        // HUMANOID ROOT PART
+        // ========================================================
+
         const rootPart =
-            new T.Object3D();
+            new THREE_LOCAL.Object3D();
+
 
         rootPart.name =
             "HumanoidRootPart";
 
+
+        rootPart.userData =
+            rootPart.userData ||
+            {};
+
+
         rootPart.userData.isRootPart =
             true;
 
+
+        rootPart.userData.characterPart =
+            true;
+
+
         rootPart.position.set(
+
             0,
+
             0,
+
             0
+
         );
+
 
         character.add(
             rootPart
         );
 
+
         character.userData.rootPart =
             rootPart;
 
-        /*
-         * --------------------------------------------------------
-         * TORSO
-         * --------------------------------------------------------
-         */
 
-        const torso =
-            createBlock(
-                "Torso",
-                dimensions.torso,
-                shirtColor,
-                {
-                    x: 0,
-                    y: 3.05,
-                    z: 0
-                },
-                body,
-                {
-                    bodyPart: true,
-                    castShadow: true,
-                    receiveShadow: true
-                }
-            );
+        character.userData.humanoidRootPart =
+            rootPart;
 
-        /*
-         * Keep both names so existing code that expects
-         * upperTorso/lowerTorso can continue to function.
-         */
 
-        torso.userData.bodyAlias =
-            true;
-
-        torso.userData.characterPartName =
-            "Torso";
-
-        const upperTorso =
-            new T.Group();
-
-        upperTorso.name =
-            "UpperTorso";
-
-        upperTorso.position.set(
-            0,
-            3.05,
-            0
-        );
-
-        upperTorso.userData.characterPart =
-            true;
-
-        body.add(
-            upperTorso
-        );
-
-        /*
-         * We use a small invisible joint representation for
-         * compatibility while keeping the visible torso as one
-         * solid block.
-         */
-
-        upperTorso.userData.mesh =
-            torso;
-
-        /*
-         * --------------------------------------------------------
-         * HEAD
-         * --------------------------------------------------------
-         */
-
-        const neck =
-            new T.Group();
-
-        neck.name =
-            "Neck";
-
-        neck.position.set(
-            0,
-            4.075,
-            0
-        );
-
-        neck.userData.characterJoint =
-            true;
-
-        body.add(
-            neck
-        );
-
-        const head =
-            createBlock(
-                "Head",
-                dimensions.head,
-                skinColor,
-                {
-                    x: 0,
-                    y:
-                        dimensions.head.y /
-                        2 +
-                        0.04,
-                    z: 0
-                },
-                neck,
-                {
-                    bodyPart: true,
-                    castShadow: true,
-                    receiveShadow: true
-                }
-            );
-
-        head.userData.isHead =
-            true;
-
-        createFace(
-            head,
-            dimensions.head
-        );
-
-        /*
-         * --------------------------------------------------------
-         * ARMS
-         *
-         * Shoulder starts directly against torso.
-         * Upper arm extends downward from shoulder.
-         * Hand closes the small remaining gap.
-         * --------------------------------------------------------
-         */
-
-        const shoulderY =
-            3.80;
-
-        const armX =
-            dimensions.torso.x / 2 +
-            dimensions.arm.x / 2 -
-            0.015;
-
-        const leftShoulder =
-            createLimb(
-                "LeftUpperArm",
-                dimensions.arm,
-                skinColor,
-                {
-                    x: -armX,
-                    y: shoulderY,
-                    z: 0
-                },
-                upperTorso
-            );
-
-        const rightShoulder =
-            createLimb(
-                "RightUpperArm",
-                dimensions.arm,
-                skinColor,
-                {
-                    x: armX,
-                    y: shoulderY,
-                    z: 0
-                },
-                upperTorso
-            );
-
-        /*
-         * Hands attach to bottom of arm.
-         */
-
-        const leftHand =
-            createBlock(
-                "LeftHand",
-                dimensions.hand,
-                skinColor,
-                {
-                    x: 0,
-                    y:
-                        -dimensions.arm.y -
-                        dimensions.hand.y / 2 +
-                        0.015,
-                    z: 0
-                },
-                leftShoulder,
-                {
-                    bodyPart: true,
-                    castShadow: true,
-                    receiveShadow: true
-                }
-            );
-
-        const rightHand =
-            createBlock(
-                "RightHand",
-                dimensions.hand,
-                skinColor,
-                {
-                    x: 0,
-                    y:
-                        -dimensions.arm.y -
-                        dimensions.hand.y / 2 +
-                        0.015,
-                    z: 0
-                },
-                rightShoulder,
-                {
-                    bodyPart: true,
-                    castShadow: true,
-                    receiveShadow: true
-                }
-            );
-
-        /*
-         * Compatibility aliases.
-         */
-
-        leftShoulder.userData.bodyAlias =
-            "leftUpperArm";
-
-        rightShoulder.userData.bodyAlias =
-            "rightUpperArm";
-
-        /*
-         * --------------------------------------------------------
-         * LEGS
-         * --------------------------------------------------------
-         */
-
-        const hipY =
-            2.025;
-
-        const legX =
-            0.50;
-
-        const leftHip =
-            createLimb(
-                "LeftUpperLeg",
-                dimensions.leg,
-                pantsColor,
-                {
-                    x: -legX,
-                    y: hipY,
-                    z: 0
-                },
-                body
-            );
-
-        const rightHip =
-            createLimb(
-                "RightUpperLeg",
-                dimensions.leg,
-                pantsColor,
-                {
-                    x: legX,
-                    y: hipY,
-                    z: 0
-                },
-                body
-            );
-
-        /*
-         * Feet.
-         */
-
-        const leftFoot =
-            createBlock(
-                "LeftFoot",
-                dimensions.foot,
-                shoeColor,
-                {
-                    x: 0,
-                    y:
-                        -dimensions.leg.y -
-                        dimensions.foot.y / 2 +
-                        0.015,
-                    z: 0.08
-                },
-                leftHip,
-                {
-                    bodyPart: true,
-                    castShadow: true,
-                    receiveShadow: true
-                }
-            );
-
-        const rightFoot =
-            createBlock(
-                "RightFoot",
-                dimensions.foot,
-                shoeColor,
-                {
-                    x: 0,
-                    y:
-                        -dimensions.leg.y -
-                        dimensions.foot.y / 2 +
-                        0.015,
-                    z: 0.08
-                },
-                rightHip,
-                {
-                    bodyPart: true,
-                    castShadow: true,
-                    receiveShadow: true
-                }
-            );
-
-        /*
-         * --------------------------------------------------------
-         * BODY PART COMPATIBILITY
-         *
-         * animations.js expects these names.
-         * --------------------------------------------------------
-         */
+        // ========================================================
+        // BODY PART REFERENCES
+        // ========================================================
 
         character.userData.bodyParts = {
 
-            head,
+            head:
 
-            torso,
+                head,
 
-            upperTorso,
+            torso:
 
-            lowerTorso:
                 torso,
 
+            upperTorso:
+
+                torso,
+
+            lowerTorso:
+
+                torso,
+
+
+            leftArm:
+
+                leftArm,
+
+            rightArm:
+
+                rightArm,
+
+
             leftUpperArm:
+
                 leftShoulder,
 
             rightUpperArm:
+
                 rightShoulder,
 
             leftLowerArm:
+
                 leftShoulder,
 
             rightLowerArm:
+
                 rightShoulder,
 
-            leftHand,
+            leftHand:
 
-            rightHand,
+                leftShoulder,
+
+            rightHand:
+
+                rightShoulder,
+
 
             leftUpperLeg:
+
                 leftHip,
 
             rightUpperLeg:
+
                 rightHip,
 
             leftLowerLeg:
+
                 leftHip,
 
             rightLowerLeg:
+
                 rightHip,
 
-            leftFoot,
+            leftFoot:
 
-            rightFoot
+                leftFoot,
+
+            rightFoot:
+
+                rightFoot,
+
+
+            leftLeg:
+
+                leftLeg,
+
+            rightLeg:
+
+                rightLeg,
+
+
+            leftShoulder:
+
+                leftShoulder,
+
+            rightShoulder:
+
+                rightShoulder,
+
+            leftHip:
+
+                leftHip,
+
+            rightHip:
+
+                rightHip
+
         };
 
-        /*
-         * --------------------------------------------------------
-         * JOINT DATA
-         * --------------------------------------------------------
-         */
+
+        // ========================================================
+        // RAW MESH REFERENCES
+        // ========================================================
+
+        character.userData.meshParts = {
+
+            torso:
+
+                torso,
+
+            head:
+
+                head,
+
+            leftArm:
+
+                leftArm,
+
+            rightArm:
+
+                rightArm,
+
+            leftLeg:
+
+                leftLeg,
+
+            rightLeg:
+
+                rightLeg,
+
+            leftFoot:
+
+                leftFoot,
+
+            rightFoot:
+
+                rightFoot
+
+        };
+
+
+        // ========================================================
+        // ANIMATION PIVOTS
+        // ========================================================
+
+        character.userData.animationPivots = {
+
+            neck:
+                character,
+
+            leftShoulder:
+                leftShoulder,
+
+            rightShoulder:
+                rightShoulder,
+
+            leftHip:
+                leftHip,
+
+            rightHip:
+                rightHip
+
+        };
+
+
+        // ========================================================
+        // JOINT DATA
+        // ========================================================
 
         character.userData.joints = {
 
-            neck: {
-                parent: "UpperTorso",
-                child: "Head"
+            waist: {
+
+                parent:
+                    "Torso",
+
+                child:
+                    "Torso",
+
+                type:
+                    "Motor6D"
+
             },
+
+
+            neck: {
+
+                parent:
+                    "Torso",
+
+                child:
+                    "Head",
+
+                type:
+                    "Motor6D"
+
+            },
+
 
             leftShoulder: {
-                parent: "UpperTorso",
-                child: "LeftUpperArm"
+
+                parent:
+                    "Torso",
+
+                child:
+                    "LeftArm",
+
+                type:
+                    "Motor6D"
+
             },
+
 
             rightShoulder: {
-                parent: "UpperTorso",
-                child: "RightUpperArm"
+
+                parent:
+                    "Torso",
+
+                child:
+                    "RightArm",
+
+                type:
+                    "Motor6D"
+
             },
 
-            leftWrist: {
-                parent: "LeftUpperArm",
-                child: "LeftHand"
-            },
-
-            rightWrist: {
-                parent: "RightUpperArm",
-                child: "RightHand"
-            },
 
             leftHip: {
-                parent: "Torso",
-                child: "LeftUpperLeg"
+
+                parent:
+                    "Torso",
+
+                child:
+                    "LeftLeg",
+
+                type:
+                    "Motor6D"
+
             },
+
 
             rightHip: {
-                parent: "Torso",
-                child: "RightUpperLeg"
-            },
 
-            leftAnkle: {
-                parent: "LeftUpperLeg",
-                child: "LeftFoot"
-            },
+                parent:
+                    "Torso",
 
-            rightAnkle: {
-                parent: "RightUpperLeg",
-                child: "RightFoot"
+                child:
+                    "RightLeg",
+
+                type:
+                    "Motor6D"
+
             }
+
         };
 
-        /*
-         * --------------------------------------------------------
-         * RUNTIME
-         * --------------------------------------------------------
-         */
+
+        // ========================================================
+        // RUNTIME DATA
+        // ========================================================
 
         character.userData.runtime = {
 
             grounded:
-                options.grounded ??
                 false,
 
             velocity: {
 
-                x: 0,
+                x:
+                    0,
 
-                y: 0,
+                y:
+                    0,
 
-                z: 0
+                z:
+                    0
+
             },
 
             spawnPosition: {
 
                 x:
-                    Number(
-                        options.spawnPosition
-                            ?.x ??
-                        0
-                    ),
+                    0,
 
                 y:
-                    Number(
-                        options.spawnPosition
-                            ?.y ??
-                        0
-                    ),
+                    0,
 
                 z:
-                    Number(
-                        options.spawnPosition
-                            ?.z ??
-                        0
-                    )
+                    0
+
             },
 
-            input: {
+            alive:
+                true
 
-                moving: false,
-
-                sprint: false,
-
-                jump: false
-            },
-
-            alive: true
         };
 
-        /*
-         * --------------------------------------------------------
-         * BOUNDS
-         * --------------------------------------------------------
-         */
+
+        // ========================================================
+        // CHARACTER BOUNDS
+        // ========================================================
 
         character.userData.height =
-            5.95;
+            5;
+
 
         character.userData.width =
-            2.0;
+            2;
+
 
         character.userData.depth =
-            1.2;
+            1;
 
-        /*
-         * --------------------------------------------------------
-         * SPAWN POSITION
-         * --------------------------------------------------------
-         */
+
+        // ========================================================
+        // DEFAULT CHARACTER POSITION
+        // ========================================================
 
         character.position.set(
 
             Number(
-                options.position?.x ??
-                options.spawnPosition?.x ??
+                options.x ||
                 0
             ),
 
             Number(
-                options.position?.y ??
-                options.spawnPosition?.y ??
+                options.y ||
                 0
             ),
 
             Number(
-                options.position?.z ??
-                options.spawnPosition?.z ??
+                options.z ||
                 0
             )
+
         );
 
-        /*
-         * --------------------------------------------------------
-         * FINAL FLAGS
-         * --------------------------------------------------------
-         */
 
-        character.userData.blocky =
-            true;
+        character.userData.runtime
+            .spawnPosition = {
 
-        character.userData.accessories =
-            [];
+                x:
+                    character.position.x,
 
-        character.userData.hair =
-            null;
+                y:
+                    character.position.y,
 
-        character.userData.hat =
-            null;
+                z:
+                    character.position.z
+
+            };
+
+
+        // ========================================================
+        // COMPATIBILITY UPDATE
+        // ========================================================
+
+        character.update =
+            function(
+                deltaTime
+            ) {
+
+                if (
+                    typeof deltaTime !==
+                    "number"
+                ) {
+
+                    return;
+
+                }
+
+
+                /*
+                 * Physics is intentionally handled by physics.js.
+                 * This method only exposes a compatibility hook for
+                 * older WebBlox systems.
+                 */
+
+
+                if (
+                    character.userData.runtime
+                ) {
+
+                    character.userData.runtime.velocity = {
+
+                        x:
+                            Number(
+                                PlayerSystem?.state
+                                    ?.velocity?.x ||
+                                0
+                            ),
+
+                        y:
+                            Number(
+                                PlayerSystem?.state
+                                    ?.velocity?.y ||
+                                0
+                            ),
+
+                        z:
+                            Number(
+                                PlayerSystem?.state
+                                    ?.velocity?.z ||
+                                0
+                            )
+
+                    };
+
+                }
+
+            };
+
+
+        // ========================================================
+        // RETURN
+        // ========================================================
 
         return character;
+
     }
 
-    /*
-     * ============================================================
-     * DESTROY
-     * ============================================================
-     */
+
+    // ============================================================
+    // DESTROY CHARACTER
+    // ============================================================
 
     function destroyCharacter(
         character
     ) {
-        if (!character) {
+
+        if (
+            !character
+        ) {
+
             return;
+
         }
+
 
         character.traverse(
             child => {
 
                 if (
-                    child.geometry &&
-                    typeof child.geometry.dispose ===
-                        "function"
+                    child.geometry
                 ) {
+
                     child.geometry.dispose();
+
                 }
+
 
                 if (
                     child.material
                 ) {
+
                     if (
                         Array.isArray(
                             child.material
@@ -1196,48 +1736,530 @@
                                 if (
                                     material &&
                                     typeof material.dispose ===
-                                        "function"
+                                    "function"
                                 ) {
+
                                     material.dispose();
+
                                 }
 
                             }
                         );
 
                     } else if (
+
                         typeof child.material.dispose ===
-                            "function"
+                        "function"
+
                     ) {
 
                         child.material.dispose();
 
                     }
+
                 }
+
             }
         );
+
 
         if (
             character.parent
         ) {
+
             character.parent.remove(
                 character
             );
+
         }
+
     }
 
-    /*
-     * ============================================================
-     * PUBLIC API
-     * ============================================================
-     */
+
+    // ============================================================
+    // FIND CHARACTER PART
+    // ============================================================
+
+    function findPart(
+        character,
+        name
+    ) {
+
+        if (
+            !character ||
+            !name
+        ) {
+
+            return null;
+
+        }
+
+
+        let result =
+            null;
+
+
+        character.traverse(
+            child => {
+
+                if (
+                    result
+                ) {
+
+                    return;
+
+                }
+
+
+                if (
+                    child.name ===
+                    name
+                ) {
+
+                    result =
+                        child;
+
+                }
+
+            }
+        );
+
+
+        return result;
+
+    }
+
+
+    // ============================================================
+    // SET BODY COLOR
+    // ============================================================
+
+    function setBodyColor(
+        character,
+        partName,
+        color
+    ) {
+
+        const part =
+            findPart(
+                character,
+                partName
+            );
+
+
+        if (
+            !part?.material
+        ) {
+
+            return false;
+
+        }
+
+
+        const materials =
+            Array.isArray(
+                part.material
+            )
+
+                ? part.material
+
+                : [part.material];
+
+
+        materials.forEach(
+            material => {
+
+                try {
+
+                    material.color.set(
+                        color
+                    );
+
+                } catch {
+
+                    // Ignore invalid color.
+
+                }
+
+            }
+        );
+
+
+        return true;
+
+    }
+
+
+    // ============================================================
+    // SET TRANSPARENCY
+    // ============================================================
+
+    function setTransparency(
+        character,
+        transparency
+    ) {
+
+        if (
+            !character
+        ) {
+
+            return false;
+
+        }
+
+
+        const value =
+            Math.max(
+
+                0,
+
+                Math.min(
+
+                    1,
+
+                    Number(
+                        transparency
+                    ) || 0
+
+                )
+
+            );
+
+
+        character.traverse(
+            child => {
+
+                if (
+                    !child.isMesh ||
+                    !child.material
+                ) {
+
+                    return;
+
+                }
+
+
+                const materials =
+                    Array.isArray(
+                        child.material
+                    )
+
+                        ? child.material
+
+                        : [child.material];
+
+
+                materials.forEach(
+                    material => {
+
+                        material.transparent =
+                            value >
+                            0;
+
+
+                        material.opacity =
+                            1 -
+                            value;
+
+
+                        material.depthWrite =
+                            value <
+                            1;
+
+                    }
+                );
+
+
+                child.userData.transparency =
+                    value;
+
+            }
+        );
+
+
+        character.userData.transparency =
+            value;
+
+
+        return true;
+
+    }
+
+
+    // ============================================================
+    // SET CHARACTER POSITION
+    // ============================================================
+
+    function setPosition(
+        character,
+        x,
+        y,
+        z
+    ) {
+
+        if (
+            !character
+        ) {
+
+            return false;
+
+        }
+
+
+        character.position.set(
+
+            Number(
+                x
+            ) || 0,
+
+            Number(
+                y
+            ) || 0,
+
+            Number(
+                z
+            ) || 0
+
+        );
+
+
+        if (
+            character.userData.runtime
+        ) {
+
+            character.userData.runtime
+                .spawnPosition = {
+
+                    x:
+                        character.position.x,
+
+                    y:
+                        character.position.y,
+
+                    z:
+                        character.position.z
+
+                };
+
+        }
+
+
+        return true;
+
+    }
+
+
+    // ============================================================
+    // SET HUMANOID VALUES
+    // ============================================================
+
+    function configureHumanoid(
+        character,
+        values = {}
+    ) {
+
+        if (
+            !character?.userData?.humanoid
+        ) {
+
+            return false;
+
+        }
+
+
+        const humanoid =
+            character.userData.humanoid;
+
+
+        if (
+            values.walkSpeed !==
+            undefined
+        ) {
+
+            humanoid.walkSpeed =
+                Math.max(
+
+                    0,
+
+                    Number(
+                        values.walkSpeed
+                    ) ||
+                    0
+
+                );
+
+        }
+
+
+        if (
+            values.jumpPower !==
+            undefined
+        ) {
+
+            humanoid.jumpPower =
+                Math.max(
+
+                    0,
+
+                    Number(
+                        values.jumpPower
+                    ) ||
+                    0
+
+                );
+
+        }
+
+
+        if (
+            values.health !==
+            undefined
+        ) {
+
+            humanoid.health =
+                Math.max(
+
+                    0,
+
+                    Math.min(
+
+                        humanoid.maxHealth,
+
+                        Number(
+                            values.health
+                        ) ||
+                        0
+
+                    )
+
+                );
+
+        }
+
+
+        if (
+            values.maxHealth !==
+            undefined
+        ) {
+
+            humanoid.maxHealth =
+                Math.max(
+
+                    1,
+
+                    Number(
+                        values.maxHealth
+                    ) ||
+                    1
+
+                );
+
+
+            humanoid.health =
+                Math.min(
+
+                    humanoid.health,
+
+                    humanoid.maxHealth
+
+                );
+
+        }
+
+
+        if (
+            values.autoRotate !==
+            undefined
+        ) {
+
+            humanoid.autoRotate =
+                Boolean(
+                    values.autoRotate
+                );
+
+        }
+
+
+        return true;
+
+    }
+
+
+    // ============================================================
+    // PUBLIC API
+    // ============================================================
 
     PlayerSystem.createCharacter =
         createCharacter;
 
+
     PlayerSystem.destroyCharacter =
         destroyCharacter;
 
-    PlayerSystem.characterBuilder =
-        "blocky";
+
+    PlayerSystem.findCharacterPart =
+        findPart;
+
+
+    PlayerSystem.setBodyColor =
+        setBodyColor;
+
+
+    PlayerSystem.setTransparency =
+        setTransparency;
+
+
+    PlayerSystem.setCharacterPosition =
+        setPosition;
+
+
+    PlayerSystem.configureHumanoid =
+        configureHumanoid;
+
+
+    PlayerSystem.Character =
+        {
+
+            create:
+                createCharacter,
+
+            destroy:
+                destroyCharacter,
+
+            findPart,
+
+            setBodyColor,
+
+            setTransparency,
+
+            setPosition,
+
+            configureHumanoid
+
+        };
+
+
+    // ============================================================
+    // READY
+    // ============================================================
+
+    console.log(
+        "[WebBlox Character] Classic blocky R6 character system loaded."
+    );
+
+
+    console.log(
+        "[WebBlox Character] Capsule geometry disabled."
+    );
+
+
+    console.log(
+        "[WebBlox Character] Bacon hair disabled."
+    );
+
+
+    console.log(
+        "[WebBlox Character] Animation pivots enabled."
+    );
 
 })();
