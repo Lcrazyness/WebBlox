@@ -36,12 +36,25 @@
     // GLOBAL
     // ============================================================
 
-    /*
-     * Do not abort when Studio has already created a temporary
-     * WebBloxPlayer namespace. The actual public API is published
-     * at the end of this file, so aborting here prevents start()
-     * from ever being created.
-     */
+    if (
+        window.WebBloxPlayer &&
+        typeof window.WebBloxPlayer.start === "function"
+    ) {
+        console.warn(
+            "[WebBlox Player] Runtime already exists."
+        );
+        return;
+    }
+
+    // A stale/incomplete WebBloxPlayer object must never prevent
+    // this file from installing the complete runtime API.
+    if (window.WebBloxPlayer) {
+        try {
+            delete window.WebBloxPlayer;
+        } catch {
+            window.WebBloxPlayer = undefined;
+        }
+    }
 
 
     // ============================================================
