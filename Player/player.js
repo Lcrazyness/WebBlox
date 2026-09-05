@@ -83,6 +83,10 @@
 
         grounded: false,
 
+        wasGrounded: false,
+
+        landSquashTimer: 0,
+
         moving: false,
 
         sprinting: false,
@@ -450,6 +454,39 @@
         mesh.userData.characterPartName = name;
 
         parent.add(mesh);
+
+        /*
+         * Outline shell: a slightly larger, black,
+         * back-face-only copy of the same box. This is
+         * the classic cheap "toon outline" trick — it's
+         * what stops flat-shaded boxes from looking like
+         * untextured placeholder geometry and gives the
+         * character actual visual definition/edges.
+         */
+
+        const outlineMesh =
+            new THREE.Mesh(
+                geometry,
+                new THREE.MeshBasicMaterial({
+                    color: 0x000000,
+                    side: THREE.BackSide
+                })
+            );
+
+        outlineMesh.scale.setScalar(
+            1.08
+        );
+
+        outlineMesh.position.copy(
+            mesh.position
+        );
+
+        outlineMesh.userData.isOutline =
+            true;
+
+        parent.add(
+            outlineMesh
+        );
 
         return mesh;
     }
@@ -982,6 +1019,9 @@
         };
 
         root.userData.head = head;
+
+        root.userData.headBaseY =
+            head.position.y;
 
         root.userData.height = upperTorsoTop + 1.75;
 
@@ -4004,6 +4044,70 @@
                     -0.15;
             }
         }
+
+
+        /*
+         * Subtle head bob while walking — makes the
+         * walk cycle read as actual weight/momentum
+         * instead of limbs swinging on a static torso.
+         */
+
+        if (character.userData.head) {
+
+            character.userData.head.position.y =
+                character.userData.headBaseY +
+                (
+                    animState === "Walking"
+                        ? Math.abs(swing) * 0.06
+                        : 0
+                );
+        }
+
+
+        /*
+         * Landing squash — a quick, springy scale pulse
+         * the moment the character hits the ground after
+         * a fall. Purely visual, doesn't touch physics.
+         */
+
+        if (
+            state.grounded &&
+            !state.wasGrounded
+        ) {
+
+            state.landSquashTimer =
+                0.16;
+        }
+
+        state.wasGrounded =
+            state.grounded;
+
+        if (state.landSquashTimer > 0) {
+
+            state.landSquashTimer =
+                Math.max(
+                    0,
+                    state.landSquashTimer - delta
+                );
+
+            const t =
+                state.landSquashTimer / 0.16;
+
+            const squash =
+                t * 0.14;
+
+            character.scale.set(
+                1 + squash,
+                1 - squash,
+                1 + squash
+            );
+
+        } else if (
+            character.scale.y !== 1
+        ) {
+
+            character.scale.set(1, 1, 1);
+        }
     }
 
 
@@ -4533,6 +4637,10 @@
         state.velocity.z = 0;
 
         state.grounded = false;
+
+        state.wasGrounded = false;
+
+        state.landSquashTimer = 0;
 
 
         /*
