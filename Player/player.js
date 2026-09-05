@@ -144,6 +144,8 @@
 
         guiContainer: null,
 
+        soundEntries: [],
+
         originalSceneChildren: [],
 
         onLog: null,
@@ -1704,8 +1706,20 @@
                             prop
                         );
 
-                    return guiEntry
-                        ? createGuiWrapper(guiEntry)
+                    if (guiEntry) {
+
+                        return createGuiWrapper(
+                            guiEntry
+                        );
+                    }
+
+                    const soundEntry =
+                        findSoundEntryByName(
+                            prop
+                        );
+
+                    return soundEntry
+                        ? createSoundWrapper(soundEntry)
                         : undefined;
                 }
             }
@@ -2035,14 +2049,15 @@
                             : 0,
 
                     transparent:
-                        object.material ===
-                        "Glass",
+                        object.material === "Glass" ||
+                        (object.transparency > 0),
 
                     opacity:
-                        object.material ===
-                        "Glass"
-                            ? 0.45
-                            : 1
+                        object.transparency > 0
+                            ? 1 - Math.max(0, Math.min(1, object.transparency))
+                            : object.material === "Glass"
+                                ? 0.45
+                                : 1
                 });
 
 
@@ -2449,6 +2464,140 @@
         state.guiElements = [];
 
         guiClickHandlers.clear();
+    }
+
+
+    // ============================================================
+    // SOUND
+    // ============================================================
+
+    function createRuntimeSounds() {
+
+        state.soundEntries = [];
+
+        const soundObjects =
+            state.objects.filter(
+                object => object.type === "Sound"
+            );
+
+        for (
+            const object
+            of soundObjects
+        ) {
+
+            if (!object.soundUrl) {
+                continue;
+            }
+
+            const audio =
+                new Audio(
+                    object.soundUrl
+                );
+
+            audio.volume =
+                Math.max(
+                    0,
+                    Math.min(1, object.volume ?? 0.5)
+                );
+
+            audio.playbackRate =
+                Math.max(
+                    0.25,
+                    Math.min(4, object.pitch ?? 1)
+                );
+
+            audio.loop =
+                object.looped === true;
+
+            state.soundEntries.push({
+                object,
+                audio
+            });
+
+            if (object.autoPlay) {
+
+                audio.play().catch(
+                    () => {
+                        // Autoplay can be blocked until
+                        // the user interacts with the page.
+                    }
+                );
+            }
+        }
+    }
+
+
+    function removeRuntimeSounds() {
+
+        for (
+            const entry
+            of state.soundEntries
+        ) {
+
+            entry.audio.pause();
+
+            entry.audio.src = "";
+        }
+
+        state.soundEntries = [];
+    }
+
+
+    function findSoundEntryByName(name) {
+
+        return state.soundEntries.find(
+            entry => entry.object.name === name
+        );
+    }
+
+
+    function createSoundWrapper(entry) {
+
+        return {
+
+            get Volume() {
+                return entry.audio.volume;
+            },
+
+            set Volume(value) {
+
+                entry.audio.volume =
+                    Math.max(0, Math.min(1, Number(value) || 0));
+            },
+
+            get Pitch() {
+                return entry.audio.playbackRate;
+            },
+
+            set Pitch(value) {
+
+                entry.audio.playbackRate =
+                    Math.max(0.25, Math.min(4, Number(value) || 1));
+            },
+
+            get Looped() {
+                return entry.audio.loop;
+            },
+
+            set Looped(value) {
+
+                entry.audio.loop = !!value;
+            },
+
+            Play() {
+
+                entry.audio.currentTime = 0;
+
+                entry.audio.play().catch(() => {});
+            },
+
+            Stop() {
+
+                entry.audio.pause();
+
+                entry.audio.currentTime = 0;
+            }
+        };
     }
 
 
@@ -4612,6 +4761,8 @@
 
         createRuntimeGui();
 
+        createRuntimeSounds();
+
 
         /*
          * Reset scripting state and run every Script /
@@ -4774,6 +4925,8 @@
         state.activeScripts = [];
 
         removeRuntimeGui();
+
+        removeRuntimeSounds();
 
 
         state.velocity.x = 0;
