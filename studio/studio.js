@@ -4050,6 +4050,82 @@
     }
 
 
+    const GUI_TYPES = [
+        "ScreenGui", "Frame", "TextLabel", "TextButton"
+    ];
+
+    const PART_CONTAINER_TYPES = [
+        "Model", "Folder"
+    ];
+
+    function canReparent(draggedId, targetParentId) {
+
+        const dragged =
+            state.objects.get(
+                draggedId
+            );
+
+        if (!dragged) {
+            return false;
+        }
+
+        const target =
+            targetParentId
+                ? state.objects.get(
+                    targetParentId
+                )
+                : null;
+
+        const isGui =
+            GUI_TYPES.includes(
+                dragged.type
+            );
+
+        if (isGui) {
+
+            /*
+             * GUI elements only ever nest inside other
+             * GUI elements (or sit loose at the top level,
+             * which just means "not shown yet"). Dropping
+             * a Frame onto a Part is exactly what was
+             * breaking GUI rendering before.
+             */
+
+            if (dragged.type === "ScreenGui") {
+
+                return !target;
+            }
+
+            return (
+                !target ||
+                GUI_TYPES.includes(target.type)
+            );
+        }
+
+        if (
+            dragged.type === "Script" ||
+            dragged.type === "LocalScript"
+        ) {
+
+            return (
+                !target ||
+                !GUI_TYPES.includes(target.type)
+            );
+        }
+
+        /*
+         * Everything else (Part, SpawnLocation, Model,
+         * Folder, Sound) — never allow it under a GUI
+         * element, since that has no meaning at all.
+         */
+
+        return (
+            !target ||
+            !GUI_TYPES.includes(target.type)
+        );
+    }
+
+
     function setupExplorerDropZone(item, targetParentId) {
 
         if (!item) {
@@ -4078,6 +4154,15 @@
                             targetParentId,
                             draggedExplorerId
                         )
+                    )
+                ) {
+                    return;
+                }
+
+                if (
+                    !canReparent(
+                        draggedExplorerId,
+                        targetParentId
                     )
                 ) {
                     return;
@@ -4135,6 +4220,15 @@
                             targetParentId,
                             draggedExplorerId
                         )
+                    )
+                ) {
+                    return;
+                }
+
+                if (
+                    !canReparent(
+                        draggedExplorerId,
+                        targetParentId
                     )
                 ) {
                     return;
@@ -4898,11 +4992,27 @@
                     padding: 12px 8px 12px 0; overflow: hidden; user-select: none;
                     box-sizing: border-box;
                 "></div>
-                <textarea id="webbloxScriptTextarea" spellcheck="false" style="
-                    flex: 1; background: #1e1e1e; color: #d4d4d4; border: none; outline: none;
-                    font: 13px/1.55 Consolas, 'Courier New', monospace; padding: 12px 14px;
-                    resize: none; white-space: pre; overflow: auto; box-sizing: border-box;
-                "></textarea>
+                <div style="flex: 1; position: relative; overflow: hidden;">
+                    <pre id="webbloxScriptHighlight" style="
+                        margin: 0; position: absolute; inset: 0; pointer-events: none;
+                        font: 13px/1.55 Consolas, 'Courier New', monospace; padding: 12px 14px;
+                        white-space: pre; overflow: hidden; box-sizing: border-box;
+                        color: #d4d4d4;
+                    "></pre>
+                    <textarea id="webbloxScriptTextarea" spellcheck="false" style="
+                        position: absolute; inset: 0; width: 100%; height: 100%;
+                        background: transparent; color: transparent; caret-color: #ffffff;
+                        border: none; outline: none;
+                        font: 13px/1.55 Consolas, 'Courier New', monospace; padding: 12px 14px;
+                        resize: none; white-space: pre; overflow: auto; box-sizing: border-box;
+                    "></textarea>
+                    <div id="webbloxAutocomplete" style="
+                        display: none; position: absolute; z-index: 10;
+                        background: #252526; border: 1px solid #454545; border-radius: 4px;
+                        box-shadow: 0 6px 20px rgba(0,0,0,0.5); min-width: 160px;
+                        font: 12.5px Consolas, 'Courier New', monospace; overflow: hidden;
+                    "></div>
+                </div>
             </div>
 
             <div id="webbloxScriptBlocksView" style="
@@ -5040,6 +5150,10 @@
                 }
 
                 updateScriptGutter();
+
+                updateScriptHighlight();
+
+                updateAutocomplete();
             }
         );
 
@@ -5051,12 +5165,41 @@
                     "#webbloxScriptGutter"
                 ).scrollTop =
                     textarea.scrollTop;
+
+                overlay.querySelector(
+                    "#webbloxScriptHighlight"
+                ).scrollTop =
+                    textarea.scrollTop;
+
+                overlay.querySelector(
+                    "#webbloxScriptHighlight"
+                ).scrollLeft =
+                    textarea.scrollLeft;
+
+                hideAutocomplete();
+            }
+        );
+
+        textarea.addEventListener(
+            "click",
+            () => {
+
+                hideAutocomplete();
             }
         );
 
         textarea.addEventListener(
             "keydown",
             event => {
+
+                if (
+                    handleAutocompleteKeydown(
+                        event
+                    )
+                ) {
+
+                    return;
+                }
 
                 if (event.key === "Tab") {
 
@@ -5081,6 +5224,11 @@
                         new Event("input")
                     );
                 }
+
+                if (event.key === "Escape") {
+
+                    hideAutocomplete();
+                }
             }
         );
 
@@ -5098,6 +5246,415 @@
             overlay;
 
         return overlay;
+    }
+
+
+    // ------------------------------------------------------------
+    // SYNTAX HIGHLIGHTING
+    //
+    // Classic "invisible textarea on top of a highlighted <pre>"
+    // trick — the textarea holds the real, editable, plain text
+    // (transparent, only the caret shows); the <pre> underneath,
+    // perfectly aligned, shows the same text with color spans.
+    // ------------------------------------------------------------
+
+    const LUAU_KEYWORDS = [
+        "local", "function", "end", "if", "then", "else", "elseif",
+        "for", "while", "do", "in", "return", "break", "repeat",
+        "until", "and", "or", "not", "nil", "true", "false"
+    ];
+
+    const LUAU_API_WORDS = [
+        "game", "workspace", "script", "wait", "print",
+        "Players", "LocalPlayer", "Parent", "Name", "Position",
+        "Color", "Size", "Transparency", "CanCollide", "Connect",
+        "Disconnect", "Touched", "MouseButton1Click", "Text",
+        "Visible", "BackgroundColor", "TextColor", "CFrame", "new",
+        "Destroy", "Play", "Stop", "Volume", "Pitch", "Looped",
+        "UserId"
+    ];
+
+    function escapeForHighlight(text) {
+
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    }
+
+    function highlightLuau(code) {
+
+        const escaped =
+            escapeForHighlight(
+                code
+            );
+
+        const keywordPattern =
+            LUAU_KEYWORDS.join("|");
+
+        const apiPattern =
+            LUAU_API_WORDS.join("|");
+
+        /*
+         * Order matters: comments and strings are matched
+         * first and their contents protected (via a
+         * placeholder swap) so keyword/number rules never
+         * reach inside them.
+         */
+
+        const placeholders = [];
+
+        let out =
+            escaped.replace(
+                /(--.*$)/gm,
+                match => {
+
+                    placeholders.push(
+                        `<span style="color:#6a9955;">${match}</span>`
+                    );
+
+                    return `@@H${placeholders.length - 1}@@`;
+                }
+            );
+
+        out =
+            out.replace(
+                /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g,
+                match => {
+
+                    placeholders.push(
+                        `<span style="color:#ce9178;">${match}</span>`
+                    );
+
+                    return `@@H${placeholders.length - 1}@@`;
+                }
+            );
+
+        out =
+            out.replace(
+                new RegExp(`\\b(${keywordPattern})\\b`, "g"),
+                '<span style="color:#569cd6;">$1</span>'
+            );
+
+        out =
+            out.replace(
+                new RegExp(`\\b(${apiPattern})\\b`, "g"),
+                '<span style="color:#4ec9b0;">$1</span>'
+            );
+
+        out =
+            out.replace(
+                /\b(\d+\.?\d*)\b/g,
+                '<span style="color:#b5cea8;">$1</span>'
+            );
+
+        out =
+            out.replace(
+                /\b([A-Za-z_]\w*)(?=\s*\()/g,
+                '<span style="color:#dcdcaa;">$1</span>'
+            );
+
+        out =
+            out.replace(
+                /@@H(\d+)@@/g,
+                (_, i) => placeholders[i]
+            );
+
+        return out;
+    }
+
+
+    function updateScriptHighlight() {
+
+        const textarea =
+            scriptEditorEl.querySelector(
+                "#webbloxScriptTextarea"
+            );
+
+        const highlight =
+            scriptEditorEl.querySelector(
+                "#webbloxScriptHighlight"
+            );
+
+        const object =
+            state.objects.get(
+                scriptEditorObjectId
+            );
+
+        const isLuau =
+            !object ||
+            object.language !== "javascript";
+
+        highlight.innerHTML =
+            (
+                isLuau
+                    ? highlightLuau(textarea.value)
+                    : escapeForHighlight(textarea.value)
+            ) + "\n";
+    }
+
+
+    // ------------------------------------------------------------
+    // AUTOCOMPLETE — suggests matching keywords/API members as
+    // you type, Tab or Enter to accept, Up/Down to navigate.
+    // ------------------------------------------------------------
+
+    const AUTOCOMPLETE_WORDS =
+        [...new Set([
+            ...LUAU_KEYWORDS,
+            ...LUAU_API_WORDS
+        ])].sort();
+
+    let autocompleteMatches = [];
+
+    let autocompleteIndex = 0;
+
+
+    function getCurrentWord(textarea) {
+
+        const value =
+            textarea.value;
+
+        const cursor =
+            textarea.selectionStart;
+
+        let start =
+            cursor;
+
+        while (
+            start > 0 &&
+            /[\w]/.test(
+                value[start - 1]
+            )
+        ) {
+
+            start--;
+        }
+
+        return {
+            word: value.slice(start, cursor),
+            start
+        };
+    }
+
+
+    function updateAutocomplete() {
+
+        const textarea =
+            scriptEditorEl.querySelector(
+                "#webbloxScriptTextarea"
+            );
+
+        const { word } =
+            getCurrentWord(
+                textarea
+            );
+
+        if (
+            !word ||
+            word.length < 2
+        ) {
+
+            hideAutocomplete();
+
+            return;
+        }
+
+        autocompleteMatches =
+            AUTOCOMPLETE_WORDS.filter(
+                w =>
+                    w
+                        .toLowerCase()
+                        .startsWith(
+                            word.toLowerCase()
+                        ) &&
+                    w.toLowerCase() !== word.toLowerCase()
+            ).slice(0, 8);
+
+        if (!autocompleteMatches.length) {
+
+            hideAutocomplete();
+
+            return;
+        }
+
+        autocompleteIndex = 0;
+
+        renderAutocomplete();
+    }
+
+
+    function renderAutocomplete() {
+
+        const box =
+            scriptEditorEl.querySelector(
+                "#webbloxAutocomplete"
+            );
+
+        box.innerHTML =
+            autocompleteMatches
+                .map(
+                    (word, index) =>
+                        `<div data-index="${index}" style="
+                            padding: 5px 10px;
+                            color: ${
+                                index === autocompleteIndex
+                                    ? "#fff"
+                                    : "#ccc"
+                            };
+                            background: ${
+                                index === autocompleteIndex
+                                    ? "#094771"
+                                    : "transparent"
+                            };
+                            cursor: pointer;
+                        ">${escapeForHighlight(word)}</div>`
+                )
+                .join("");
+
+        box
+            .querySelectorAll(
+                "[data-index]"
+            )
+            .forEach(
+                row => {
+
+                    row.addEventListener(
+                        "mousedown",
+                        event => {
+
+                            event.preventDefault();
+
+                            acceptAutocomplete(
+                                Number(
+                                    row.dataset.index
+                                )
+                            );
+                        }
+                    );
+                }
+            );
+
+        box.style.top =
+            "6px";
+
+        box.style.left =
+            "14px";
+
+        box.style.display =
+            "block";
+    }
+
+
+    function hideAutocomplete() {
+
+        autocompleteMatches = [];
+
+        const box =
+            scriptEditorEl?.querySelector(
+                "#webbloxAutocomplete"
+            );
+
+        if (box) {
+
+            box.style.display =
+                "none";
+        }
+    }
+
+
+    function acceptAutocomplete(index) {
+
+        const textarea =
+            scriptEditorEl.querySelector(
+                "#webbloxScriptTextarea"
+            );
+
+        const word =
+            autocompleteMatches[index];
+
+        if (!word) {
+            return;
+        }
+
+        const { word: current, start } =
+            getCurrentWord(
+                textarea
+            );
+
+        const cursor =
+            textarea.selectionStart;
+
+        textarea.value =
+            textarea.value.slice(0, start) +
+            word +
+            textarea.value.slice(cursor);
+
+        textarea.selectionStart =
+            textarea.selectionEnd =
+                start + word.length;
+
+        hideAutocomplete();
+
+        textarea.dispatchEvent(
+            new Event("input")
+        );
+
+        textarea.focus();
+    }
+
+
+    function handleAutocompleteKeydown(event) {
+
+        if (!autocompleteMatches.length) {
+
+            return false;
+        }
+
+        if (event.key === "ArrowDown") {
+
+            event.preventDefault();
+
+            autocompleteIndex =
+                (autocompleteIndex + 1) %
+                autocompleteMatches.length;
+
+            renderAutocomplete();
+
+            return true;
+        }
+
+        if (event.key === "ArrowUp") {
+
+            event.preventDefault();
+
+            autocompleteIndex =
+                (
+                    autocompleteIndex -
+                    1 +
+                    autocompleteMatches.length
+                ) % autocompleteMatches.length;
+
+            renderAutocomplete();
+
+            return true;
+        }
+
+        if (
+            event.key === "Tab" ||
+            event.key === "Enter"
+        ) {
+
+            event.preventDefault();
+
+            acceptAutocomplete(
+                autocompleteIndex
+            );
+
+            return true;
+        }
+
+        return false;
     }
 
 
@@ -5201,6 +5758,8 @@
                     ? "Luau-style syntax (local, function...end, if...then...end) — a simplified layer, not full Luau."
                     : "Runs as plain JavaScript against the same Player API.";
         }
+
+        updateScriptHighlight();
     }
 
 
@@ -5240,6 +5799,8 @@
             "";
 
         updateScriptGutter();
+
+        updateScriptHighlight();
 
         setScriptLanguage(
             object.language ||
