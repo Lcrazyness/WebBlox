@@ -3796,86 +3796,367 @@
             );
 
 
+        /*
+         * Build a real parent -> children tree from
+         * parentId instead of a flat list, so nesting
+         * (and therefore drag-and-drop reparenting)
+         * actually means something visually.
+         */
+
+        const byParent =
+            new Map();
+
         for (
             const object
             of state.objects.values()
         ) {
 
-            const item =
-                document.createElement(
-                    "div"
+            const key =
+                object.parentId ||
+                "workspace";
+
+            if (!byParent.has(key)) {
+
+                byParent.set(key, []);
+            }
+
+            byParent.get(key).push(
+                object
+            );
+        }
+
+
+        function renderChildren(
+            parentKey,
+            container,
+            depth
+        ) {
+
+            const children =
+                byParent.get(parentKey) ||
+                [];
+
+            for (
+                const object
+                of children
+            ) {
+
+                const item =
+                    createExplorerItem(
+                        object,
+                        depth
+                    );
+
+                container.appendChild(
+                    item
                 );
 
+                /*
+                 * Recurse — a child's own children go
+                 * right after it in the same flat DOM
+                 * container, just indented further, so
+                 * we don't need nested <div> wrappers.
+                 */
 
-            item.className =
-                "tree-item";
-
-
-            item.dataset.objectId =
-                object.id;
-
-
-            item.dataset.objectType =
-                object.type;
-
-
-            item.dataset.generatedObject =
-                "true";
-
-
-            item.innerHTML = `
-
-                <span class="tree-spacer"></span>
-
-                <span class="tree-icon">
-                    ${getObjectIcon(object.type)}
-                </span>
-
-                <span class="tree-name">
-                    ${escapeHTML(object.name)}
-                </span>
-            `;
+                renderChildren(
+                    object.id,
+                    container,
+                    depth + 1
+                );
+            }
+        }
 
 
-            item.addEventListener(
-                "click",
-                event => {
+        renderChildren(
+            "workspace",
+            workspaceChildren,
+            0
+        );
 
-                    event.stopPropagation();
+
+        setupExplorerDropZone(
+            $("explorerTree")
+                ?.querySelector(
+                    "[data-object-id='workspace']"
+                ),
+            null
+        );
+
+
+        updateExplorerSelection();
+    }
+
+
+    function createExplorerItem(object, depth) {
+
+        const item =
+            document.createElement(
+                "div"
+            );
+
+
+        item.className =
+            "tree-item";
+
+
+        item.dataset.objectId =
+            object.id;
+
+
+        item.dataset.objectType =
+            object.type;
+
+
+        item.dataset.generatedObject =
+            "true";
+
+
+        item.draggable =
+            true;
+
+
+        const indentSpacers =
+            "<span class=\"tree-spacer\"></span>".repeat(
+                depth + 1
+            );
+
+
+        item.innerHTML = `
+
+            ${indentSpacers}
+
+            <span class="tree-icon">
+                ${getObjectIcon(object.type)}
+            </span>
+
+            <span class="tree-name">
+                ${escapeHTML(object.name)}
+            </span>
+        `;
+
+
+        item.addEventListener(
+            "click",
+            event => {
+
+                event.stopPropagation();
+
+                if (
+                    state.objects.has(
+                        object.id
+                    )
+                ) {
 
                     selectObject(
                         object.id
                     );
                 }
-            );
-
-
-            if (
-                object.type === "Script" ||
-                object.type === "LocalScript"
-            ) {
-
-                item.addEventListener(
-                    "dblclick",
-                    event => {
-
-                        event.stopPropagation();
-
-                        openScriptEditor(
-                            object.id
-                        );
-                    }
-                );
             }
+        );
 
 
-            workspaceChildren.appendChild(
-                item
+        if (
+            object.type === "Script" ||
+            object.type === "LocalScript"
+        ) {
+
+            item.addEventListener(
+                "dblclick",
+                event => {
+
+                    event.stopPropagation();
+
+                    openScriptEditor(
+                        object.id
+                    );
+                }
             );
         }
 
 
-        updateExplorerSelection();
+        setupExplorerDragSource(
+            item,
+            object.id
+        );
+
+        setupExplorerDropZone(
+            item,
+            object.id
+        );
+
+
+        return item;
+    }
+
+
+    // ------------------------------------------------------------
+    // Explorer drag-and-drop reparenting
+    // ------------------------------------------------------------
+
+    let draggedExplorerId = null;
+
+
+    function isDescendantOf(candidateId, ancestorId) {
+
+        let current =
+            state.objects.get(
+                candidateId
+            );
+
+        while (current && current.parentId) {
+
+            if (current.parentId === ancestorId) {
+                return true;
+            }
+
+            current =
+                state.objects.get(
+                    current.parentId
+                );
+        }
+
+        return false;
+    }
+
+
+    function setupExplorerDragSource(item, objectId) {
+
+        item.addEventListener(
+            "dragstart",
+            event => {
+
+                draggedExplorerId =
+                    objectId;
+
+                event.dataTransfer.effectAllowed =
+                    "move";
+
+                item.style.opacity =
+                    "0.4";
+            }
+        );
+
+        item.addEventListener(
+            "dragend",
+            () => {
+
+                item.style.opacity =
+                    "";
+
+                draggedExplorerId =
+                    null;
+            }
+        );
+    }
+
+
+    function setupExplorerDropZone(item, targetParentId) {
+
+        if (!item) {
+            return;
+        }
+
+        item.addEventListener(
+            "dragover",
+            event => {
+
+                if (!draggedExplorerId) {
+                    return;
+                }
+
+                /*
+                 * Can't drop something onto itself or
+                 * onto one of its own children — that
+                 * would create a cycle.
+                 */
+
+                if (
+                    draggedExplorerId === targetParentId ||
+                    (
+                        targetParentId &&
+                        isDescendantOf(
+                            targetParentId,
+                            draggedExplorerId
+                        )
+                    )
+                ) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                event.dataTransfer.dropEffect =
+                    "move";
+
+                item.classList.add(
+                    "tree-drop-target"
+                );
+            }
+        );
+
+        item.addEventListener(
+            "dragleave",
+            () => {
+
+                item.classList.remove(
+                    "tree-drop-target"
+                );
+            }
+        );
+
+        item.addEventListener(
+            "drop",
+            event => {
+
+                event.preventDefault();
+
+                item.classList.remove(
+                    "tree-drop-target"
+                );
+
+                if (!draggedExplorerId) {
+                    return;
+                }
+
+                const draggedObject =
+                    state.objects.get(
+                        draggedExplorerId
+                    );
+
+                if (!draggedObject) {
+                    return;
+                }
+
+                if (
+                    draggedExplorerId === targetParentId ||
+                    (
+                        targetParentId &&
+                        isDescendantOf(
+                            targetParentId,
+                            draggedExplorerId
+                        )
+                    )
+                ) {
+                    return;
+                }
+
+                saveHistory();
+
+                draggedObject.parentId =
+                    targetParentId;
+
+                state.game.saved =
+                    false;
+
+                updateGameStatus();
+
+                updateExplorer();
+
+                selectObject(
+                    draggedExplorerId
+                );
+            }
+        );
     }
 
 
