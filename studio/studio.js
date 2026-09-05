@@ -959,6 +959,11 @@
             castShadow:
                 data.castShadow !== false,
 
+            transparency:
+                Number.isFinite(data.transparency)
+                    ? data.transparency
+                    : 0,
+
             script:
                 data.script ||
                 "",
@@ -982,7 +987,53 @@
 
             parentId:
                 data.parentId ||
-                null
+                null,
+
+            /*
+             * GUI-only fields (also used by TextBox).
+             */
+            guiPosition:
+                data.guiPosition || null,
+
+            guiSize:
+                data.guiSize || null,
+
+            guiText:
+                data.guiText || "",
+
+            guiBackgroundColor:
+                data.guiBackgroundColor || "#00000000",
+
+            guiTextColor:
+                data.guiTextColor || "#ffffff",
+
+            guiVisible:
+                data.guiVisible !== false,
+
+            guiPlaceholder:
+                data.guiPlaceholder || "",
+
+            /*
+             * Sound-only fields.
+             */
+            soundUrl:
+                data.soundUrl || "",
+
+            volume:
+                Number.isFinite(data.volume)
+                    ? data.volume
+                    : 0.5,
+
+            pitch:
+                Number.isFinite(data.pitch)
+                    ? data.pitch
+                    : 1,
+
+            looped:
+                data.looped === true,
+
+            autoPlay:
+                data.autoPlay === true
         };
 
 
@@ -1138,6 +1189,27 @@
                     1;
 
                 break;
+        }
+
+
+        /*
+         * Transparency slider always wins over the
+         * material preset's own opacity (e.g. Glass),
+         * so it's a real, independent property.
+         */
+
+        if (
+            object.transparency &&
+            object.transparency > 0
+        ) {
+
+            params.transparent = true;
+
+            params.opacity =
+                1 - Math.max(
+                    0,
+                    Math.min(1, object.transparency)
+                );
         }
 
 
@@ -3773,6 +3845,12 @@
             case "TextButton":
                 return "▣";
 
+            case "TextBox":
+                return "▤";
+
+            case "Sound":
+                return "♪";
+
             default:
                 return "■";
         }
@@ -4051,7 +4129,7 @@
 
 
     const GUI_TYPES = [
-        "ScreenGui", "Frame", "TextLabel", "TextButton"
+        "ScreenGui", "Frame", "TextLabel", "TextButton", "TextBox"
     ];
 
     const PART_CONTAINER_TYPES = [
@@ -4446,6 +4524,16 @@
 
 
         setInput(
+            "spGameName",
+            state.game.name
+        );
+
+        setInput(
+            "spGameIcon",
+            state.game.icon || ""
+        );
+
+        setInput(
             "spWalkSpeed",
             sp.walkSpeed
         );
@@ -4526,6 +4614,35 @@
                 );
             };
 
+        $("spGameName")?.addEventListener(
+            "input",
+            event => {
+
+                state.game.name =
+                    event.target.value ||
+                    "Untitled Game";
+
+                state.game.saved =
+                    false;
+
+                updateGameStatus();
+            }
+        );
+
+        $("spGameIcon")?.addEventListener(
+            "input",
+            event => {
+
+                state.game.icon =
+                    event.target.value;
+
+                state.game.saved =
+                    false;
+
+                updateGameStatus();
+            }
+        );
+
         bindNumber(
             "spWalkSpeed",
             "walkSpeed"
@@ -4558,6 +4675,124 @@
     }
 
 
+    let soundInputsWired = false;
+
+
+    function renderSoundProperties(object) {
+
+        noSelectionMessage
+            ?.classList
+            .add("hidden");
+
+        document
+            .querySelectorAll(
+                "#propertiesContent [data-property-section]"
+            )
+            .forEach(
+                section =>
+                    section.classList.add("hidden")
+            );
+
+        const starterPlayerSection =
+            $("starterPlayerProperties");
+
+        starterPlayerSection
+            ?.classList
+            .add("hidden");
+
+        const soundSection =
+            $("soundProperties");
+
+        soundSection
+            ?.classList
+            .remove("hidden");
+
+        if (selectedObjectName) {
+            selectedObjectName.textContent = object.name;
+        }
+
+        if (selectedObjectType) {
+            selectedObjectType.textContent = "Sound";
+        }
+
+        if (selectedObjectIcon) {
+            selectedObjectIcon.textContent = "♪";
+        }
+
+        setInput("soundUrl", object.soundUrl || "");
+        setInput("soundVolume", object.volume ?? 0.5);
+        setInput("soundPitch", object.pitch ?? 1);
+        setChecked("soundLooped", object.looped);
+        setChecked("soundAutoPlay", object.autoPlay);
+
+        if (soundInputsWired) {
+            return;
+        }
+
+        soundInputsWired = true;
+
+        const bindField =
+            (id, key, isNumber) => {
+
+                $(id)?.addEventListener(
+                    "input",
+                    event => {
+
+                        const current =
+                            state.objects.get(
+                                state.selectedId
+                            );
+
+                        if (!current) {
+                            return;
+                        }
+
+                        current[key] =
+                            isNumber
+                                ? parseFloat(event.target.value) || 0
+                                : event.target.value;
+
+                        state.game.saved = false;
+
+                        updateGameStatus();
+                    }
+                );
+            };
+
+        const bindCheck =
+            (id, key) => {
+
+                $(id)?.addEventListener(
+                    "change",
+                    event => {
+
+                        const current =
+                            state.objects.get(
+                                state.selectedId
+                            );
+
+                        if (!current) {
+                            return;
+                        }
+
+                        current[key] =
+                            event.target.checked;
+
+                        state.game.saved = false;
+
+                        updateGameStatus();
+                    }
+                );
+            };
+
+        bindField("soundUrl", "soundUrl", false);
+        bindField("soundVolume", "volume", true);
+        bindField("soundPitch", "pitch", true);
+        bindCheck("soundLooped", "looped");
+        bindCheck("soundAutoPlay", "autoPlay");
+    }
+
+
     function updateProperties() {
 
         if (
@@ -4569,6 +4804,28 @@
 
             return;
         }
+
+
+        const selectedObject =
+            state.objects.get(
+                state.selectedId
+            );
+
+        if (
+            selectedObject &&
+            selectedObject.type === "Sound"
+        ) {
+
+            renderSoundProperties(
+                selectedObject
+            );
+
+            return;
+        }
+
+        $("soundProperties")
+            ?.classList
+            .add("hidden");
 
 
         document
@@ -4738,6 +4995,12 @@
         );
 
 
+        setInput(
+            "objectTransparency",
+            object.transparency ?? 0
+        );
+
+
         setChecked(
             "objectAnchored",
             object.anchored
@@ -4851,8 +5114,8 @@
 
                                     ? input.checked
 
-                                    : input.type ===
-                                        "number"
+                                    : input.type === "number" ||
+                                        input.type === "range"
 
                                         ? Number(
                                             input.value
@@ -5890,6 +6153,79 @@
             fields: [],
             compile: () =>
                 "end)"
+        },
+
+        playSound: {
+            label: "Play sound",
+            fields: [
+                { key: "soundName", type: "text", default: "Sound" }
+            ],
+            compile: b =>
+                `    workspace.${String(b.soundName ?? "Sound").replace(/[^\w]/g, "")}:Play()`
+        },
+
+        stopSound: {
+            label: "Stop sound",
+            fields: [
+                { key: "soundName", type: "text", default: "Sound" }
+            ],
+            compile: b =>
+                `    workspace.${String(b.soundName ?? "Sound").replace(/[^\w]/g, "")}:Stop()`
+        },
+
+        showGui: {
+            label: "Show GUI element",
+            fields: [
+                { key: "guiName", type: "text", default: "Frame" }
+            ],
+            compile: b =>
+                `    workspace.${String(b.guiName ?? "Frame").replace(/[^\w]/g, "")}.Visible = true`
+        },
+
+        hideGui: {
+            label: "Hide GUI element",
+            fields: [
+                { key: "guiName", type: "text", default: "Frame" }
+            ],
+            compile: b =>
+                `    workspace.${String(b.guiName ?? "Frame").replace(/[^\w]/g, "")}.Visible = false`
+        },
+
+        setGuiText: {
+            label: "Set GUI text",
+            fields: [
+                { key: "guiName", type: "text", default: "Label" },
+                { key: "text", type: "text", default: "Hello!" }
+            ],
+            compile: b =>
+                `    workspace.${String(b.guiName ?? "Label").replace(/[^\w]/g, "")}.Text = "${String(b.text ?? "").replace(/"/g, '\\"')}"`
+        },
+
+        teleport: {
+            label: "Teleport part to (X, Y, Z)",
+            fields: [
+                { key: "x", type: "number", default: 0 },
+                { key: "y", type: "number", default: 5 },
+                { key: "z", type: "number", default: 0 }
+            ],
+            compile: b =>
+                `    part.Position = { x = ${b.x ?? 0}, y = ${b.y ?? 0}, z = ${b.z ?? 0} }`
+        },
+
+        onButtonClicked: {
+            label: "When a button is clicked",
+            fields: [
+                { key: "buttonName", type: "text", default: "Button" }
+            ],
+            compile: b =>
+                `workspace.${String(b.buttonName ?? "Button").replace(/[^\w]/g, "")}.MouseButton1Click:Connect(function()`
+        },
+
+        endClicked: {
+            label: "End \"When clicked\"",
+            fields: [],
+            compile: () =>
+                "end)"
         }
     };
 
@@ -6244,7 +6580,8 @@
             type === "ScreenGui" ||
             type === "Frame" ||
             type === "TextLabel" ||
-            type === "TextButton"
+            type === "TextButton" ||
+            type === "TextBox"
         ) {
 
             /*
@@ -6286,7 +6623,7 @@
             object.guiSize =
                 type === "ScreenGui"
                     ? null
-                    : type === "TextLabel" || type === "TextButton"
+                    : type === "TextLabel" || type === "TextButton" || type === "TextBox"
                         ? { width: 30, height: 8 }
                         : { width: 30, height: 25 };
 
@@ -6297,18 +6634,50 @@
                         ? "Button"
                         : "";
 
+            object.guiPlaceholder =
+                type === "TextBox"
+                    ? "Type here..."
+                    : "";
+
             object.guiBackgroundColor =
                 type === "TextButton"
                     ? "#3b82f6"
                     : type === "Frame"
                         ? "#1e1e1e"
-                        : "#00000000";
+                        : type === "TextBox"
+                            ? "#2a2a2a"
+                            : "#00000000";
 
             object.guiTextColor =
                 "#ffffff";
 
             object.guiVisible =
                 true;
+        }
+
+
+        if (type === "Sound") {
+
+            const selected =
+                state.objects.get(
+                    state.selectedId
+                );
+
+            if (
+                selected &&
+                !GUI_TYPES.includes(selected.type) &&
+                selected.type !== "Sound"
+            ) {
+
+                object.parentId =
+                    selected.id;
+            }
+
+            object.soundUrl = "";
+            object.volume = 0.5;
+            object.pitch = 1;
+            object.looped = false;
+            object.autoPlay = false;
         }
 
 
@@ -8388,6 +8757,11 @@
 
             case "publish":
                 openPublishModal();
+                break;
+
+
+            case "gameSettings":
+                selectStarterPlayer();
                 break;
 
 
