@@ -425,6 +425,12 @@ button {
     color: #fff;
 }
 
+.tree-item.tree-drop-target {
+    background: #2b4a75;
+    outline: 1px dashed #5b9bff;
+    outline-offset: -1px;
+}
+
 .tree-root {
     font-weight: 600;
 }
