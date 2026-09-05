@@ -536,6 +536,24 @@
                     <span>Text Button</span>
                 </button>
 
+                <button
+                    class="object-menu-item"
+                    data-create-object="TextBox"
+                    type="button"
+                >
+                    <span>▤</span>
+                    <span>Text Box</span>
+                </button>
+
+                <button
+                    class="object-menu-item"
+                    data-create-object="Sound"
+                    type="button"
+                >
+                    <span>♪</span>
+                    <span>Sound</span>
+                </button>
+
             </div>
 
         </aside>
@@ -1216,6 +1234,25 @@
 
                     </div>
 
+
+                    <div class="property-row">
+
+                        <label>
+                            Transparency
+                        </label>
+
+                        <input
+                            id="objectTransparency"
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value="0"
+                            data-property="transparency"
+                        >
+
+                    </div>
+
                 </section>
 
 
@@ -1361,6 +1398,48 @@
                 </section>
 
 
+                </section>
+
+
+                <!-- SOUND PROPERTIES -->
+                <section
+                    id="soundProperties"
+                    class="property-section hidden"
+                >
+
+                    <div class="property-section-header">
+                        <span>Sound</span>
+                        <span>▾</span>
+                    </div>
+
+                    <div class="property-row">
+                        <label>URL</label>
+                        <input id="soundUrl" type="text" placeholder="https://...">
+                    </div>
+
+                    <div class="property-row">
+                        <label>Volume</label>
+                        <input id="soundVolume" type="range" min="0" max="1" step="0.05">
+                    </div>
+
+                    <div class="property-row">
+                        <label>Pitch</label>
+                        <input id="soundPitch" type="range" min="0.5" max="2" step="0.05">
+                    </div>
+
+                    <div class="property-row">
+                        <label>Looped</label>
+                        <input id="soundLooped" type="checkbox">
+                    </div>
+
+                    <div class="property-row">
+                        <label>Auto Play</label>
+                        <input id="soundAutoPlay" type="checkbox">
+                    </div>
+
+                </section>
+
+
                 <!-- STARTER PLAYER SETTINGS -->
                 <!-- Shown only when the StarterPlayer
                      Explorer node is selected. These are
@@ -1371,6 +1450,48 @@
                     id="starterPlayerProperties"
                     class="property-section hidden"
                 >
+
+                    <div class="property-section-header">
+
+                        <span>
+                            Game Info
+                        </span>
+
+                        <span>
+                            ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Game Name
+                        </label>
+
+                        <input
+                            id="spGameName"
+                            type="text"
+                        >
+
+                    </div>
+
+
+                    <div class="property-row">
+
+                        <label>
+                            Icon URL
+                        </label>
+
+                        <input
+                            id="spGameIcon"
+                            type="text"
+                            placeholder="https://..."
+                        >
+
+                    </div>
+
 
                     <div class="property-section-header">
 
@@ -1631,6 +1752,16 @@
         >
             <span>▣</span>
             Save
+        </button>
+
+        <div class="dropdown-separator"></div>
+
+        <button
+            type="button"
+            data-action="gameSettings"
+        >
+            <span>⚙</span>
+            Game Settings
         </button>
 
         <div class="dropdown-separator"></div>
