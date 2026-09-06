@@ -1,6 +1,3 @@
-WEBBLOX PLAYER.JS — ORIGINAL CODE
-This document contains the exact player (2).js file you provided, unchanged.
-
 /*
  * WebBlox Player Runtime
  * Stage 3A
