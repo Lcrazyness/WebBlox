@@ -85,6 +85,8 @@
 
         wasGrounded: false,
 
+        shiftLock: false,
+
         landSquashTimer: 0,
 
         moving: false,
@@ -101,9 +103,9 @@
          */
         settings: {
 
-            walkSpeed: 12,
+            walkSpeed: 16,
 
-            jumpPower: 11,
+            jumpPower: 14,
 
             firstPersonLocked: false,
 
@@ -170,7 +172,7 @@
 
     const PLAYER_DEPTH = 1.0;
 
-    const GRAVITY = 30;
+    const GRAVITY = 42;
 
     const CAMERA_SENSITIVITY = 0.18;
 
@@ -3167,6 +3169,23 @@
 
             toggleSettingsMenu();
         }
+
+
+        if (
+            key === "shift" &&
+            state.settings.hotkeysEnabled &&
+            !event.repeat
+        ) {
+
+            state.shiftLock =
+                !state.shiftLock;
+
+            log(
+                state.shiftLock
+                    ? "Shift Lock enabled."
+                    : "Shift Lock disabled."
+            );
+        }
     }
 
 
@@ -3566,7 +3585,8 @@
             ["W A S D", "Move"],
             ["Space", "Jump"],
             ["Scroll", state.settings.allowZoom ? "Zoom / first person" : "Disabled by this game"],
-            ["P", "Settings"]
+            ["P", "Settings"],
+            ["Shift", "Toggle Shift Lock"]
         ];
 
         hotkeyList.innerHTML =
@@ -3909,10 +3929,36 @@
 
 
         /*
-         * Rotate character toward movement.
+         * Rotate character toward movement — unless
+         * Shift Lock is active, in which case the
+         * character always faces the same direction
+         * the camera is looking, moving or not.
          */
 
-        if (
+        if (state.shiftLock) {
+
+            const targetRotation =
+                degToRad(
+                    state.mouse.yaw
+                );
+
+            let difference =
+                targetRotation -
+                state.character.rotation.y;
+
+            while (difference > Math.PI) {
+                difference -= Math.PI * 2;
+            }
+
+            while (difference < -Math.PI) {
+                difference += Math.PI * 2;
+            }
+
+            state.character.rotation.y +=
+                difference *
+                Math.min(1, delta * 14);
+
+        } else if (
             Math.abs(moveX) >
                 0.001 ||
             Math.abs(moveZ) >
@@ -4790,6 +4836,8 @@
         state.grounded = false;
 
         state.wasGrounded = false;
+
+        state.shiftLock = false;
 
         state.landSquashTimer = 0;
 
