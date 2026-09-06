@@ -494,89 +494,95 @@
     }
 
 
-    function createBaconHair(THREE, head) {
+    function createClassicHair(THREE, head) {
 
         const hair =
             new THREE.Group();
 
-        hair.name = "BaconHair";
+        hair.name =
+            "ClassicHair";
 
-        const baconColors = [
-            "#5b351f",
-            "#7a4727",
-            "#8f542d",
-            "#62351f",
-            "#9a5a31"
-        ];
-
-        for (let i = 0; i < 9; i++) {
-
-            const angle =
-                (Math.PI * 2 / 9) * i;
-
-            const radius = 0.68;
-
-            const strip =
-                new THREE.Mesh(
-                    new THREE.BoxGeometry(
-                        0.20,
-                        0.95,
-                        0.38
-                    ),
-                    makePlayerMaterial(
-                        THREE,
-                        baconColors[i % baconColors.length]
-                    )
-                );
-
-            strip.position.set(
-                Math.cos(angle) * radius,
-                0.58,
-                Math.sin(angle) * radius
+        const hairMaterial =
+            makePlayerMaterial(
+                THREE,
+                "#1f1f1f"
             );
 
-            strip.rotation.z =
-                Math.sin(angle) * 0.35;
-
-            strip.rotation.y =
-                angle;
-
-            strip.castShadow = true;
-
-            hair.add(strip);
-        }
-
-        for (let i = 0; i < 5; i++) {
-
-            const strip =
-                new THREE.Mesh(
-                    new THREE.BoxGeometry(
-                        0.25,
-                        0.85,
-                        0.42
-                    ),
-                    makePlayerMaterial(
-                        THREE,
-                        baconColors[(i + 2) % baconColors.length]
-                    )
-                );
-
-            strip.position.set(
-                (i - 2) * 0.25,
-                0.9,
-                -0.15
+        const top =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    1.72,
+                    0.18,
+                    1.62
+                ),
+                hairMaterial
             );
 
-            strip.rotation.z =
-                (i - 2) * 0.12;
+        top.position.set(
+            0,
+            0.89,
+            0
+        );
 
-            strip.rotation.x =
-                -0.25;
+        top.castShadow = true;
+        hair.add(top);
 
-            strip.castShadow = true;
+        const left =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    0.18,
+                    0.62,
+                    1.42
+                ),
+                hairMaterial
+            );
 
-            hair.add(strip);
-        }
+        left.position.set(
+            -0.77,
+            0.58,
+            0
+        );
+
+        left.castShadow = true;
+        hair.add(left);
+
+        const right =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    0.18,
+                    0.62,
+                    1.42
+                ),
+                hairMaterial
+            );
+
+        right.position.set(
+            0.77,
+            0.58,
+            0
+        );
+
+        right.castShadow = true;
+        hair.add(right);
+
+        const back =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    1.40,
+                    0.62,
+                    0.18
+                ),
+                hairMaterial
+            );
+
+        back.position.set(
+            0,
+            0.60,
+            -0.70
+        );
+
+        back.castShadow = true;
+        hair.add(back);
 
         head.add(hair);
 
@@ -684,300 +690,282 @@
         root.userData.webbloxPlayer =
             true;
 
+        const skin =
+            "#f2c29b";
 
-        // --------------------------------------------------------
-        // Colors
-        // --------------------------------------------------------
+        const shirt =
+            "#3b82f6";
 
-        const skin = "#f2c29b";
-        const shirt = "#3b82f6";
-        const pants = "#303030";
-        const shoe = "#202020";
+        const pants =
+            "#303030";
 
+        const torsoSize = {
+            x: 2.0,
+            y: 2.0,
+            z: 1.0
+        };
 
-        // --------------------------------------------------------
-        // Proportions (feet at y=0, stacked upward)
-        // --------------------------------------------------------
+        const headSize = {
+            x: 1.9,
+            y: 1.0,
+            z: 1.0
+        };
 
-        const footHeight = 0.45;
-        const lowerLegLen = 0.9;
-        const upperLegLen = 1.0;
-        const lowerTorsoHeight = 0.85;
-        const upperTorsoHeight = 1.2;
-        const upperArmLen = 0.9;
-        const lowerArmLen = 0.85;
+        const limbSize = {
+            x: 1.0,
+            y: 2.0,
+            z: 1.0
+        };
 
-        const hipY = footHeight + lowerLegLen + upperLegLen;
-        const lowerTorsoTop = hipY + lowerTorsoHeight;
-        const upperTorsoTop = lowerTorsoTop + upperTorsoHeight;
-        const shoulderY = lowerTorsoTop + upperTorsoHeight * 0.62;
-        const hipX = 0.48;
-        const shoulderX = 1.25;
+        function createR6Part(
+            THREE,
+            name,
+            size,
+            color,
+            position,
+            parent
+        ) {
 
-
-        // --------------------------------------------------------
-        // Torso
-        // --------------------------------------------------------
-
-        const lowerTorso =
-            createRoundedPart(
-                THREE,
-                "LowerTorso",
-                { x: 1.8, y: lowerTorsoHeight, z: 1.0 },
-                shirt,
-                { x: 0, y: hipY + lowerTorsoHeight / 2, z: 0 },
-                root
-            );
-
-        const upperTorso =
-            createRoundedPart(
-                THREE,
-                "UpperTorso",
-                { x: 2.0, y: upperTorsoHeight, z: 1.05 },
-                shirt,
-                { x: 0, y: lowerTorsoTop + upperTorsoHeight / 2, z: 0 },
-                root
-            );
-
-
-        // --------------------------------------------------------
-        // Head
-        // --------------------------------------------------------
-
-        const head =
-            createRoundedPart(
-                THREE,
-                "Head",
-                { x: 1.75, y: 1.75, z: 1.75 },
-                skin,
-                { x: 0, y: upperTorsoTop + 0.875, z: 0 },
-                root
-            );
-
-        head.userData.isHead = true;
-
-        createFace(THREE, head);
-        createBaconHair(THREE, head);
-
-
-        // --------------------------------------------------------
-        // Limb helper
-        //
-        // Builds a real joint hierarchy instead of loose,
-        // independently-positioned capsules: a pivot Group sits
-        // at the joint (shoulder / hip / elbow / knee), and the
-        // limb segment mesh hangs *below* that pivot. Rotating
-        // the pivot then swings the limb the way a real joint
-        // would, instead of spinning a capsule around its own
-        // middle and tearing it away from the body.
-        // --------------------------------------------------------
-
-        function createPivot(name, position, parent) {
-
-            const pivot =
+            const group =
                 new THREE.Group();
 
-            pivot.name = name;
+            group.name =
+                name + "Pivot";
 
-            pivot.position.set(
+            group.position.set(
                 position.x,
                 position.y,
                 position.z
             );
 
-            parent.add(pivot);
+            parent.add(group);
 
-            return pivot;
+            const geometry =
+                new THREE.BoxGeometry(
+                    size.x,
+                    size.y,
+                    size.z
+                );
+
+            const material =
+                makePlayerMaterial(
+                    THREE,
+                    color
+                );
+
+            const mesh =
+                new THREE.Mesh(
+                    geometry,
+                    material
+                );
+
+            mesh.name =
+                name;
+
+            mesh.position.set(
+                0,
+                -size.y / 2,
+                0
+            );
+
+            mesh.castShadow =
+                true;
+
+            mesh.receiveShadow =
+                true;
+
+            mesh.userData.characterPart =
+                true;
+
+            mesh.userData.characterPartName =
+                name;
+
+            group.add(mesh);
+
+            return {
+                group,
+                mesh
+            };
         }
 
+        const torso =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    torsoSize.x,
+                    torsoSize.y,
+                    torsoSize.z
+                ),
+                makePlayerMaterial(
+                    THREE,
+                    shirt
+                )
+            );
 
-        // --------------------------------------------------------
-        // Left arm
-        // --------------------------------------------------------
+        torso.name =
+            "Torso";
 
-        const leftShoulder =
-            createPivot(
-                "LeftShoulder",
-                { x: -shoulderX, y: shoulderY, z: 0 },
+        torso.position.set(
+            0,
+            3.35,
+            0
+        );
+
+        torso.castShadow = true;
+        torso.receiveShadow = true;
+        torso.userData.characterPart = true;
+        torso.userData.characterPartName = "Torso";
+
+        root.add(torso);
+
+        const head =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    headSize.x,
+                    headSize.y,
+                    headSize.z
+                ),
+                makePlayerMaterial(
+                    THREE,
+                    skin
+                )
+            );
+
+        head.name =
+            "Head";
+
+        head.position.set(
+            0,
+            4.90,
+            0
+        );
+
+        head.castShadow = true;
+        head.receiveShadow = true;
+        head.userData.characterPart = true;
+        head.userData.characterPartName = "Head";
+        head.userData.isHead = true;
+
+        root.add(head);
+
+        createFace(
+            THREE,
+            head
+        );
+
+        createClassicHair(
+            THREE,
+            head
+        );
+
+        const leftArm =
+            createR6Part(
+                THREE,
+                "Left Arm",
+                limbSize,
+                skin,
+                {
+                    x: -1.5,
+                    y: 4.05,
+                    z: 0
+                },
                 root
             );
 
-        createRoundedPart(
-            THREE,
-            "LeftUpperArm",
-            { x: 0.55, y: upperArmLen, z: 0.55 },
-            skin,
-            { x: 0, y: -upperArmLen / 2, z: 0 },
-            leftShoulder
-        );
-
-        const leftElbow =
-            createPivot(
-                "LeftElbow",
-                { x: 0, y: -upperArmLen, z: 0 },
-                leftShoulder
-            );
-
-        createRoundedPart(
-            THREE,
-            "LeftLowerArm",
-            { x: 0.50, y: lowerArmLen, z: 0.50 },
-            skin,
-            { x: 0, y: -lowerArmLen / 2, z: 0 },
-            leftElbow
-        );
-
-        createRoundedPart(
-            THREE,
-            "LeftHand",
-            { x: 0.55, y: 0.55, z: 0.55 },
-            skin,
-            { x: 0, y: -lowerArmLen - 0.22, z: 0 },
-            leftElbow
-        );
-
-
-        // --------------------------------------------------------
-        // Right arm
-        // --------------------------------------------------------
-
-        const rightShoulder =
-            createPivot(
-                "RightShoulder",
-                { x: shoulderX, y: shoulderY, z: 0 },
+        const rightArm =
+            createR6Part(
+                THREE,
+                "Right Arm",
+                limbSize,
+                skin,
+                {
+                    x: 1.5,
+                    y: 4.05,
+                    z: 0
+                },
                 root
             );
 
-        createRoundedPart(
-            THREE,
-            "RightUpperArm",
-            { x: 0.55, y: upperArmLen, z: 0.55 },
-            skin,
-            { x: 0, y: -upperArmLen / 2, z: 0 },
-            rightShoulder
-        );
-
-        const rightElbow =
-            createPivot(
-                "RightElbow",
-                { x: 0, y: -upperArmLen, z: 0 },
-                rightShoulder
-            );
-
-        createRoundedPart(
-            THREE,
-            "RightLowerArm",
-            { x: 0.50, y: lowerArmLen, z: 0.50 },
-            skin,
-            { x: 0, y: -lowerArmLen / 2, z: 0 },
-            rightElbow
-        );
-
-        createRoundedPart(
-            THREE,
-            "RightHand",
-            { x: 0.55, y: 0.55, z: 0.55 },
-            skin,
-            { x: 0, y: -lowerArmLen - 0.22, z: 0 },
-            rightElbow
-        );
-
-
-        // --------------------------------------------------------
-        // Left leg
-        // --------------------------------------------------------
-
-        const leftHip =
-            createPivot(
-                "LeftHip",
-                { x: -hipX, y: hipY, z: 0 },
+        const leftLeg =
+            createR6Part(
+                THREE,
+                "Left Leg",
+                limbSize,
+                pants,
+                {
+                    x: -0.5,
+                    y: 2.35,
+                    z: 0
+                },
                 root
             );
 
-        createRoundedPart(
-            THREE,
-            "LeftUpperLeg",
-            { x: 0.75, y: upperLegLen, z: 0.75 },
-            pants,
-            { x: 0, y: -upperLegLen / 2, z: 0 },
-            leftHip
-        );
-
-        const leftKnee =
-            createPivot(
-                "LeftKnee",
-                { x: 0, y: -upperLegLen, z: 0 },
-                leftHip
-            );
-
-        createRoundedPart(
-            THREE,
-            "LeftLowerLeg",
-            { x: 0.65, y: lowerLegLen, z: 0.65 },
-            pants,
-            { x: 0, y: -lowerLegLen / 2, z: 0 },
-            leftKnee
-        );
-
-        createRoundedPart(
-            THREE,
-            "LeftFoot",
-            { x: 0.75, y: footHeight, z: 1.15 },
-            shoe,
-            { x: 0, y: -lowerLegLen - footHeight / 2, z: 0.20 },
-            leftKnee
-        );
-
-
-        // --------------------------------------------------------
-        // Right leg
-        // --------------------------------------------------------
-
-        const rightHip =
-            createPivot(
-                "RightHip",
-                { x: hipX, y: hipY, z: 0 },
+        const rightLeg =
+            createR6Part(
+                THREE,
+                "Right Leg",
+                limbSize,
+                pants,
+                {
+                    x: 0.5,
+                    y: 2.35,
+                    z: 0
+                },
                 root
             );
 
-        createRoundedPart(
-            THREE,
-            "RightUpperLeg",
-            { x: 0.75, y: upperLegLen, z: 0.75 },
-            pants,
-            { x: 0, y: -upperLegLen / 2, z: 0 },
-            rightHip
-        );
-
-        const rightKnee =
-            createPivot(
-                "RightKnee",
-                { x: 0, y: -upperLegLen, z: 0 },
-                rightHip
+        const leftFoot =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    1.0,
+                    0.55,
+                    1.25
+                ),
+                makePlayerMaterial(
+                    THREE,
+                    "#202020"
+                )
             );
 
-        createRoundedPart(
-            THREE,
-            "RightLowerLeg",
-            { x: 0.65, y: lowerLegLen, z: 0.65 },
-            pants,
-            { x: 0, y: -lowerLegLen / 2, z: 0 },
-            rightKnee
+        leftFoot.name =
+            "Left Foot";
+
+        leftFoot.position.set(
+            -0.5,
+            0.28,
+            0.12
         );
 
-        createRoundedPart(
-            THREE,
-            "RightFoot",
-            { x: 0.75, y: footHeight, z: 1.15 },
-            shoe,
-            { x: 0, y: -lowerLegLen - footHeight / 2, z: 0.20 },
-            rightKnee
+        leftFoot.castShadow = true;
+        leftFoot.receiveShadow = true;
+        leftFoot.userData.characterPart = true;
+        root.add(leftFoot);
+
+        const rightFoot =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    1.0,
+                    0.55,
+                    1.25
+                ),
+                makePlayerMaterial(
+                    THREE,
+                    "#202020"
+                )
+            );
+
+        rightFoot.name =
+            "Right Foot";
+
+        rightFoot.position.set(
+            0.5,
+            0.28,
+            0.12
         );
 
-
-        // --------------------------------------------------------
-        // Put at spawn
-        // --------------------------------------------------------
+        rightFoot.castShadow = true;
+        rightFoot.receiveShadow = true;
+        rightFoot.userData.characterPart = true;
+        root.add(rightFoot);
 
         root.position.set(
             state.spawn.x,
@@ -985,53 +973,117 @@
             state.spawn.z
         );
 
-
         state.character =
             root;
 
-        state.characterParts = [];
+        state.characterParts =
+            [];
 
-        root.traverse(child => {
-            if (child.isMesh) {
-                state.characterParts.push(child);
+        root.traverse(
+            child => {
+
+                if (child.isMesh) {
+                    state.characterParts.push(
+                        child
+                    );
+                }
+
             }
-        });
+        );
 
-        /*
-         * Named references, used by
-         * updateCharacterAnimation() for
-         * walk / idle / jump limb swing.
-         *
-         * These now point at the *pivot groups*
-         * (shoulder / elbow / hip / knee), not the
-         * meshes themselves, so rotating them swings
-         * the limb from its joint like a real rig.
-         */
+        const leftArmElbow =
+            new THREE.Group();
+
+        leftArmElbow.name =
+            "LeftElbow";
+
+        leftArm.group.add(
+            leftArmElbow
+        );
+
+        const rightArmElbow =
+            new THREE.Group();
+
+        rightArmElbow.name =
+            "RightElbow";
+
+        rightArm.group.add(
+            rightArmElbow
+        );
+
+        const leftKnee =
+            new THREE.Group();
+
+        leftKnee.name =
+            "LeftKnee";
+
+        leftLeg.group.add(
+            leftKnee
+        );
+
+        const rightKnee =
+            new THREE.Group();
+
+        rightKnee.name =
+            "RightKnee";
+
+        rightLeg.group.add(
+            rightKnee
+        );
 
         root.userData.bodyParts = {
-            upperTorso,
-            leftUpperArm: leftShoulder,
-            rightUpperArm: rightShoulder,
-            leftLowerArm: leftElbow,
-            rightLowerArm: rightElbow,
-            leftUpperLeg: leftHip,
-            rightUpperLeg: rightHip,
-            leftLowerLeg: leftKnee,
-            rightLowerLeg: rightKnee
+            upperTorso:
+                torso,
+
+            leftUpperArm:
+                leftArm.group,
+
+            rightUpperArm:
+                rightArm.group,
+
+            leftLowerArm:
+                leftArmElbow,
+
+            rightLowerArm:
+                rightArmElbow,
+
+            leftUpperLeg:
+                leftLeg.group,
+
+            rightUpperLeg:
+                rightLeg.group,
+
+            leftLowerLeg:
+                leftKnee,
+
+            rightLowerLeg:
+                rightKnee,
+
+            leftFoot,
+            rightFoot,
+            head
         };
 
-        root.userData.head = head;
+        root.userData.head =
+            head;
 
         root.userData.headBaseY =
             head.position.y;
 
-        root.userData.height = upperTorsoTop + 1.75;
+        root.userData.height =
+            5.40;
 
-        state.scene.add(root);
+        root.userData.baseY =
+            0;
 
-        log("Character created.");
+        state.scene.add(
+            root
+        );
+
+        log(
+            "Classic R6 character created."
+        );
     }
-
 
 
     // ============================================================
@@ -4038,225 +4090,409 @@
             return;
         }
 
-        state.animationTime +=
-            delta;
-
         const parts =
             character.userData.bodyParts;
 
-        let animState =
+        state.animationTime +=
+            delta;
+
+        const horizontalSpeed =
+            Math.sqrt(
+                state.velocity.x *
+                state.velocity.x +
+                state.velocity.z *
+                state.velocity.z
+            );
+
+        const moving =
+            state.grounded &&
+            (
+                state.moving ||
+                horizontalSpeed > 0.35
+            );
+
+        const running =
+            state.sprinting ||
+            horizontalSpeed >
+                Math.max(
+                    8,
+                    state.settings.walkSpeed * 0.82
+                );
+
+        let mode =
             "Idle";
 
         if (!state.grounded) {
 
-            animState =
-                state.velocity.y > 1
-                    ? "Jumping"
-                    : "Freefall";
+            mode =
+                state.velocity.y > 2
+                    ? "Jump"
+                    : "Fall";
 
-        } else if (state.moving) {
+        } else if (moving) {
 
-            animState =
-                "Walking";
+            mode =
+                running
+                    ? "Run"
+                    : "Walk";
         }
 
-
-        Object.values(parts)
-            .forEach(
-                resetPartRotation
+        const normalizedSpeed =
+            clamp(
+                horizontalSpeed /
+                Math.max(
+                    1,
+                    state.settings.walkSpeed
+                ),
+                0,
+                1.8
             );
 
+        const cadence =
+            mode === "Run"
+                ? 11.0
+                : 8.5;
 
-        const speed =
-            8;
+        const cycle =
+            state.animationTime *
+            (
+                cadence *
+                (
+                    0.55 +
+                    normalizedSpeed * 0.85
+                )
+            );
 
         const swing =
             Math.sin(
-                state.animationTime *
-                speed
+                cycle
             );
 
-        const walkAmount =
-            0.45;
+        const opposite =
+            Math.sin(
+                cycle +
+                Math.PI
+            );
 
-
-        if (
-            animState === "Walking"
-        ) {
-
-            if (parts.leftUpperArm) {
-                parts.leftUpperArm.rotation.x =
-                    swing * walkAmount;
-            }
-
-            if (parts.rightUpperArm) {
-                parts.rightUpperArm.rotation.x =
-                    -swing * walkAmount;
-            }
-
-            if (parts.leftLowerArm) {
-                parts.leftLowerArm.rotation.x =
-                    swing * 0.18;
-            }
-
-            if (parts.rightLowerArm) {
-                parts.rightLowerArm.rotation.x =
-                    -swing * 0.18;
-            }
-
-            if (parts.leftUpperLeg) {
-                parts.leftUpperLeg.rotation.x =
-                    -swing * walkAmount;
-            }
-
-            if (parts.rightUpperLeg) {
-                parts.rightUpperLeg.rotation.x =
-                    swing * walkAmount;
-            }
-
-            if (parts.leftLowerLeg) {
-                parts.leftLowerLeg.rotation.x =
-                    Math.max(0, swing) * 0.18;
-            }
-
-            if (parts.rightLowerLeg) {
-                parts.rightLowerLeg.rotation.x =
-                    Math.max(0, -swing) * 0.18;
-            }
-        }
-
-        else if (animState === "Idle") {
-
-            const breathing =
+        const bob =
+            Math.abs(
                 Math.sin(
-                    state.animationTime * 2
-                ) * 0.025;
+                    cycle
+                )
+            );
+
+        Object.values(
+            parts
+        ).forEach(
+            part => {
+
+                if (
+                    part &&
+                    part.rotation
+                ) {
+                    part.rotation.x *=
+                        Math.max(
+                            0,
+                            1 - delta * 14
+                        );
+
+                    part.rotation.y *=
+                        Math.max(
+                            0,
+                            1 - delta * 14
+                        );
+
+                    part.rotation.z *=
+                        Math.max(
+                            0,
+                            1 - delta * 14
+                        );
+                }
+            }
+        );
+
+        if (mode === "Idle") {
+
+            const breathe =
+                Math.sin(
+                    state.animationTime *
+                    1.8
+                );
 
             if (parts.upperTorso) {
                 parts.upperTorso.rotation.x =
-                    breathing;
+                    breathe *
+                    0.012;
             }
 
             if (parts.leftUpperArm) {
                 parts.leftUpperArm.rotation.z =
-                    0.03;
+                    0.035 +
+                    breathe *
+                    0.008;
             }
 
             if (parts.rightUpperArm) {
                 parts.rightUpperArm.rotation.z =
-                    -0.03;
-            }
-        }
-
-        else if (animState === "Jumping") {
-
-            if (parts.leftUpperArm) {
-                parts.leftUpperArm.rotation.x =
-                    -0.8;
-            }
-
-            if (parts.rightUpperArm) {
-                parts.rightUpperArm.rotation.x =
-                    -0.8;
+                    -0.035 -
+                    breathe *
+                    0.008;
             }
 
             if (parts.leftUpperLeg) {
                 parts.leftUpperLeg.rotation.x =
-                    0.25;
+                    0.008;
             }
 
             if (parts.rightUpperLeg) {
                 parts.rightUpperLeg.rotation.x =
-                    0.25;
-            }
-        }
-
-        else if (animState === "Freefall") {
-
-            if (parts.leftUpperArm) {
-                parts.leftUpperArm.rotation.x =
-                    -0.35;
+                    -0.008;
             }
 
-            if (parts.rightUpperArm) {
-                parts.rightUpperArm.rotation.x =
-                    -0.35;
-            }
-
-            if (parts.leftUpperLeg) {
-                parts.leftUpperLeg.rotation.x =
-                    -0.15;
-            }
-
-            if (parts.rightUpperLeg) {
-                parts.rightUpperLeg.rotation.x =
-                    -0.15;
-            }
-        }
-
-
-        /*
-         * Subtle head bob while walking — makes the
-         * walk cycle read as actual weight/momentum
-         * instead of limbs swinging on a static torso.
-         */
-
-        if (character.userData.head) {
-
-            character.userData.head.position.y =
-                character.userData.headBaseY +
-                (
-                    animState === "Walking"
-                        ? Math.abs(swing) * 0.06
-                        : 0
-                );
-        }
-
-
-        /*
-         * Landing squash — a quick, springy scale pulse
-         * the moment the character hits the ground after
-         * a fall. Purely visual, doesn't touch physics.
-         */
-
-        if (
-            state.grounded &&
-            !state.wasGrounded
+        } else if (
+            mode === "Walk" ||
+            mode === "Run"
         ) {
 
-            state.landSquashTimer =
-                0.16;
+            const amount =
+                mode === "Run"
+                    ? 0.72
+                    : 0.50;
+
+            const armAmount =
+                mode === "Run"
+                    ? 0.62
+                    : 0.46;
+
+            const torsoLean =
+                mode === "Run"
+                    ? 0.08
+                    : 0.035;
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.x =
+                    opposite *
+                    armAmount;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.x =
+                    swing *
+                    armAmount;
+            }
+
+            if (parts.leftLowerArm) {
+                parts.leftLowerArm.rotation.x =
+                    Math.max(
+                        0,
+                        swing
+                    ) *
+                    0.16;
+            }
+
+            if (parts.rightLowerArm) {
+                parts.rightLowerArm.rotation.x =
+                    Math.max(
+                        0,
+                        opposite
+                    ) *
+                    0.16;
+            }
+
+            if (parts.leftUpperLeg) {
+                parts.leftUpperLeg.rotation.x =
+                    swing *
+                    amount;
+            }
+
+            if (parts.rightUpperLeg) {
+                parts.rightUpperLeg.rotation.x =
+                    opposite *
+                    amount;
+            }
+
+            if (parts.leftLowerLeg) {
+                parts.leftLowerLeg.rotation.x =
+                    Math.max(
+                        0,
+                        -swing
+                    ) *
+                    0.10;
+            }
+
+            if (parts.rightLowerLeg) {
+                parts.rightLowerLeg.rotation.x =
+                    Math.max(
+                        0,
+                        -opposite
+                    ) *
+                    0.10;
+            }
+
+            if (parts.upperTorso) {
+                parts.upperTorso.rotation.x =
+                    torsoLean;
+            }
+
+            if (parts.head) {
+                parts.head.rotation.y =
+                    Math.sin(
+                        cycle * 0.5
+                    ) *
+                    0.025;
+
+                parts.head.rotation.z =
+                    swing *
+                    0.018;
+            }
+
+            character.position.y =
+                (
+                    state.spawn.y
+                ) +
+                (
+                    bob *
+                    (
+                        mode === "Run"
+                            ? 0.05
+                            : 0.025
+                    )
+                );
+
+        } else if (mode === "Jump") {
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.x =
+                    -0.70;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.x =
+                    -0.70;
+            }
+
+            if (parts.leftUpperLeg) {
+                parts.leftUpperLeg.rotation.x =
+                    0.18;
+            }
+
+            if (parts.rightUpperLeg) {
+                parts.rightUpperLeg.rotation.x =
+                    0.18;
+            }
+
+            if (parts.upperTorso) {
+                parts.upperTorso.rotation.x =
+                    -0.06;
+            }
+
+            if (parts.head) {
+                parts.head.rotation.x =
+                    -0.03;
+            }
+
+        } else if (mode === "Fall") {
+
+            if (parts.leftUpperArm) {
+                parts.leftUpperArm.rotation.x =
+                    -0.30;
+            }
+
+            if (parts.rightUpperArm) {
+                parts.rightUpperArm.rotation.x =
+                    -0.30;
+            }
+
+            if (parts.leftUpperLeg) {
+                parts.leftUpperLeg.rotation.x =
+                    -0.16;
+            }
+
+            if (parts.rightUpperLeg) {
+                parts.rightUpperLeg.rotation.x =
+                    -0.16;
+            }
+
+            if (parts.leftLowerLeg) {
+                parts.leftLowerLeg.rotation.x =
+                    0.10;
+            }
+
+            if (parts.rightLowerLeg) {
+                parts.rightLowerLeg.rotation.x =
+                    0.10;
+            }
+
+            if (parts.upperTorso) {
+                parts.upperTorso.rotation.x =
+                    0.04;
+            }
+        }
+
+        if (state.grounded) {
+
+            if (state.wasGrounded === false) {
+                state.landSquashTimer =
+                    0.12;
+            }
+
+            if (
+                state.landSquashTimer >
+                0
+            ) {
+
+                state.landSquashTimer =
+                    Math.max(
+                        0,
+                        state.landSquashTimer -
+                        delta
+                    );
+
+                const landing =
+                    state.landSquashTimer /
+                    0.12;
+
+                character.scale.y =
+                    1 -
+                    0.035 *
+                    landing;
+
+                character.scale.x =
+                    1 +
+                    0.018 *
+                    landing;
+
+                character.scale.z =
+                    1 +
+                    0.018 *
+                    landing;
+
+            } else {
+
+                character.scale.x =
+                    1;
+
+                character.scale.y =
+                    1;
+
+                character.scale.z =
+                    1;
+            }
+
+        } else {
+
+            character.scale.x =
+                1;
+
+            character.scale.y =
+                1;
+
+            character.scale.z =
+                1;
         }
 
         state.wasGrounded =
             state.grounded;
-
-        if (state.landSquashTimer > 0) {
-
-            state.landSquashTimer =
-                Math.max(
-                    0,
-                    state.landSquashTimer - delta
-                );
-
-            const t =
-                state.landSquashTimer / 0.16;
-
-            const squash =
-                t * 0.14;
-
-            character.scale.set(
-                1 + squash,
-                1 - squash,
-                1 + squash
-            );
-
-        } else if (
-            character.scale.y !== 1
-        ) {
-
-            character.scale.set(1, 1, 1);
-        }
     }
 
 
