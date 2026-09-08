@@ -1581,6 +1581,24 @@
                 item.object.canCollide = !!value;
             },
 
+            get Anchored() {
+                return item.object.anchored !== false;
+            },
+
+            set Anchored(value) {
+
+                /*
+                 * Parts in this engine are always
+                 * static/kinematic (there's no full rigid-
+                 * body physics between parts, only the
+                 * character has gravity/collision) — this
+                 * flag is stored and reflected in the
+                 * Explorer/Properties, but setting it to
+                 * false won't make a part start falling.
+                 */
+                item.object.anchored = !!value;
+            },
+
             Touched: {
 
                 Connect(fn) {
@@ -1729,6 +1747,253 @@
     }
 
 
+    // ============================================================
+    // MATH LIBRARY (Luau-style "math.___" calls)
+    // ============================================================
+
+    const luauMath = {
+        random: (a, b) => {
+            if (a === undefined) return Math.random();
+            if (b === undefined) return Math.floor(Math.random() * a) + 1;
+            return Math.floor(Math.random() * (b - a + 1)) + a;
+        },
+        floor: Math.floor,
+        ceil: Math.ceil,
+        abs: Math.abs,
+        min: Math.min,
+        max: Math.max,
+        sqrt: Math.sqrt,
+        pi: Math.PI,
+        huge: Infinity,
+        clamp: (v, lo, hi) => Math.max(lo, Math.min(hi, v))
+    };
+
+
+    // ============================================================
+    // LOCAL PLAYER / HUMANOID / LEADERSTATS
+    // ============================================================
+
+    function createHumanoidWrapper() {
+
+        return {
+
+            get WalkSpeed() {
+                return state.settings.walkSpeed;
+            },
+
+            set WalkSpeed(value) {
+                state.settings.walkSpeed = Number(value) || 0;
+            },
+
+            get JumpPower() {
+                return state.settings.jumpPower;
+            },
+
+            set JumpPower(value) {
+                state.settings.jumpPower = Number(value) || 0;
+            },
+
+            get Health() {
+                return state.health ?? 100;
+            },
+
+            set Health(value) {
+                state.health = Math.max(0, Number(value) || 0);
+            },
+
+            get MaxHealth() {
+                return state.maxHealth ?? 100;
+            },
+
+            Respawn() {
+                resetCharacter();
+            },
+
+            TakeDamage(amount) {
+                state.health = Math.max(
+                    0,
+                    (state.health ?? 100) - (Number(amount) || 0)
+                );
+            }
+        };
+    }
+
+
+    function createLocalPlayerWrapper() {
+
+        if (!state.playerPoints) {
+
+            state.playerPoints = 0;
+        }
+
+        return {
+
+            Name: "Player",
+
+            DisplayName: "Player",
+
+            UserId: 1,
+
+            get Character() {
+
+                return {
+                    Humanoid: createHumanoidWrapper(),
+
+                    get HumanoidRootPart() {
+
+                        return {
+                            get Position() {
+                                return state.character
+                                    ? {
+                                        x: state.character.position.x,
+                                        y: state.character.position.y,
+                                        z: state.character.position.z
+                                    }
+                                    : { x: 0, y: 0, z: 0 };
+                            },
+                            set Position(value) {
+                                teleport(
+                                    value?.x ?? 0,
+                                    value?.y ?? 0,
+                                    value?.z ?? 0
+                                );
+                            }
+                        };
+                    }
+                };
+            },
+
+            leaderstats: {
+
+                Points: {
+
+                    get Value() {
+                        return state.playerPoints;
+                    },
+
+                    set Value(value) {
+                        state.playerPoints = Number(value) || 0;
+                    }
+                }
+            }
+        };
+    }
+
+
+    // ============================================================
+    // UserInputService — real keyboard events for scripts
+    // ============================================================
+
+    const inputBeganHandlers = [];
+
+    const inputEndedHandlers = [];
+
+    function createUserInputService() {
+
+        return {
+
+            InputBegan: {
+
+                Connect(fn) {
+
+                    if (typeof fn === "function") {
+                        inputBeganHandlers.push(fn);
+                    }
+
+                    return {
+                        Disconnect() {
+                            const i = inputBeganHandlers.indexOf(fn);
+                            if (i !== -1) inputBeganHandlers.splice(i, 1);
+                        }
+                    };
+                }
+            },
+
+            InputEnded: {
+
+                Connect(fn) {
+
+                    if (typeof fn === "function") {
+                        inputEndedHandlers.push(fn);
+                    }
+
+                    return {
+                        Disconnect() {
+                            const i = inputEndedHandlers.indexOf(fn);
+                            if (i !== -1) inputEndedHandlers.splice(i, 1);
+                        }
+                    };
+                }
+            }
+        };
+    }
+
+
+    // ============================================================
+    // TweenService — simple property lerp over time
+    // ============================================================
+
+    function createTweenService() {
+
+        return {
+
+            Create(target, duration, goal) {
+
+                const seconds =
+                    Math.max(0.01, Number(duration) || 1);
+
+                const start =
+                    target && target.Position
+                        ? { ...target.Position }
+                        : { x: 0, y: 0, z: 0 };
+
+                const startTime =
+                    performance.now();
+
+                function step(now) {
+
+                    const t =
+                        Math.min(
+                            1,
+                            (now - startTime) / (seconds * 1000)
+                        );
+
+                    /*
+                     * Simple ease-out — snappier at the
+                     * start, settles in gently, matches
+                     * the general feel of Roblox's default
+                     * tween easing without needing a full
+                     * easing-style library.
+                     */
+                    const eased =
+                        1 - Math.pow(1 - t, 3);
+
+                    if (target) {
+
+                        target.Position = {
+                            x: start.x + ((goal?.x ?? start.x) - start.x) * eased,
+                            y: start.y + ((goal?.y ?? start.y) - start.y) * eased,
+                            z: start.z + ((goal?.z ?? start.z) - start.z) * eased
+                        };
+                    }
+
+                    if (t < 1) {
+
+                        requestAnimationFrame(step);
+                    }
+                }
+
+                requestAnimationFrame(step);
+
+                return {
+                    Play() {},
+                    Cancel() {}
+                };
+            }
+        };
+    }
+
+
     function buildScriptApi(scriptObject) {
 
         const workspaceProxy =
@@ -1743,13 +2008,49 @@
                 )
                 : null;
 
+        const localPlayer =
+            createLocalPlayerWrapper();
+
+        const userInputService =
+            createUserInputService();
+
+        const tweenService =
+            createTweenService();
+
+        const services = {
+            Workspace: workspaceProxy,
+            UserInputService: userInputService,
+            TweenService: tweenService,
+            Players: {
+                LocalPlayer: localPlayer,
+                GetPlayers: () => [localPlayer]
+            }
+        };
+
+        const gameObject = {
+
+            Workspace: workspaceProxy,
+
+            UserInputService: userInputService,
+
+            TweenService: tweenService,
+
+            Players: services.Players,
+
+            GetService(name) {
+                return services[name] || null;
+            }
+        };
+
         return {
 
-            game: {
-                Workspace: workspaceProxy
-            },
+            game: gameObject,
 
             workspace: workspaceProxy,
+
+            Player: localPlayer,
+
+            math: luauMath,
 
             script: {
                 Name: scriptObject.name,
@@ -1757,6 +2058,35 @@
                     parentItem
                         ? createPartWrapper(parentItem)
                         : null
+            },
+
+            Instance: {
+
+                new(className) {
+
+                    if (
+                        className === "Part" ||
+                        className === "SpawnLocation"
+                    ) {
+
+                        return createRuntimePart({
+                            id: `runtime_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+                            type: className,
+                            name: className,
+                            position: { x: 0, y: 5, z: 0 },
+                            size: { x: 4, y: 1, z: 4 },
+                            color: "#808080",
+                            canCollide: true,
+                            anchored: true
+                        });
+                    }
+
+                    log(
+                        `Instance.new("${className}") is not supported yet.`
+                    );
+
+                    return null;
+                }
             },
 
             wait(seconds) {
@@ -1969,9 +2299,179 @@
     }
 
 
-    function createRuntimeWorld() {
+    function createRuntimePart(object) {
 
-        const THREE = getThree();
+        const THREE =
+            getThree();
+
+        const size = {
+
+            x:
+                Math.max(
+                    0.1,
+                    Number(
+                        object.size?.x ||
+                        1
+                    )
+                ),
+
+            y:
+                Math.max(
+                    0.1,
+                    Number(
+                        object.size?.y ||
+                        1
+                    )
+                ),
+
+            z:
+                Math.max(
+                    0.1,
+                    Number(
+                        object.size?.z ||
+                        1
+                    )
+                )
+        };
+
+
+        const material =
+            new THREE.MeshStandardMaterial({
+                color:
+                    getColor(
+                        THREE,
+                        object.color,
+                        object.type ===
+                            "SpawnLocation"
+                            ? "#22c55e"
+                            : "#808080"
+                    ),
+
+                roughness:
+                    object.material ===
+                    "SmoothPlastic"
+                        ? 0.35
+                        : object.material ===
+                          "Metal"
+                            ? 0.25
+                            : 0.8,
+
+                metalness:
+                    object.material ===
+                    "Metal"
+                        ? 0.85
+                        : 0,
+
+                transparent:
+                    object.material === "Glass" ||
+                    (object.transparency > 0),
+
+                opacity:
+                    object.transparency > 0
+                        ? 1 - Math.max(0, Math.min(1, object.transparency))
+                        : object.material === "Glass"
+                            ? 0.45
+                            : 1
+            });
+
+
+        const mesh =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    size.x,
+                    size.y,
+                    size.z
+                ),
+                material
+            );
+
+
+        mesh.name =
+            `Runtime_${object.name || "Part"}`;
+
+
+        mesh.position.set(
+
+            Number(
+                object.position?.x ||
+                0
+            ),
+
+            Number(
+                object.position?.y ||
+                0
+            ),
+
+            Number(
+                object.position?.z ||
+                0
+            )
+        );
+
+
+        mesh.rotation.set(
+
+            degToRad(
+                Number(
+                    object.rotation?.x ||
+                    0
+                )
+            ),
+
+            degToRad(
+                Number(
+                    object.rotation?.y ||
+                    0
+                )
+            ),
+
+            degToRad(
+                Number(
+                    object.rotation?.z ||
+                    0
+                )
+            )
+        );
+
+
+        mesh.castShadow =
+            object.castShadow !==
+            false;
+
+        mesh.receiveShadow = true;
+
+
+        mesh.userData.webbloxObject =
+            object;
+
+        mesh.userData.canCollide =
+            object.canCollide !==
+            false;
+
+        mesh.userData.anchored =
+            object.anchored !==
+            false;
+
+
+        state.scene.add(mesh);
+
+        const item = {
+            mesh,
+            object,
+            size
+        };
+
+        state.runtimeObjects.push(
+            item
+        );
+
+        return createPartWrapper(
+            item
+        );
+    }
+
+
+    function createRuntimeWorld() {
 
         state.runtimeObjects = [];
 
@@ -1992,162 +2492,9 @@
                 continue;
             }
 
-            const size = {
-
-                x:
-                    Math.max(
-                        0.1,
-                        Number(
-                            object.size?.x ||
-                            1
-                        )
-                    ),
-
-                y:
-                    Math.max(
-                        0.1,
-                        Number(
-                            object.size?.y ||
-                            1
-                        )
-                    ),
-
-                z:
-                    Math.max(
-                        0.1,
-                        Number(
-                            object.size?.z ||
-                            1
-                        )
-                    )
-            };
-
-
-            const material =
-                new THREE.MeshStandardMaterial({
-                    color:
-                        getColor(
-                            THREE,
-                            object.color,
-                            object.type ===
-                                "SpawnLocation"
-                                ? "#22c55e"
-                                : "#808080"
-                        ),
-
-                    roughness:
-                        object.material ===
-                        "SmoothPlastic"
-                            ? 0.35
-                            : object.material ===
-                              "Metal"
-                                ? 0.25
-                                : 0.8,
-
-                    metalness:
-                        object.material ===
-                        "Metal"
-                            ? 0.85
-                            : 0,
-
-                    transparent:
-                        object.material === "Glass" ||
-                        (object.transparency > 0),
-
-                    opacity:
-                        object.transparency > 0
-                            ? 1 - Math.max(0, Math.min(1, object.transparency))
-                            : object.material === "Glass"
-                                ? 0.45
-                                : 1
-                });
-
-
-            const mesh =
-                new THREE.Mesh(
-                    new THREE.BoxGeometry(
-                        size.x,
-                        size.y,
-                        size.z
-                    ),
-                    material
-                );
-
-
-            mesh.name =
-                `Runtime_${object.name || "Part"}`;
-
-
-            mesh.position.set(
-
-                Number(
-                    object.position?.x ||
-                    0
-                ),
-
-                Number(
-                    object.position?.y ||
-                    0
-                ),
-
-                Number(
-                    object.position?.z ||
-                    0
-                )
+            createRuntimePart(
+                object
             );
-
-
-            mesh.rotation.set(
-
-                degToRad(
-                    Number(
-                        object.rotation?.x ||
-                        0
-                    )
-                ),
-
-                degToRad(
-                    Number(
-                        object.rotation?.y ||
-                        0
-                    )
-                ),
-
-                degToRad(
-                    Number(
-                        object.rotation?.z ||
-                        0
-                    )
-                )
-            );
-
-
-            mesh.castShadow =
-                object.castShadow !==
-                false;
-
-            mesh.receiveShadow = true;
-
-
-            mesh.userData.webbloxObject =
-                object;
-
-            mesh.userData.canCollide =
-                object.canCollide !==
-                false;
-
-            mesh.userData.anchored =
-                object.anchored !==
-                false;
-
-
-            state.scene.add(mesh);
-
-            state.runtimeObjects.push({
-                mesh,
-                object,
-                size
-            });
         }
 
         log(
@@ -3186,15 +3533,51 @@
                     : "Shift Lock disabled."
             );
         }
+
+
+        inputBeganHandlers.forEach(
+            fn => {
+
+                try {
+
+                    fn(key);
+
+                } catch (error) {
+
+                    log(
+                        `InputBegan handler error: ${error.message}`
+                    );
+                }
+            }
+        );
     }
 
 
     function keyUp(event) {
 
-        state.keys.delete(
+        const key =
             String(
                 event.key
-            ).toLowerCase()
+            ).toLowerCase();
+
+        state.keys.delete(
+            key
+        );
+
+        inputEndedHandlers.forEach(
+            fn => {
+
+                try {
+
+                    fn(key);
+
+                } catch (error) {
+
+                    log(
+                        `InputEnded handler error: ${error.message}`
+                    );
+                }
+            }
         );
     }
 
@@ -3866,7 +4249,7 @@
                 -(
                     Math.sin(yaw) *
                     forward
-                ) -
+                ) +
                 (
                     Math.cos(yaw) *
                     right
@@ -3877,7 +4260,7 @@
                 -(
                     Math.cos(yaw) *
                     forward
-                ) +
+                ) -
                 (
                     Math.sin(yaw) *
                     right
@@ -4838,6 +5221,16 @@
         state.wasGrounded = false;
 
         state.shiftLock = false;
+
+        state.playerPoints = 0;
+
+        state.health = 100;
+
+        state.maxHealth = 100;
+
+        inputBeganHandlers.length = 0;
+
+        inputEndedHandlers.length = 0;
 
         state.landSquashTimer = 0;
 
