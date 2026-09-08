@@ -684,6 +684,17 @@
                 ></div>
 
 
+                <!-- GUI edit overlay (Frames/Labels/Buttons/
+                     TextBoxes) — draggable/resizable directly
+                     in the viewport, matching how the runtime
+                     will actually render them at Play time. -->
+
+                <div
+                    id="studioGuiOverlay"
+                    class="studio-gui-overlay"
+                ></div>
+
+
                 <!-- World -->
 
                 <div
@@ -1414,7 +1425,24 @@
 
                     <div class="property-row">
                         <label>URL</label>
-                        <input id="soundUrl" type="text" placeholder="https://...">
+                        <input id="soundUrl" type="text" placeholder="https://... or browse">
+                    </div>
+
+                    <div class="property-row">
+                        <label></label>
+                        <button
+                            type="button"
+                            id="soundBrowseButton"
+                            class="property-browse-button"
+                        >
+                            Browse Computer…
+                        </button>
+                        <input
+                            type="file"
+                            id="soundFileInput"
+                            accept="audio/*"
+                            style="display:none;"
+                        >
                     </div>
 
                     <div class="property-row">
@@ -1487,9 +1515,26 @@
                         <input
                             id="spGameIcon"
                             type="text"
-                            placeholder="https://..."
+                            placeholder="https://... or browse"
                         >
 
+                    </div>
+
+                    <div class="property-row">
+                        <label></label>
+                        <button
+                            type="button"
+                            id="spGameIconBrowseButton"
+                            class="property-browse-button"
+                        >
+                            Browse Computer…
+                        </button>
+                        <input
+                            type="file"
+                            id="spGameIconFileInput"
+                            accept="image/*"
+                            style="display:none;"
+                        >
                     </div>
 
 
