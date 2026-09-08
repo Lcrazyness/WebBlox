@@ -405,6 +405,8 @@
 
     let gridHelper = null;
 
+    let studioBaseplate = null;
+
     let ambientLight = null;
     let directionalLight = null;
 
@@ -1510,6 +1512,275 @@
     // RENDER OBJECT
     // ============================================================
 
+    // ============================================================
+    // STUDIO GUI EDIT OVERLAY
+    //
+    // ScreenGui/Frame/TextLabel/TextButton/TextBox have no 3D
+    // mesh — they're 2D, screen-space. This renders them as real
+    // draggable/resizable divs directly in the Studio viewport so
+    // they can actually be edited, not just configured blind
+    // through numbers in the Properties panel.
+    // ============================================================
+
+    function updateStudioGuiOverlay() {
+
+        const overlay =
+            $("studioGuiOverlay");
+
+        if (!overlay) {
+            return;
+        }
+
+        overlay.innerHTML = "";
+
+        const guiObjects =
+            Array.from(
+                state.objects.values()
+            ).filter(
+                object =>
+                    GUI_TYPES.includes(
+                        object.type
+                    )
+            );
+
+        const elementsById =
+            new Map();
+
+        const buildEl =
+            object => {
+
+                const el =
+                    document.createElement(
+                        "div"
+                    );
+
+                el.className =
+                    "studio-gui-element";
+
+                el.dataset.objectId =
+                    object.id;
+
+                if (object.type === "ScreenGui") {
+
+                    /*
+                     * ScreenGui itself has no position/
+                     * size — it's the screen. Don't
+                     * render a draggable box for it.
+                     */
+                    el.style.display = "none";
+
+                } else {
+
+                    const pos =
+                        object.guiPosition || { x: 0, y: 0 };
+
+                    const size =
+                        object.guiSize || { width: 20, height: 10 };
+
+                    el.style.left = `${pos.x}%`;
+                    el.style.top = `${pos.y}%`;
+                    el.style.width = `${size.width}%`;
+                    el.style.height = `${size.height}%`;
+                    el.style.background =
+                        object.guiBackgroundColor &&
+                        object.guiBackgroundColor !== "#00000000"
+                            ? object.guiBackgroundColor
+                            : "rgba(120,120,120,0.25)";
+                    el.style.color =
+                        object.guiTextColor || "#fff";
+                    el.textContent =
+                        object.guiText || object.name;
+
+                    if (state.selectedId === object.id) {
+
+                        el.classList.add("selected");
+                    }
+
+                    setupGuiElementDrag(el, object);
+
+                    const handle =
+                        document.createElement("div");
+
+                    handle.className =
+                        "studio-gui-resize-handle";
+
+                    setupGuiElementResize(
+                        handle,
+                        el,
+                        object
+                    );
+
+                    el.appendChild(handle);
+                }
+
+                return el;
+            };
+
+        guiObjects.forEach(object => {
+
+            const el =
+                buildEl(object);
+
+            elementsById.set(object.id, el);
+        });
+
+        guiObjects.forEach(object => {
+
+            const el =
+                elementsById.get(object.id);
+
+            const parentEl =
+                (
+                    object.parentId &&
+                    elementsById.get(object.parentId)
+                ) ||
+                overlay;
+
+            parentEl.appendChild(el);
+        });
+    }
+
+
+    function setupGuiElementDrag(el, object) {
+
+        el.addEventListener(
+            "mousedown",
+            event => {
+
+                if (event.target !== el) {
+                    return;
+                }
+
+                event.stopPropagation();
+
+                event.preventDefault();
+
+                selectObject(object.id);
+
+                const overlay =
+                    $("studioGuiOverlay");
+
+                const overlayRect =
+                    overlay.getBoundingClientRect();
+
+                const startX =
+                    event.clientX;
+
+                const startY =
+                    event.clientY;
+
+                const startPos =
+                    { ...(object.guiPosition || { x: 0, y: 0 }) };
+
+                function onMove(moveEvent) {
+
+                    const dxPercent =
+                        ((moveEvent.clientX - startX) /
+                        overlayRect.width) * 100;
+
+                    const dyPercent =
+                        ((moveEvent.clientY - startY) /
+                        overlayRect.height) * 100;
+
+                    object.guiPosition = {
+                        x: Math.max(0, Math.min(100, startPos.x + dxPercent)),
+                        y: Math.max(0, Math.min(100, startPos.y + dyPercent))
+                    };
+
+                    el.style.left = `${object.guiPosition.x}%`;
+                    el.style.top = `${object.guiPosition.y}%`;
+
+                    state.game.saved = false;
+
+                    if (state.selectedId === object.id) {
+
+                        updateProperties();
+                    }
+                }
+
+                function onUp() {
+
+                    document.removeEventListener("mousemove", onMove);
+                    document.removeEventListener("mouseup", onUp);
+
+                    updateGameStatus();
+                }
+
+                document.addEventListener("mousemove", onMove);
+                document.addEventListener("mouseup", onUp);
+            }
+        );
+    }
+
+
+    function setupGuiElementResize(handle, el, object) {
+
+        handle.addEventListener(
+            "mousedown",
+            event => {
+
+                event.stopPropagation();
+
+                event.preventDefault();
+
+                selectObject(object.id);
+
+                const overlay =
+                    $("studioGuiOverlay");
+
+                const overlayRect =
+                    overlay.getBoundingClientRect();
+
+                const startX =
+                    event.clientX;
+
+                const startY =
+                    event.clientY;
+
+                const startSize =
+                    { ...(object.guiSize || { width: 20, height: 10 }) };
+
+                function onMove(moveEvent) {
+
+                    const dwPercent =
+                        ((moveEvent.clientX - startX) /
+                        overlayRect.width) * 100;
+
+                    const dhPercent =
+                        ((moveEvent.clientY - startY) /
+                        overlayRect.height) * 100;
+
+                    object.guiSize = {
+                        width: Math.max(3, startSize.width + dwPercent),
+                        height: Math.max(3, startSize.height + dhPercent)
+                    };
+
+                    el.style.width = `${object.guiSize.width}%`;
+                    el.style.height = `${object.guiSize.height}%`;
+
+                    state.game.saved = false;
+
+                    if (state.selectedId === object.id) {
+
+                        updateProperties();
+                    }
+                }
+
+                function onUp() {
+
+                    document.removeEventListener("mousemove", onMove);
+                    document.removeEventListener("mouseup", onUp);
+
+                    updateGameStatus();
+                }
+
+                document.addEventListener("mousemove", onMove);
+                document.addEventListener("mouseup", onUp);
+            }
+        );
+    }
+
+
     function renderObject(object) {
 
         if (!threeReady) {
@@ -1812,6 +2083,8 @@
 
         updateGizmoVisibility();
 
+        updateStudioGuiOverlay();
+
 
         if (studioMessage) {
 
@@ -1863,6 +2136,8 @@
         updateExplorerSelection();
 
         updateGizmoVisibility();
+
+        updateStudioGuiOverlay();
 
 
         if (studioMessage) {
@@ -2584,6 +2859,154 @@
     // GRID
     // ============================================================
 
+    // ============================================================
+    // SKY + BASEPLATE
+    // ============================================================
+
+    function createSkyTexture(THREE) {
+
+        const canvas =
+            document.createElement("canvas");
+
+        canvas.width = 2;
+
+        canvas.height = 256;
+
+        const ctx =
+            canvas.getContext("2d");
+
+        const gradient =
+            ctx.createLinearGradient(
+                0, 0, 0, 256
+            );
+
+        gradient.addColorStop(0, "#3f7fd6");
+        gradient.addColorStop(0.45, "#7fb8ea");
+        gradient.addColorStop(0.75, "#bfe0f5");
+        gradient.addColorStop(1, "#e9f5fc");
+
+        ctx.fillStyle = gradient;
+
+        ctx.fillRect(0, 0, 2, 256);
+
+        /*
+         * A few soft cloud smudges near the horizon —
+         * cheap, but reads as "sky" instead of a flat
+         * color at a glance.
+         */
+
+        ctx.fillStyle =
+            "rgba(255,255,255,0.35)";
+
+        for (let i = 0; i < 6; i++) {
+
+            ctx.beginPath();
+
+            ctx.ellipse(
+                1,
+                170 + i * 12,
+                1,
+                6,
+                0,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fill();
+        }
+
+        const texture =
+            new THREE.CanvasTexture(
+                canvas
+            );
+
+        return texture;
+    }
+
+
+    function createBaseplateTexture(THREE) {
+
+        const canvas =
+            document.createElement("canvas");
+
+        canvas.width = 128;
+
+        canvas.height = 128;
+
+        const ctx =
+            canvas.getContext("2d");
+
+        ctx.fillStyle = "#8a8a8a";
+
+        ctx.fillRect(0, 0, 128, 128);
+
+        /*
+         * Roblox's classic baseplate reads as a grid of
+         * raised diamond studs — approximate that with a
+         * simple repeating tile instead of a flat gray
+         * plane.
+         */
+
+        ctx.strokeStyle =
+            "rgba(0,0,0,0.18)";
+
+        ctx.lineWidth = 2;
+
+        for (let x = 0; x <= 128; x += 32) {
+
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, 128);
+            ctx.stroke();
+        }
+
+        for (let y = 0; y <= 128; y += 32) {
+
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(128, y);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle =
+            "rgba(255,255,255,0.12)";
+
+        for (let x = 16; x < 128; x += 32) {
+
+            for (let y = 16; y < 128; y += 32) {
+
+                ctx.beginPath();
+
+                ctx.moveTo(x, y - 6);
+                ctx.lineTo(x + 6, y);
+                ctx.lineTo(x, y + 6);
+                ctx.lineTo(x - 6, y);
+
+                ctx.closePath();
+
+                ctx.fill();
+            }
+        }
+
+        const texture =
+            new THREE.CanvasTexture(
+                canvas
+            );
+
+        texture.wrapS =
+            THREE.RepeatWrapping;
+
+        texture.wrapT =
+            THREE.RepeatWrapping;
+
+        texture.repeat.set(
+            40, 40
+        );
+
+        return texture;
+    }
+
+
     function createGrid() {
 
         if (!threeReady) {
@@ -2622,6 +3045,31 @@
         scene.add(
             gridHelper
         );
+
+
+        if (!studioBaseplate) {
+
+            studioBaseplate =
+                new THREE.Mesh(
+                    new THREE.PlaneGeometry(400, 400),
+                    new THREE.MeshStandardMaterial({
+                        map: createBaseplateTexture(THREE),
+                        roughness: 0.95
+                    })
+                );
+
+            studioBaseplate.rotation.x =
+                -Math.PI / 2;
+
+            studioBaseplate.position.y =
+                -0.52;
+
+            studioBaseplate.receiveShadow = true;
+
+            scene.add(
+                studioBaseplate
+            );
+        }
 
 
         updateGrid();
@@ -3962,6 +4410,8 @@
 
 
         updateExplorerSelection();
+
+        updateStudioGuiOverlay();
     }
 
 
@@ -4643,6 +5093,47 @@
             }
         );
 
+        $("spGameIconBrowseButton")?.addEventListener(
+            "click",
+            () => $("spGameIconFileInput")?.click()
+        );
+
+        $("spGameIconFileInput")?.addEventListener(
+            "change",
+            event => {
+
+                const file =
+                    event.target.files?.[0];
+
+                if (!file) {
+                    return;
+                }
+
+                const reader =
+                    new FileReader();
+
+                reader.onload = () => {
+
+                    state.game.icon =
+                        reader.result;
+
+                    setInput(
+                        "spGameIcon",
+                        file.name
+                    );
+
+                    state.game.saved =
+                        false;
+
+                    updateGameStatus();
+                };
+
+                reader.readAsDataURL(
+                    file
+                );
+            }
+        );
+
         bindNumber(
             "spWalkSpeed",
             "walkSpeed"
@@ -4790,6 +5281,61 @@
         bindField("soundPitch", "pitch", true);
         bindCheck("soundLooped", "looped");
         bindCheck("soundAutoPlay", "autoPlay");
+
+        /*
+         * "Browse Computer" — reads the local file as a
+         * data URL so it plays with zero backend/hosting
+         * needed. Fine for small clips; very large files
+         * will bloat the saved project size.
+         */
+        $("soundBrowseButton")?.addEventListener(
+            "click",
+            () => $("soundFileInput")?.click()
+        );
+
+        $("soundFileInput")?.addEventListener(
+            "change",
+            event => {
+
+                const file =
+                    event.target.files?.[0];
+
+                if (!file) {
+                    return;
+                }
+
+                const reader =
+                    new FileReader();
+
+                reader.onload = () => {
+
+                    const current =
+                        state.objects.get(
+                            state.selectedId
+                        );
+
+                    if (!current) {
+                        return;
+                    }
+
+                    current.soundUrl =
+                        reader.result;
+
+                    setInput(
+                        "soundUrl",
+                        file.name
+                    );
+
+                    state.game.saved = false;
+
+                    updateGameStatus();
+                };
+
+                reader.readAsDataURL(
+                    file
+                );
+            }
+        );
     }
 
 
@@ -6226,6 +6772,132 @@
             fields: [],
             compile: () =>
                 "end)"
+        },
+
+        onKeyPressed: {
+            label: "When a key is pressed",
+            fields: [
+                { key: "key", type: "text", default: "e" }
+            ],
+            compile: b =>
+                `game.UserInputService.InputBegan:Connect(function(key)\n    if key == "${String(b.key ?? "e").toLowerCase()}" then`
+        },
+
+        endKeyPressed: {
+            label: "End \"When key pressed\"",
+            fields: [],
+            compile: () =>
+                "    end\nend)"
+        },
+
+        ifCondition: {
+            label: "If... (condition)",
+            fields: [
+                { key: "condition", type: "text", default: "part.Position.y > 10" }
+            ],
+            compile: b =>
+                `    if ${b.condition ?? "true"} then`
+        },
+
+        elseCondition: {
+            label: "Else",
+            fields: [],
+            compile: () =>
+                "    else"
+        },
+
+        endIf: {
+            label: "End If",
+            fields: [],
+            compile: () =>
+                "    end"
+        },
+
+        repeatTimes: {
+            label: "Repeat (times)",
+            fields: [
+                { key: "count", type: "number", default: 5 }
+            ],
+            compile: b =>
+                `    for repeatIndex = 1, ${b.count ?? 5} do`
+        },
+
+        endRepeat: {
+            label: "End Repeat",
+            fields: [],
+            compile: () =>
+                "    end"
+        },
+
+        destroyPart: {
+            label: "Destroy this part",
+            fields: [],
+            compile: () =>
+                "    part:Destroy()"
+        },
+
+        anchorPart: {
+            label: "Anchor / unanchor this part",
+            fields: [
+                { key: "anchored", type: "checkbox", default: true }
+            ],
+            compile: b =>
+                `    part.Anchored = ${b.anchored ? "true" : "false"}`
+        },
+
+        setWalkSpeed: {
+            label: "Set player walk speed",
+            fields: [
+                { key: "speed", type: "number", default: 16 }
+            ],
+            compile: b =>
+                `    Player.Character.Humanoid.WalkSpeed = ${b.speed ?? 16}`
+        },
+
+        setJumpPower: {
+            label: "Set player jump power",
+            fields: [
+                { key: "power", type: "number", default: 14 }
+            ],
+            compile: b =>
+                `    Player.Character.Humanoid.JumpPower = ${b.power ?? 14}`
+        },
+
+        respawnPlayer: {
+            label: "Respawn player",
+            fields: [],
+            compile: () =>
+                "    Player.Character.Humanoid:Respawn()"
+        },
+
+        addPoints: {
+            label: "Add points to player",
+            fields: [
+                { key: "amount", type: "number", default: 10 }
+            ],
+            compile: b =>
+                `    Player.leaderstats.Points.Value = Player.leaderstats.Points.Value + ${b.amount ?? 10}`
+        },
+
+        setPointsGuiText: {
+            label: "Show points on a GUI label",
+            fields: [
+                { key: "guiName", type: "text", default: "PointsLabel" }
+            ],
+            compile: b =>
+                `    workspace.${String(b.guiName ?? "PointsLabel").replace(/[^\w]/g, "")}.Text = "Points: " .. Player.leaderstats.Points.Value`
+        },
+
+        tweenPart: {
+            label: "Smoothly move part to (X, Y, Z)",
+            fields: [
+                { key: "x", type: "number", default: 0 },
+                { key: "y", type: "number", default: 5 },
+                { key: "z", type: "number", default: 0 },
+                { key: "duration", type: "number", default: 1 }
+            ],
+            compile: b =>
+                `    game.TweenService:Create(part, ${b.duration ?? 1}, { x = ${b.x ?? 0}, y = ${b.y ?? 0}, z = ${b.z ?? 0} })`
         }
     };
 
@@ -6357,20 +7029,36 @@
                                     ? "color"
                                     : field.type === "number"
                                         ? "number"
-                                        : "text";
+                                        : field.type === "checkbox"
+                                            ? "checkbox"
+                                            : "text";
 
-                            input.value =
-                                block[field.key] ??
-                                field.default;
+                            if (field.type === "checkbox") {
 
-                            input.style.cssText = `
+                                input.checked =
+                                    block[field.key] ??
+                                    field.default;
+
+                            } else {
+
+                                input.value =
+                                    block[field.key] ??
+                                    field.default;
+                            }
+
+                            input.style.cssText =
+                                field.type === "checkbox"
+                                    ? `width: 16px; height: 16px;`
+                                    : `
                                 width: ${field.type === "text" ? "120px" : "70px"};
                                 background: #1a1a1a; color: #eee; border: 1px solid #3a3a3a;
                                 border-radius: 4px; padding: 4px 6px; font-size: 11.5px;
                             `;
 
                             input.addEventListener(
-                                "input",
+                                field.type === "checkbox"
+                                    ? "change"
+                                    : "input",
                                 () => {
 
                                     block[field.key] =
@@ -6378,7 +7066,9 @@
                                             ? parseFloat(
                                                 input.value
                                             ) || 0
-                                            : input.value;
+                                            : field.type === "checkbox"
+                                                ? input.checked
+                                                : input.value;
 
                                     state.game.saved =
                                         false;
@@ -9115,8 +9805,16 @@
 
 
         scene.background =
-            new THREE.Color(
-                "#171717"
+            createSkyTexture(
+                THREE
+            );
+
+
+        scene.fog =
+            new THREE.Fog(
+                0xbfe3f5,
+                220,
+                600
             );
 
 
