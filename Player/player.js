@@ -2140,7 +2140,7 @@
                     "api",
                     `
                     return (async function() {
-                        const { game, workspace, script, wait, print } = api;
+                        const { game, workspace, script, wait, print, Player, math, Instance } = api;
                         ${source}
                     })();
                     `
