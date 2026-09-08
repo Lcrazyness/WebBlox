@@ -598,6 +598,47 @@ button {
 
 /* Grid */
 
+.studio-gui-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.studio-gui-overlay.active {
+    pointer-events: auto;
+}
+
+.studio-gui-element {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 13px/1.2 'Segoe UI', Arial, sans-serif;
+    overflow: hidden;
+    cursor: move;
+    outline: 1px dashed rgba(255,255,255,0.25);
+    pointer-events: auto;
+}
+
+.studio-gui-element.selected {
+    outline: 2px solid #3b82f6;
+}
+
+.studio-gui-resize-handle {
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    width: 10px;
+    height: 10px;
+    background: #3b82f6;
+    border: 1px solid #fff;
+    border-radius: 2px;
+    cursor: nwse-resize;
+}
+
 .viewport-grid {
     position: absolute;
     inset: 0;
@@ -1104,6 +1145,21 @@ button {
     gap: 8px;
     padding: 5px 9px;
     border-top: 1px solid #292929;
+}
+
+.property-browse-button {
+    flex: 1;
+    background: #2a2a2a;
+    color: #ddd;
+    border: 1px solid #3a3a3a;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.property-browse-button:hover {
+    background: #333;
 }
 
 .property-row > label {
